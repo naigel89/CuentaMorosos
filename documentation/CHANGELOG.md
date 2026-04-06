@@ -44,3 +44,17 @@ Registro global de los documentos creados o actualizados dentro de `documentatio
 | 2026-04-05 | SPR0002A2 | `documentation/sprints/SPR0002A1-sprint-02-control-pagos.md` | A | 2 | Actualización | Se amplía el sprint 02 con la calculadora automática de reparto. |
 | 2026-04-05 | DOC0001A5 | `documentation/README.md` | A | 5 | Actualización | Se añade la nueva documentación de calculadora automática al índice. |
 | 2026-04-05 | AGT0002A1 | `.github/agents/sprint-driven-developer.agent.md` | A | 1 | Alta | Se crea el agente para desarrollar la app guiándose por sprints y requisitos. |
+| 2026-04-05 | BKL0001A4 | `documentation/sprints/BKL0001A1-product-backlog.md` | A | 4 | Actualización | Se marca en progreso la base funcional del sprint 01 tras arrancar el desarrollo. |
+| 2026-04-05 | SPR0001A3 | `documentation/sprints/SPR0001A1-sprint-01.md` | A | 3 | Actualización | Se cambia el sprint 01 a estado `En progreso` y se registra el inicio de implementación técnica. |
+| 2026-04-05 | BKL0001A5 | `documentation/sprints/BKL0001A1-product-backlog.md` | A | 5 | Actualización | Se marca en progreso el sprint 02 tras implementar la base de pagos y reparto rápido por evento. |
+| 2026-04-05 | SPR0002A3 | `documentation/sprints/SPR0002A1-sprint-02-control-pagos.md` | A | 3 | Actualización | Se inicia el sprint 02 con detalle de evento, estado pagado y calculadora `simple_avg` base. |
+| 2026-04-05 | SPR0002A4 | `documentation/sprints/SPR0002A1-sprint-02-control-pagos.md` | A | 4 | Actualización | Se registra la ampliación de la calculadora con modos avanzados, validación y comparativa rápida. |
+| 2026-04-06 | SPR0002A5 | `documentation/sprints/SPR0002A1-sprint-02-control-pagos.md` | A | 5 | Actualización | Se registra la nueva fase con ítems persistentes del evento y soporte de reparto por consumo real y por categoría. |
+| 2026-04-06 | SPR0001A4 | `documentation/sprints/SPR0001A1-sprint-01.md` | A | 4 | Actualización | Se marca como completado el sprint 01 tras validar eventos, perfiles, navegación y persistencia base. |
+| 2026-04-06 | BKL0001A6 | `documentation/sprints/BKL0001A1-product-backlog.md` | A | 6 | Actualización | Se actualiza el backlog para reflejar como hechos los sprints 01 y 02 del proyecto. |
+| 2026-04-06 | SPR0002A6 | `documentation/sprints/SPR0002A1-sprint-02-control-pagos.md` | A | 6 | Actualización | Se marca como completado el sprint 02 al cerrar pagos, calculadora avanzada, ítems del evento y liquidación sugerida. |
+| 2026-04-06 | BKL0001A7 | `documentation/sprints/BKL0001A1-product-backlog.md` | A | 7 | Actualización | Se marcan en progreso los requisitos de sprint 03 al arrancar ajustes visuales y recordatorios. |
+| 2026-04-06 | SPR0003A2 | `documentation/sprints/SPR0003A1-sprint-03-recordatorios-y-apariencia.md` | A | 2 | Actualización | Se inicia el sprint 03 con preferencias persistentes de tema, color y recordatorios locales. |
+| 2026-04-06 | SPR0003A3 | `documentation/sprints/SPR0003A1-sprint-03-recordatorios-y-apariencia.md` | A | 3 | Actualización | Se registra el canal de notificaciones local y el pulido visual de ajustes dentro del sprint 03. |
+| 2026-04-06 | BKL0001A8 | `documentation/sprints/BKL0001A1-product-backlog.md` | A | 8 | Actualización | Se actualiza el backlog para reflejar el cierre funcional del sprint 03. |
+| 2026-04-06 | SPR0003A4 | `documentation/sprints/SPR0003A1-sprint-03-recordatorios-y-apariencia.md` | A | 4 | Actualización | Se marca como completado el sprint 03 al cerrar recordatorios locales, ajustes persistentes y pulido visual base. |

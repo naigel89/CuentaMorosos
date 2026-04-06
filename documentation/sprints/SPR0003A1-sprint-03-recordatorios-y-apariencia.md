@@ -2,22 +2,22 @@
 
 > **Código:** SPR0003A1
 > **Versión:** A
-> **Revisión:** 1
-> **Fecha:** 2026-04-05
+> **Revisión:** 4
+> **Fecha:** 2026-04-06
 
 ## Objetivo del sprint
 Añadir recordatorios automáticos, personalización visual y acabados de experiencia de usuario.
 
 ## Estado
-Pendiente
+Hecho
 
 ## Requisitos e historias incluidas
 | ID | Tipo | Nombre | Prioridad | Estado | Dependencias |
 |---|---|---|---|---|---|
-| FR0004A1 | FR | Notificaciones y recordatorios | Media | Pendiente | FR0003A1, API0001A1 |
-| NFR0001A1 | NFR | Experiencia visual y personalización | Media | Pendiente | UI0004A1 |
-| API0001A1 | API | Servicios locales y notificaciones | Media | Pendiente | DD0001A1 |
-| UI0004A1 | UI | Ajustes y apariencia | Media | Pendiente | NFR0001A1 |
+| FR0004A1 | FR | Notificaciones y recordatorios | Media | Hecho | FR0003A1, API0001A1 |
+| NFR0001A1 | NFR | Experiencia visual y personalización | Media | Hecho | UI0004A1 |
+| API0001A1 | API | Servicios locales y notificaciones | Media | Hecho | DD0001A1 |
+| UI0004A1 | UI | Ajustes y apariencia | Media | Hecho | NFR0001A1 |
 
 ## Tareas técnicas
 - programar recordatorios por días transcurridos
@@ -28,14 +28,18 @@ Pendiente
 ## Riesgos o bloqueos
 - limitaciones del sistema de notificaciones en segundo plano
 - disponibilidad o licencia de la tipografía objetivo
+- la validación `assembleDebug` sigue sin poder ejecutarse en este entorno por ausencia de `JAVA_HOME`, aunque no hay errores de editor en el código del sprint
 
 ## Definition of Done
-- [ ] se envían recordatorios relevantes
-- [ ] el usuario puede cambiar tema y color secundario
-- [ ] la identidad visual se aplica de forma consistente
-- [ ] el flujo mantiene claridad y minimalismo
+- [x] se envían recordatorios relevantes
+- [x] el usuario puede cambiar tema y color secundario
+- [x] la identidad visual se aplica de forma consistente
+- [x] el flujo mantiene claridad y minimalismo
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
 | 2026-04-05 | A | 1 | Alta | Creación inicial del sprint 03 para recordatorios y apariencia. |
+| 2026-04-06 | A | 2 | Actualización | Se inicia la implementación con ajustes persistentes de tema, color secundario y motor local de recordatorios visibles en la app. |
+| 2026-04-06 | A | 3 | Actualización | Se añade preparación del canal local de notificaciones, permiso Android y vista previa visual en ajustes. |
+| 2026-04-06 | A | 4 | Actualización | Se completa funcionalmente el sprint 03 con personalización persistente, lógica de avisos locales y pulido visual mínimo consistente. |
