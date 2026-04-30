@@ -2,8 +2,8 @@
 
 > **Código:** SPR0003A1
 > **Versión:** A
-> **Revisión:** 4
-> **Fecha:** 2026-04-06
+> **Revisión:** 5
+> **Fecha:** 2026-04-30
 
 ## Objetivo del sprint
 Añadir recordatorios automáticos, personalización visual y acabados de experiencia de usuario.
@@ -43,3 +43,4 @@ Hecho
 | 2026-04-06 | A | 2 | Actualización | Se inicia la implementación con ajustes persistentes de tema, color secundario y motor local de recordatorios visibles en la app. |
 | 2026-04-06 | A | 3 | Actualización | Se añade preparación del canal local de notificaciones, permiso Android y vista previa visual en ajustes. |
 | 2026-04-06 | A | 4 | Actualización | Se completa funcionalmente el sprint 03 con personalización persistente, lógica de avisos locales y pulido visual mínimo consistente. |
+| 2026-04-30 | A | 5 | Corrección | Se cierran gaps reales del sprint: notificaciones nativas del SO implementadas en NotificationScheduler con postReminders(); botón manual "Enviar recordatorios ahora" añadido en SettingsScreen; eliminado StatusCard de desarrollo visible al usuario final en EventsScreen; corregido flash de tema en MainActivity eliminando el Surface externo con tema por defecto. |

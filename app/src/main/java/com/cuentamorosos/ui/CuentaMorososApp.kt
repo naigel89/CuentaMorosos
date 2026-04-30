@@ -1,24 +1,39 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -39,14 +54,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import com.cuentamorosos.data.CuentaMorososLocalStore
+import com.cuentamorosos.data.NotificationScheduler
 import com.cuentamorosos.data.ReminderMessage
 import com.cuentamorosos.data.ReminderService
+import com.cuentamorosos.data.ReminderWorker
 import com.cuentamorosos.model.CalculationApplication
 import com.cuentamorosos.model.CalculationPreview
 import com.cuentamorosos.model.EventDebtItem
@@ -54,23 +73,30 @@ import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.ExpenseCategory
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.SettlementTransfer
 import com.cuentamorosos.model.SplitMode
 import com.cuentamorosos.model.UserPreferences
 import com.cuentamorosos.model.buildCalculationPreview
+import com.cuentamorosos.model.buildSettlementTransfers
 import com.cuentamorosos.model.currentDateText
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEventDate
 import com.cuentamorosos.model.parseEuroAmount
+import java.text.DateFormatSymbols
+import java.util.Calendar
+import java.util.Locale
 
 private enum class MainSection(val title: String, val emoji: String) {
     EVENTS("Eventos", "📅"),
+    CALENDAR("Calendario", "🗓️"),
     PROFILES("Perfiles", "👤"),
     SETTINGS("Ajustes", "🎨")
 }
 
 @Composable
 fun CuentaMorososApp(store: CuentaMorososLocalStore) {
+    val context = LocalContext.current
     val events = remember { mutableStateListOf<EventItem>().apply { addAll(store.loadEvents()) } }
     val profiles = remember { mutableStateListOf<ProfileItem>().apply { addAll(store.loadProfiles()) } }
     val debts = remember { mutableStateListOf<EventDebtItem>().apply { addAll(store.loadDebts()) } }
@@ -97,37 +123,62 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
         }
     }
 
-    val activeTotalsByProfile = debts
-        .filter { !it.paid }
-        .groupBy { it.profileId }
-        .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
-
-    val pendingTotalsByEvent = debts
-        .filter { !it.paid }
-        .groupBy { it.eventId }
-        .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
-
-    val participantCountByEvent = debts.groupBy { it.eventId }.mapValues { it.value.size }
-
-    val pendingEventsByProfile = debts
-        .filter { !it.paid }
-        .groupBy { it.profileId }
-        .mapValues { (_, values) ->
-            values.mapNotNull { debt ->
-                events.firstOrNull { it.id == debt.eventId }?.let { event ->
-                    "${event.name} · ${formatEuros(debt.amountEuros)}"
-                }
-            }
+    val activeTotalsByProfile by remember(debts) {
+        derivedStateOf {
+            debts
+                .filter { !it.paid }
+                .groupBy { it.profileId }
+                .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
         }
+    }
 
-    val selectedEvent = events.firstOrNull { it.id == openedEventId }
-    val reminderMessages = ReminderService.buildReminderMessages(
-        events = events,
-        debts = debts,
-        expenses = expenses,
-        reminderDays = preferences.reminderDays,
-        remindersEnabled = preferences.remindersEnabled,
-    )
+    val pendingTotalsByEvent by remember(debts) {
+        derivedStateOf {
+            debts
+                .filter { !it.paid }
+                .groupBy { it.eventId }
+                .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
+        }
+    }
+
+    val participantCountByEvent by remember(debts) {
+        derivedStateOf {
+            debts.groupBy { it.eventId }.mapValues { it.value.size }
+        }
+    }
+
+    val pendingEventsByProfile by remember(debts, events) {
+        derivedStateOf {
+            debts
+                .filter { !it.paid }
+                .groupBy { it.profileId }
+                .mapValues { (_, values) ->
+                    values.mapNotNull { debt ->
+                        events.firstOrNull { it.id == debt.eventId }?.let { event ->
+                            "${event.name} · ${formatEuros(debt.amountEuros)}"
+                        }
+                    }
+                }
+        }
+    }
+
+    val selectedEvent by remember(events, openedEventId) {
+        derivedStateOf {
+            events.firstOrNull { it.id == openedEventId }
+        }
+    }
+
+    val reminderMessages by remember(events, debts, expenses, preferences) {
+        derivedStateOf {
+            ReminderService.buildReminderMessages(
+                events = events,
+                debts = debts,
+                expenses = expenses,
+                reminderDays = preferences.reminderDays,
+                remindersEnabled = preferences.remindersEnabled,
+            )
+        }
+    }
 
     CuentaMorososTheme(preferences = preferences) {
         Surface(
@@ -151,21 +202,22 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
                     }
                 }
             ) { innerPadding ->
-                if (selectedEvent != null) {
+                val event = selectedEvent
+                if (event != null) {
                     EventDetailScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                event = selectedEvent,
+                event = event,
                 profiles = profiles.toList(),
-                eventDebts = debts.filter { it.eventId == selectedEvent.id },
-                eventExpenses = expenses.filter { it.eventId == selectedEvent.id },
+                eventDebts = debts.filter { it.eventId == event.id },
+                eventExpenses = expenses.filter { it.eventId == event.id },
                 onBack = { openedEventId = null },
                 onAddProfileToEvent = { profile ->
-                    if (debts.none { it.eventId == selectedEvent.id && it.profileId == profile.id }) {
+                    if (debts.none { it.eventId == event.id && it.profileId == profile.id }) {
                         debts.add(
                             EventDebtItem(
-                                eventId = selectedEvent.id,
+                                eventId = event.id,
                                 profileId = profile.id
                             )
                         )
@@ -206,7 +258,7 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
                     feedbackMessage = "Ítem eliminado del evento."
                 },
                 onApplyCalculation = { calculation ->
-                    val eventEntries = debts.filter { it.eventId == selectedEvent.id }
+                    val eventEntries = debts.filter { it.eventId == event.id }
 
                     eventEntries.forEachIndexed { index, debt ->
                         upsertDebt(
@@ -220,7 +272,7 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
 
                     upsertEvent(
                         events = events,
-                        event = selectedEvent.copy(
+                        event = event.copy(
                             lastCalculationMode = calculation.mode.id,
                             lastCalculationTotal = calculation.total,
                             lastCalculationTimestamp = System.currentTimeMillis(),
@@ -249,7 +301,21 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
                         upsertEvent(events = events, event = event)
                         persistData()
                         feedbackMessage = "Evento guardado correctamente."
+                    },
+                    onDeleteEvent = { event ->
+                        removeEvent(events = events, debts = debts, expenses = expenses, eventId = event.id)
+                        persistData()
+                        feedbackMessage = "Evento \"${event.name}\" eliminado."
                     }
+                )
+
+                MainSection.CALENDAR -> CalendarScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    events = events.toList(),
+                    pendingTotalsByEvent = pendingTotalsByEvent,
+                    onOpenEvent = { event -> openedEventId = event.id }
                 )
 
                 MainSection.PROFILES -> ProfilesScreen(
@@ -265,6 +331,11 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
                         upsertProfile(profiles = profiles, profile = profile)
                         persistData()
                         feedbackMessage = "Perfil guardado correctamente."
+                    },
+                    onDeleteProfile = { profile ->
+                        removeProfile(profiles = profiles, debts = debts, profileId = profile.id)
+                        persistData()
+                        feedbackMessage = "Perfil \"${profile.name}\" eliminado."
                     }
                 )
 
@@ -277,6 +348,11 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
                     onSavePreferences = { updatedPreferences ->
                         preferences = updatedPreferences
                         persistData()
+                        if (updatedPreferences.remindersEnabled) {
+                            ReminderWorker.schedule(context)
+                        } else {
+                            ReminderWorker.cancel(context)
+                        }
                         feedbackMessage = "Preferencias actualizadas."
                     }
                 )
@@ -297,8 +373,31 @@ private fun EventsScreen(
     reminders: List<ReminderMessage>,
     onOpenEvent: (EventItem) -> Unit,
     onSaveEvent: (EventItem) -> Unit,
+    onDeleteEvent: (EventItem) -> Unit,
 ) {
     var editableEvent by remember { mutableStateOf<EventItem?>(null) }
+    var eventToDelete by remember { mutableStateOf<EventItem?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Filtro: 0 = Todos, 1 = Con deuda pendiente, 2 = Sin deuda
+    var activeFilter by remember { mutableStateOf(0) }
+
+    val filteredEvents by remember(events, searchQuery, activeFilter, pendingTotalsByEvent) {
+        derivedStateOf {
+            events
+                .filter { event ->
+                    searchQuery.isBlank() ||
+                        event.name.contains(searchQuery.trim(), ignoreCase = true)
+                }
+                .filter { event ->
+                    when (activeFilter) {
+                        1 -> (pendingTotalsByEvent[event.id] ?: 0.0) > 0.0
+                        2 -> (pendingTotalsByEvent[event.id] ?: 0.0) == 0.0
+                        else -> true
+                    }
+                }
+        }
+    }
 
     Column(
         modifier = modifier.padding(16.dp),
@@ -329,19 +428,32 @@ private fun EventsScreen(
             ) {
                 Text("Nuevo evento")
             }
-            OutlinedButton(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Calendario próximamente")
-            }
         }
 
-        StatusCard(
-            title = "Sprint 3 en progreso",
-            message = "Recordatorios configurables y apariencia personalizable en arranque · $profileCount perfiles globales disponibles."
+        // ── Barra de búsqueda ─────────────────────────────────────────────────
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Buscar evento") },
+            singleLine = true,
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    TextButton(onClick = { searchQuery = "" }) { Text("✕") }
+                }
+            },
         )
+
+        // ── Chips de filtro ───────────────────────────────────────────────────
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Todos", "Con deuda", "Sin deuda").forEachIndexed { index, label ->
+                FilterChip(
+                    selected = activeFilter == index,
+                    onClick = { activeFilter = index },
+                    label = { Text(label) },
+                )
+            }
+        }
 
         if (reminders.isNotEmpty()) {
             ReminderSummaryCard(reminders = reminders)
@@ -353,12 +465,21 @@ private fun EventsScreen(
                 title = "Todavía no hay eventos",
                 message = "Pulsa en `Nuevo evento` para registrar el primero con nombre y fecha."
             )
+        } else if (filteredEvents.isEmpty()) {
+            EmptyState(
+                modifier = Modifier.weight(1f),
+                title = "Sin resultados",
+                message = if (searchQuery.isNotBlank())
+                    "No hay eventos que coincidan con «$searchQuery»."
+                else
+                    "No hay eventos que cumplan el filtro seleccionado.",
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(events, key = { it.id }) { event ->
+                items(filteredEvents, key = { it.id }) { event ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -405,6 +526,12 @@ private fun EventsScreen(
                                 ) {
                                     Text("Editar")
                                 }
+                                OutlinedButton(
+                                    onClick = { eventToDelete = event },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Eliminar")
+                                }
                             }
                         }
                     }
@@ -423,6 +550,29 @@ private fun EventsScreen(
             }
         )
     }
+
+    eventToDelete?.let { event ->
+        AlertDialog(
+            onDismissRequest = { eventToDelete = null },
+            title = { Text("Eliminar evento") },
+            text = {
+                Text("¿Seguro que quieres eliminar \"${event.name}\"? Se borrarán también todas sus deudas y gastos. Esta acción no se puede deshacer.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    eventToDelete = null
+                    onDeleteEvent(event)
+                }) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { eventToDelete = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -437,6 +587,7 @@ private fun SettingsScreen(
     var reminderDaysText by remember(preferences.reminderDays) { mutableStateOf(preferences.reminderDays.toString()) }
     var remindersEnabled by remember(preferences.remindersEnabled) { mutableStateOf(preferences.remindersEnabled) }
     var validationMessage by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
 
     LazyColumn(
         modifier = modifier.padding(16.dp),
@@ -608,6 +759,18 @@ private fun SettingsScreen(
                 ReminderSummaryCard(reminders = reminders)
             }
         }
+        item {
+            OutlinedButton(
+                onClick = { NotificationScheduler.postReminders(context, reminders) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = remindersEnabled && reminders.isNotEmpty()
+            ) {
+                Text(
+                    if (reminders.isEmpty()) "Sin recordatorios activos"
+                    else "Enviar recordatorios ahora (${reminders.size})"
+                )
+            }
+        }
     }
 }
 
@@ -618,9 +781,11 @@ private fun ProfilesScreen(
     eventCount: Int,
     pendingEventsByProfile: Map<String, List<String>>,
     onSaveProfile: (ProfileItem) -> Unit,
+    onDeleteProfile: (ProfileItem) -> Unit,
 ) {
     var selectedProfile by remember { mutableStateOf<ProfileItem?>(null) }
     var editableProfile by remember { mutableStateOf<ProfileItem?>(null) }
+    var profileToDelete by remember { mutableStateOf<ProfileItem?>(null) }
 
     Column(
         modifier = modifier.padding(16.dp),
@@ -702,6 +867,10 @@ private fun ProfilesScreen(
             onEdit = {
                 selectedProfile = null
                 editableProfile = profile
+            },
+            onDelete = {
+                selectedProfile = null
+                profileToDelete = profile
             }
         )
     }
@@ -713,6 +882,29 @@ private fun ProfilesScreen(
             onSave = { savedProfile ->
                 editableProfile = null
                 onSaveProfile(savedProfile)
+            }
+        )
+    }
+
+    profileToDelete?.let { profile ->
+        AlertDialog(
+            onDismissRequest = { profileToDelete = null },
+            title = { Text("Eliminar perfil") },
+            text = {
+                Text("¿Seguro que quieres eliminar \"${profile.icon} ${profile.name}\"? Se eliminarán también todas sus deudas en todos los eventos. Esta acción no se puede deshacer.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    profileToDelete = null
+                    onDeleteProfile(profile)
+                }) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { profileToDelete = null }) {
+                    Text("Cancelar")
+                }
             }
         )
     }
@@ -1050,7 +1242,13 @@ private fun ProfileEditorDialog(
     onDismiss: () -> Unit,
     onSave: (ProfileItem) -> Unit,
 ) {
-    val iconOptions = listOf("🙂", "🧑", "💼", "🎉", "🏠", "🚗")
+    val iconOptions = listOf(
+        "🙂", "😄", "😎", "🤩", "🥳", "😇",
+        "🧑", "👩", "👨", "👴", "👵", "🧒",
+        "💼", "🎓", "🏋️", "🎨", "🎸", "🎮",
+        "🏠", "🚗", "✈️", "⚽", "🍕", "🎉",
+        "🌟", "❤️", "🐶", "🐱", "🌿", "💡",
+    )
     var name by remember(initialProfile.id) { mutableStateOf(initialProfile.name) }
     var selectedIcon by remember(initialProfile.id) { mutableStateOf(initialProfile.icon.ifBlank { "🙂" }) }
     var validationMessage by remember(initialProfile.id) { mutableStateOf<String?>(null) }
@@ -1080,16 +1278,32 @@ private fun ProfileEditorDialog(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(6),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    iconOptions.forEach { icon ->
-                        OutlinedButton(onClick = {
-                            selectedIcon = icon
-                            validationMessage = null
-                        }) {
-                            Text(icon)
+                    items(iconOptions) { icon ->
+                        val isSelected = icon == selectedIcon
+                        if (isSelected) {
+                            Button(
+                                onClick = { selectedIcon = icon; validationMessage = null },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                                modifier = Modifier.aspectRatio(1f)
+                            ) {
+                                Text(icon)
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { selectedIcon = icon; validationMessage = null },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                                modifier = Modifier.aspectRatio(1f)
+                            ) {
+                                Text(icon)
+                            }
                         }
                     }
                 }
@@ -1894,7 +2108,12 @@ private fun SettlementSuggestionCard(
     profiles: List<ProfileItem>,
     amounts: List<Double>,
 ) {
-    val transfers = profiles.zip(amounts).filter { (_, amount) -> amount > 0.0 }
+    val transfers = remember(profiles, amounts) {
+        buildSettlementTransfers(
+            profileNames = profiles.map { it.name },
+            amounts = amounts,
+        )
+    }
     if (transfers.isEmpty()) return
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -1908,12 +2127,12 @@ private fun SettlementSuggestionCard(
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "Transferencias mínimas estimadas: ${transfers.size}",
+                text = "Transferencias mínimas necesarias: ${transfers.size}",
                 style = MaterialTheme.typography.bodySmall
             )
-            transfers.forEach { (profile, amount) ->
+            transfers.forEach { transfer ->
                 Text(
-                    text = "${profile.icon} ${profile.name} → Tú: ${formatEuros(amount)}",
+                    text = "${transfer.fromName} → ${transfer.toName}: ${formatEuros(transfer.amount)}",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -1985,6 +2204,7 @@ private fun ProfileDetailDialog(
     pendingEvents: List<String>,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2016,8 +2236,13 @@ private fun ProfileDetailDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cerrar")
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onDelete) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cerrar")
+                }
             }
         }
     )
@@ -2208,4 +2433,279 @@ private fun removeExpense(expenses: SnapshotStateList<EventExpenseItem>, expense
     val updatedExpenses = expenses.filterNot { it.id == expenseId }
     expenses.clear()
     expenses.addAll(updatedExpenses)
+}
+
+private fun removeEvent(
+    events: SnapshotStateList<EventItem>,
+    debts: SnapshotStateList<EventDebtItem>,
+    expenses: SnapshotStateList<EventExpenseItem>,
+    eventId: String,
+) {
+    events.removeAll { it.id == eventId }
+    debts.removeAll { it.eventId == eventId }
+    expenses.removeAll { it.eventId == eventId }
+}
+
+private fun removeProfile(
+    profiles: SnapshotStateList<ProfileItem>,
+    debts: SnapshotStateList<EventDebtItem>,
+    profileId: String,
+) {
+    profiles.removeAll { it.id == profileId }
+    debts.removeAll { it.profileId == profileId }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CalendarScreen
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun CalendarScreen(
+    modifier: Modifier = Modifier,
+    events: List<EventItem>,
+    pendingTotalsByEvent: Map<String, Double>,
+    onOpenEvent: (EventItem) -> Unit,
+) {
+    // Estado del mes mostrado: año + mes (1-based)
+    val today = remember { Calendar.getInstance() }
+    var displayYear by remember { mutableStateOf(today.get(Calendar.YEAR)) }
+    var displayMonth by remember { mutableStateOf(today.get(Calendar.MONTH) + 1) } // 1-12
+    var selectedDay by remember { mutableStateOf<Int?>(null) }
+
+    // Mapa día-del-mes → lista de eventos de ese mes/año
+    val eventsByDay by remember(events, displayYear, displayMonth) {
+        derivedStateOf {
+            val map = mutableMapOf<Int, MutableList<EventItem>>()
+            events.forEach { event ->
+                val cal = Calendar.getInstance().apply { timeInMillis = event.dateMillis }
+                if (cal.get(Calendar.YEAR) == displayYear &&
+                    cal.get(Calendar.MONTH) + 1 == displayMonth
+                ) {
+                    val day = cal.get(Calendar.DAY_OF_MONTH)
+                    map.getOrPut(day) { mutableListOf() }.add(event)
+                }
+            }
+            map as Map<Int, List<EventItem>>
+        }
+    }
+
+    // Eventos del día seleccionado
+    val selectedDayEvents by remember(eventsByDay, selectedDay) {
+        derivedStateOf {
+            selectedDay?.let { eventsByDay[it] } ?: emptyList()
+        }
+    }
+
+    // Calcular la cuadrícula del mes
+    val calGrid by remember(displayYear, displayMonth) {
+        derivedStateOf {
+            val cal = Calendar.getInstance().apply {
+                set(Calendar.YEAR, displayYear)
+                set(Calendar.MONTH, displayMonth - 1)
+                set(Calendar.DAY_OF_MONTH, 1)
+            }
+            // 0=Dom, 1=Lun … ajustamos para semana europea (lunes primero)
+            val firstDow = (cal.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7
+            val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+            // Construimos lista de celdas: null = vacía, Int = día
+            val cells = mutableListOf<Int?>()
+            repeat(firstDow) { cells.add(null) }
+            for (d in 1..daysInMonth) cells.add(d)
+            // Rellenar hasta múltiplo de 7
+            while (cells.size % 7 != 0) cells.add(null)
+            cells
+        }
+    }
+
+    val monthNames = remember {
+        DateFormatSymbols(Locale("es", "ES")).months
+    }
+
+    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
+        // ── Cabecera mes ──────────────────────────────────────────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            IconButton(onClick = {
+                if (displayMonth == 1) { displayMonth = 12; displayYear-- }
+                else displayMonth--
+                selectedDay = null
+            }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Mes anterior")
+            }
+            Text(
+                text = "${monthNames[displayMonth - 1].replaceFirstChar { it.uppercase() }} $displayYear",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            IconButton(onClick = {
+                if (displayMonth == 12) { displayMonth = 1; displayYear++ }
+                else displayMonth++
+                selectedDay = null
+            }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Mes siguiente")
+            }
+        }
+
+        // ── Encabezados días de la semana ──────────────────────────────────────
+        val weekDayLabels = listOf("L", "M", "X", "J", "V", "S", "D")
+        Row(modifier = Modifier.fillMaxWidth()) {
+            weekDayLabels.forEach { label ->
+                Text(
+                    text = label,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        // ── Cuadrícula de días ────────────────────────────────────────────────
+        val todayDay = if (today.get(Calendar.YEAR) == displayYear &&
+            today.get(Calendar.MONTH) + 1 == displayMonth
+        ) today.get(Calendar.DAY_OF_MONTH) else -1
+
+        calGrid.chunked(7).forEach { week ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                week.forEach { day ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .padding(2.dp)
+                            .then(
+                                if (day != null) Modifier.clickable {
+                                    selectedDay = if (selectedDay == day) null else day
+                                } else Modifier
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (day != null) {
+                            val isSelected = selectedDay == day
+                            val isToday = day == todayDay
+                            val hasEvents = eventsByDay.containsKey(day)
+
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .then(
+                                        if (isSelected) Modifier.background(
+                                            MaterialTheme.colorScheme.primary,
+                                            CircleShape,
+                                        )
+                                        else if (isToday) Modifier.background(
+                                            MaterialTheme.colorScheme.primaryContainer,
+                                            CircleShape,
+                                        )
+                                        else Modifier
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = day.toString(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = when {
+                                            isSelected -> MaterialTheme.colorScheme.onPrimary
+                                            isToday -> MaterialTheme.colorScheme.onPrimaryContainer
+                                            else -> MaterialTheme.colorScheme.onSurface
+                                        },
+                                    )
+                                    if (hasEvents) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(5.dp)
+                                                .background(
+                                                    if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                                    else MaterialTheme.colorScheme.primary,
+                                                    CircleShape,
+                                                )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Lista de eventos del día seleccionado ─────────────────────────────
+        val dayEvents = selectedDayEvents
+        if (dayEvents.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Eventos del día $selectedDay",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(4.dp))
+            dayEvents.forEach { event ->
+                val pending = pendingTotalsByEvent[event.id] ?: 0.0
+                ElevatedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clickable { onOpenEvent(event) },
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = event.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        if (pending > 0.0) {
+                            Text(
+                                text = "Pendiente: ${formatEuros(pending)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        } else {
+                            Text(
+                                text = "Sin deuda pendiente",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        } else if (selectedDay != null) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Sin eventos el día $selectedDay",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(16.dp))
+        } else {
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = if (eventsByDay.isEmpty()) "No hay eventos este mes"
+                       else "Toca un día para ver los eventos",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(16.dp))
+        }
+    }
 }

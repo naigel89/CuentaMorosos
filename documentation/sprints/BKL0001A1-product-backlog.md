@@ -2,8 +2,8 @@
 
 > **Código:** BKL0001A1
 > **Versión:** A
-> **Revisión:** 8
-> **Fecha:** 2026-04-06
+> **Revisión:** 12
+> **Fecha:** 2026-04-30
 
 ## Resumen
 Backlog general del proyecto. Debe recoger todos los requisitos, tareas técnicas y pendientes relevantes para planificar los próximos sprints.
@@ -24,11 +24,19 @@ Backlog general del proyecto. Debe recoger todos los requisitos, tareas técnica
 | FR0004A1 | FR | Notificaciones y recordatorios | Media | Sprint 03 | Hecho | FR0003A1, API0001A1 |
 | NFR0001A1 | NFR | Experiencia visual y personalización | Media | Sprint 03 | Hecho | UI0004A1 |
 | API0001A1 | API | Servicios locales y notificaciones | Media | Sprint 03 | Hecho | DD0001A1 |
+| DT0001A1 | DT | Eliminación de eventos y perfiles | Alta | Sprint 04 | Hecho | FR0001A1, FR0002A1 |
+| DT0002A1 | DT | Solicitud de permiso POST_NOTIFICATIONS en runtime (Android 13+) | Alta | Sprint 04 | Hecho | FR0004A1 |
+| DT0003A1 | DT | Ampliar selector de iconos de perfil (más de 6 opciones) | Baja | Sprint 04 | Hecho | FR0002A1 |
+| DT0004A1 | DT | Liquidación real de deudas (mínimo de transferencias entre perfiles) | Media | Sprint 04 | Hecho | FR0005A1, RN0003A1 |
+| DT0005A1 | DT | Notificaciones en segundo plano con WorkManager | Media | Sprint 04 | Hecho | FR0004A1, API0001A1 |
+| FR0001B1 | FR | Vista de calendario de eventos | Baja | Sprint 05 | Hecho | FR0001A1 |
+| UX0001A1 | UX | Búsqueda y filtrado de eventos | Media | Sprint 05 | Hecho | FR0001A1 |
 
 ## Notas de priorización
 - Priorizar primero la base de datos y el flujo mínimo de eventos y perfiles.
 - Completar después el control de pagos y el recálculo de importes pendientes.
 - Dejar recordatorios y personalización visual para una fase posterior ya estable.
+- Sprint 04 cierra deuda técnica acumulada: eliminación de registros, permisos runtime, liquidación real y notificaciones en background. La vista de calendario queda como mejora de baja prioridad.
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
@@ -41,3 +49,6 @@ Backlog general del proyecto. Debe recoger todos los requisitos, tareas técnica
 | 2026-04-06 | A | 6 | Actualización | Se marcan como completados los sprints 01 y 02 tras cerrar la base funcional, pagos y calculadora avanzada. |
 | 2026-04-06 | A | 7 | Actualización | Se arranca el sprint 03 con recordatorios locales y personalización visual persistente. |
 | 2026-04-06 | A | 8 | Actualización | Se marca como completado el sprint 03 a nivel funcional tras cerrar ajustes, recordatorios y apariencia base. |
+| 2026-04-30 | A | 10 | Actualización | Sprint 04 completado; todos los ítems de deuda técnica marcados como Hecho. |
+| 2026-04-30 | A | 11 | Actualización | Sprint 05 arrancado: FR0001B1 (calendario) y UX0001A1 (búsqueda y filtrado) en progreso. |
+| 2026-04-30 | A | 12 | Actualización | Sprint 05 completado: calendario mensual y búsqueda+filtros en EventsScreen implementados. |

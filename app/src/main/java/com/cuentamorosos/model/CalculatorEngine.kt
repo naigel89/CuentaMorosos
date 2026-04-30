@@ -379,3 +379,82 @@ private fun distributeProportionallyCents(totalCents: Int, factors: List<Double>
         cents + if (index == 0) remainder else 0
     }
 }
+
+// ---------------------------------------------------------------------------
+// Liquidación mínima de transferencias (debt-simplification algorithm)
+// ---------------------------------------------------------------------------
+
+/**
+ * Representa una transferencia de liquidación: [fromName] debe pagar [amount] a [toName].
+ */
+data class SettlementTransfer(
+    val fromName: String,
+    val toName: String,
+    val amount: Double,
+)
+
+/**
+ * Calcula el conjunto mínimo de transferencias para liquidar los saldos entre perfiles.
+ *
+ * Algoritmo greedy O(n log n):
+ * 1. Calcula el balance neto de cada participante (lo que le deben menos lo que debe).
+ * 2. Divide en acreedores (balance > 0) y deudores (balance < 0).
+ * 3. En cada iteración, el deudor más negativo transfiere al acreedor más positivo
+ *    el mínimo entre sus valores absolutos, reduciendo el número de transferencias.
+ *
+ * @param profileNames Lista de nombres en el mismo orden que [amounts].
+ * @param amounts Importe que cada perfil debe aportar al total. Un balance negativo
+ *   significa que esa persona debe recibir dinero (pagó de más o no debe nada).
+ *   En el contexto de CuentaMorosos, [amounts] es lo que cada perfil debe pagar.
+ * @param totalPaid Importe total ya cubierto por el "organizador" que debe recuperar.
+ *   Si es 0.0 se asume reparto entre iguales sin figura de pagador central.
+ */
+fun buildSettlementTransfers(
+    profileNames: List<String>,
+    amounts: List<Double>,
+): List<SettlementTransfer> {
+    if (profileNames.size != amounts.size || profileNames.isEmpty()) return emptyList()
+
+    // Trabajamos en céntimos para evitar errores de coma flotante
+    val balanceCents = amounts.map { (it * 100).roundToInt() }.toMutableList()
+
+    val debtors = ArrayDeque<Pair<Int, Int>>()   // (index, negative balance in cents)
+    val creditors = ArrayDeque<Pair<Int, Int>>() // (index, positive balance in cents)
+
+    balanceCents.forEachIndexed { index, cents ->
+        when {
+            cents < 0 -> creditors.addLast(Pair(index, -cents)) // debe recibir
+            cents > 0 -> debtors.addLast(Pair(index, cents))    // debe pagar
+        }
+    }
+
+    // Ordenar de mayor a menor importe para minimizar iteraciones
+    val sortedDebtors = ArrayDeque(debtors.sortedByDescending { it.second })
+    val sortedCreditors = ArrayDeque(creditors.sortedByDescending { it.second })
+
+    val transfers = mutableListOf<SettlementTransfer>()
+
+    while (sortedDebtors.isNotEmpty() && sortedCreditors.isNotEmpty()) {
+        val (debtorIdx, debtorCents) = sortedDebtors.removeFirst()
+        val (creditorIdx, creditorCents) = sortedCreditors.removeFirst()
+
+        val transferCents = minOf(debtorCents, creditorCents)
+        val transferAmount = transferCents / 100.0
+
+        transfers.add(
+            SettlementTransfer(
+                fromName = profileNames[debtorIdx],
+                toName = profileNames[creditorIdx],
+                amount = transferAmount,
+            )
+        )
+
+        val remainingDebtor = debtorCents - transferCents
+        val remainingCreditor = creditorCents - transferCents
+
+        if (remainingDebtor > 0) sortedDebtors.addFirst(Pair(debtorIdx, remainingDebtor))
+        if (remainingCreditor > 0) sortedCreditors.addFirst(Pair(creditorIdx, remainingCreditor))
+    }
+
+    return transfers
+}
