@@ -1692,28 +1692,19 @@ private fun QuickSplitDialog(
     var totalText by remember(eventExpenses) {
         mutableStateOf(if (eventExpenses.isEmpty()) "" else expenseTotal.toString())
     }
-    var selectedModeId by remember { mutableStateOf(SplitMode.SIMPLE_AVG.id) }
+    // REAL_CONSUMPTION es el modo predeterminado: refleja directamente los ítems del evento.
+    var selectedModeId by remember { mutableStateOf(SplitMode.REAL_CONSUMPTION.id) }
     var percentageInputs by remember(profiles.size) { mutableStateOf(defaultPercentageInputs(profiles.size)) }
-    var weightInputs by remember(profiles.size) { mutableStateOf(List(profiles.size) { "1" }) }
-    var incomeInputs by remember(profiles.size) { mutableStateOf(List(profiles.size) { "1" }) }
-    var surplusInputs by remember(profiles.size) { mutableStateOf(List(profiles.size) { "1" }) }
-    var attendanceInputs by remember(profiles.size) { mutableStateOf(List(profiles.size) { "1" }) }
-    var baseAmountText by remember { mutableStateOf("") }
 
     val totalValue = parseEuroAmount(totalText)
     val selectedMode = SplitMode.fromId(selectedModeId)
 
     fun previewFor(mode: SplitMode): CalculationPreview {
         val rawInputs = when (mode) {
-            SplitMode.SIMPLE_AVG -> List(profiles.size) { 1.0 }
             SplitMode.REAL_CONSUMPTION -> List(profiles.size) { 1.0 }
-            SplitMode.CUSTOM_PERCENTAGE -> percentageInputs.map { parseDecimalValue(it) ?: Double.NaN }
+            SplitMode.SIMPLE_AVG -> List(profiles.size) { 1.0 }
             SplitMode.BY_CATEGORY -> List(profiles.size) { 1.0 }
-            SplitMode.BY_WEIGHT -> weightInputs.map { parseDecimalValue(it) ?: Double.NaN }
-            SplitMode.BY_INCOME -> incomeInputs.map { parseDecimalValue(it) ?: Double.NaN }
-            SplitMode.BASE_PLUS_SURPLUS -> surplusInputs.map { parseDecimalValue(it) ?: Double.NaN }
-            SplitMode.BY_ATTENDANCE -> attendanceInputs.map { parseDecimalValue(it) ?: Double.NaN }
-            SplitMode.MIXED -> surplusInputs.map { parseDecimalValue(it) ?: Double.NaN }
+            SplitMode.CUSTOM_PERCENTAGE -> percentageInputs.map { parseDecimalValue(it) ?: Double.NaN }
         }
 
         if (rawInputs.any { it.isNaN() }) {
@@ -1726,7 +1717,6 @@ private fun QuickSplitDialog(
             inputs = rawInputs,
             participantIds = profiles.map { it.id },
             expenses = eventExpenses,
-            baseAmount = parseEuroAmount(baseAmountText),
         )
     }
 
@@ -1792,9 +1782,15 @@ private fun QuickSplitDialog(
                     }
                 }
 
+                // Descripción + ejemplo del modo seleccionado
                 Text(
                     text = selectedMode.helperText,
                     style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = "Ej.: ${selectedMode.exampleText}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 if (eventExpenses.isNotEmpty()) {
@@ -1831,111 +1827,13 @@ private fun QuickSplitDialog(
                         }
                     }
 
-                    SplitMode.BY_WEIGHT -> {
-                        Text(
-                            text = "Factor por perfil",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        profiles.forEachIndexed { index, profile ->
-                            ParameterInputRow(
-                                profile = profile,
-                                label = "Factor",
-                                value = weightInputs[index],
-                                onValueChange = { value ->
-                                    weightInputs = weightInputs.updateAt(index, value)
-                                }
-                            )
-                        }
-                    }
-
-                    SplitMode.BY_INCOME -> {
-                        Text(
-                            text = "Capacidad de pago por perfil",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        profiles.forEachIndexed { index, profile ->
-                            ParameterInputRow(
-                                profile = profile,
-                                label = "Ingreso",
-                                value = incomeInputs[index],
-                                onValueChange = { value ->
-                                    incomeInputs = incomeInputs.updateAt(index, value)
-                                }
-                            )
-                        }
-                    }
-
-                    SplitMode.BASE_PLUS_SURPLUS -> {
-                        OutlinedTextField(
-                            value = baseAmountText,
-                            onValueChange = { baseAmountText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Cuota base común (€)") },
-                            singleLine = true
-                        )
-                        Text(
-                            text = "Factor para repartir el excedente",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        profiles.forEachIndexed { index, profile ->
-                            ParameterInputRow(
-                                profile = profile,
-                                label = "Factor",
-                                value = surplusInputs[index],
-                                onValueChange = { value ->
-                                    surplusInputs = surplusInputs.updateAt(index, value)
-                                }
-                            )
-                        }
-                    }
-
-                    SplitMode.BY_ATTENDANCE -> {
-                        Text(
-                            text = "Asistencia por perfil",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        profiles.forEachIndexed { index, profile ->
-                            ParameterInputRow(
-                                profile = profile,
-                                label = "Días",
-                                value = attendanceInputs[index],
-                                onValueChange = { value ->
-                                    attendanceInputs = attendanceInputs.updateAt(index, value)
-                                }
-                            )
-                        }
-                    }
-
                     SplitMode.REAL_CONSUMPTION,
                     SplitMode.BY_CATEGORY,
-                    SplitMode.SIMPLE_AVG,
-                    SplitMode.MIXED -> {
-                        if (selectedMode == SplitMode.MIXED) {
-                            Text(
-                                text = "Factores opcionales para repartir el remanente del modo mixto",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            profiles.forEachIndexed { index, profile ->
-                                ParameterInputRow(
-                                    profile = profile,
-                                    label = "Factor",
-                                    value = surplusInputs[index],
-                                    onValueChange = { value ->
-                                        surplusInputs = surplusInputs.updateAt(index, value)
-                                    }
-                                )
-                            }
-                        }
+                    SplitMode.SIMPLE_AVG -> {
                         Text(
                             text = when (selectedMode) {
                                 SplitMode.REAL_CONSUMPTION -> "Usa los perfiles asignados en cada ítem guardado."
                                 SplitMode.BY_CATEGORY -> "La categoría del ítem decide si se reparte entre todos, solo seleccionados o una sola persona."
-                                SplitMode.MIXED -> "Combina las categorías de los ítems y, si sobra importe, lo redistribuye según los factores indicados."
                                 else -> "No necesita parámetros adicionales."
                             },
                             style = MaterialTheme.typography.bodySmall
@@ -1971,11 +1869,6 @@ private fun QuickSplitDialog(
                         profiles = profiles,
                         eventExpenses = eventExpenses,
                         percentageInputs = percentageInputs,
-                        weightInputs = weightInputs,
-                        incomeInputs = incomeInputs,
-                        surplusInputs = surplusInputs,
-                        attendanceInputs = attendanceInputs,
-                        baseAmountText = baseAmountText
                     )
 
                     SettlementSuggestionCard(
@@ -2045,23 +1938,13 @@ private fun CalculationComparisonCard(
     profiles: List<ProfileItem>,
     eventExpenses: List<EventExpenseItem>,
     percentageInputs: List<String>,
-    weightInputs: List<String>,
-    incomeInputs: List<String>,
-    surplusInputs: List<String>,
-    attendanceInputs: List<String>,
-    baseAmountText: String,
 ) {
     fun previewFor(mode: SplitMode): CalculationPreview {
         val rawInputs = when (mode) {
-            SplitMode.SIMPLE_AVG -> List(profiles.size) { 1.0 }
             SplitMode.REAL_CONSUMPTION -> List(profiles.size) { 1.0 }
-            SplitMode.CUSTOM_PERCENTAGE -> percentageInputs.map { parseDecimalValue(it) ?: Double.NaN }
+            SplitMode.SIMPLE_AVG -> List(profiles.size) { 1.0 }
             SplitMode.BY_CATEGORY -> List(profiles.size) { 1.0 }
-            SplitMode.BY_WEIGHT -> weightInputs.map { parseDecimalValue(it) ?: Double.NaN }
-            SplitMode.BY_INCOME -> incomeInputs.map { parseDecimalValue(it) ?: Double.NaN }
-            SplitMode.BASE_PLUS_SURPLUS -> surplusInputs.map { parseDecimalValue(it) ?: Double.NaN }
-            SplitMode.BY_ATTENDANCE -> attendanceInputs.map { parseDecimalValue(it) ?: Double.NaN }
-            SplitMode.MIXED -> surplusInputs.map { parseDecimalValue(it) ?: Double.NaN }
+            SplitMode.CUSTOM_PERCENTAGE -> percentageInputs.map { parseDecimalValue(it) ?: Double.NaN }
         }
 
         return if (rawInputs.any { it.isNaN() }) {
@@ -2073,7 +1956,6 @@ private fun CalculationComparisonCard(
                 inputs = rawInputs,
                 participantIds = profiles.map { it.id },
                 expenses = eventExpenses,
-                baseAmount = parseEuroAmount(baseAmountText),
             )
         }
     }

@@ -4,59 +4,73 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
+/**
+ * Modos de reparto disponibles en la calculadora de CuentaMorosos.
+ *
+ * Se mantienen únicamente los cuatro modos más habituales para evitar confusión:
+ *  - [REAL_CONSUMPTION]: predeterminado, refleja directamente los ítems del evento.
+ *  - [SIMPLE_AVG]: la opción más rápida cuando nadie lleva la cuenta de qué consumió.
+ *  - [BY_CATEGORY]: útil cuando el evento mezcla gastos compartidos con gastos personales.
+ *  - [CUSTOM_PERCENTAGE]: para acuerdos explícitos de porcentaje entre los participantes.
+ *
+ * Modos eliminados por ser poco frecuentes o difíciles de configurar correctamente:
+ *  BY_WEIGHT, BY_INCOME, BASE_PLUS_SURPLUS, BY_ATTENDANCE, MIXED.
+ */
 enum class SplitMode(
     val id: String,
     val label: String,
+    /** Descripción breve del criterio de reparto. */
     val helperText: String,
+    /** Ejemplo concreto que ilustra cómo funciona el modo. */
+    val exampleText: String,
 ) {
-    SIMPLE_AVG(
-        id = "simple_avg",
-        label = "Media simple",
-        helperText = "Divide el total a partes iguales."
-    ),
+    /**
+     * Modo predeterminado. Cada ítem se divide exclusivamente entre los perfiles
+     * asignados a ese ítem. Refleja sin cálculo adicional lo que ya se definió
+     * al crear cada gasto del evento.
+     */
     REAL_CONSUMPTION(
         id = "real_consumption",
         label = "Consumo real",
-        helperText = "Cada ítem se reparte solo entre los perfiles asignados."
+        helperText = "Cada ítem se reparte solo entre los perfiles asignados.",
+        exampleText = "Alice pidió un café (1,50 €) y Bob una tarta (3,00 €): cada uno paga lo suyo.",
     ),
-    CUSTOM_PERCENTAGE(
-        id = "custom_percentage",
-        label = "% personalizado",
-        helperText = "Exige que la suma sea exactamente 100%."
+
+    /**
+     * División equitativa del total entre todos los participantes.
+     * Ideal cuando nadie lleva la cuenta de qué consumió cada persona.
+     */
+    SIMPLE_AVG(
+        id = "simple_avg",
+        label = "Media simple",
+        helperText = "Divide el total a partes iguales entre todos.",
+        exampleText = "Una cena de 60 € entre 3 personas → 20 € cada uno.",
     ),
+
+    /**
+     * Combina ítems compartidos, ítems solo para algunos perfiles y cargos personales.
+     * Cada gasto del evento lleva una categoría que determina cómo se reparte.
+     */
     BY_CATEGORY(
         id = "by_category",
         label = "Por categoría",
-        helperText = "Cada categoría aplica una regla distinta al gasto."
+        helperText = "Cada ítem usa su categoría: compartido, solo seleccionados o cargo individual.",
+        exampleText = "La botella de vino (compartida, 12 €) se divide entre todos; el taxi de Ana (personal, 8 €) lo paga solo ella.",
     ),
-    BY_WEIGHT(
-        id = "by_weight",
-        label = "Por peso",
-        helperText = "Reparte proporcionalmente a un factor numérico."
-    ),
-    BY_INCOME(
-        id = "by_income",
-        label = "Capacidad de pago",
-        helperText = "Reparte proporcionalmente al valor económico introducido."
-    ),
-    BASE_PLUS_SURPLUS(
-        id = "base_plus_surplus",
-        label = "Base + excedente",
-        helperText = "Aplica una cuota base común y reparte el resto por factores."
-    ),
-    BY_ATTENDANCE(
-        id = "by_attendance",
-        label = "Por asistencia",
-        helperText = "Reparte según días o sesiones asistidas."
-    ),
-    MIXED(
-        id = "mixed",
-        label = "Mixto",
-        helperText = "Combina categorías por ítem con reparto adicional del remanente."
+
+    /**
+     * Cada participante asume el porcentaje del total acordado previamente.
+     * La suma de todos los porcentajes debe ser exactamente 100 %.
+     */
+    CUSTOM_PERCENTAGE(
+        id = "custom_percentage",
+        label = "% personalizado",
+        helperText = "Asigna un porcentaje a cada perfil. La suma debe ser 100 %.",
+        exampleText = "Un piso entre 2 personas: uno paga el 60 % y el otro el 40 % del alquiler.",
     );
 
     companion object {
-        fun fromId(id: String): SplitMode = entries.firstOrNull { it.id == id } ?: SIMPLE_AVG
+        fun fromId(id: String): SplitMode = entries.firstOrNull { it.id == id } ?: REAL_CONSUMPTION
     }
 }
 
@@ -106,25 +120,41 @@ fun buildCalculationPreview(
     inputs: List<Double>,
     participantIds: List<String> = emptyList(),
     expenses: List<EventExpenseItem> = emptyList(),
-    baseAmount: Double? = null,
 ): CalculationPreview {
     if (total < 0.0) {
         return CalculationPreview(validationMessage = "El total no puede ser negativo.")
     }
 
     return when (mode) {
-        SplitMode.SIMPLE_AVG -> CalculationPreview(
-            amounts = splitAmountEvenly(total = total, participants = inputs.size),
-            summary = "Media simple entre ${inputs.size} perfiles",
-            calculatedTotal = total,
-        )
-
+        // ── Predeterminado ──────────────────────────────────────────────────
+        // Cada ítem se divide solo entre sus perfiles asignados.
+        // Refleja sin cálculo adicional lo que ya se definió al crear los gastos.
         SplitMode.REAL_CONSUMPTION -> buildExpenseDrivenPreview(
             mode = mode,
             participantIds = participantIds,
             expenses = expenses,
         )
 
+        // ── División equitativa ─────────────────────────────────────────────
+        // Opción más rápida cuando nadie lleva cuenta de qué consumió cada uno.
+        SplitMode.SIMPLE_AVG -> CalculationPreview(
+            amounts = splitAmountEvenly(total = total, participants = inputs.size),
+            summary = "Media simple entre ${inputs.size} perfiles",
+            calculatedTotal = total,
+        )
+
+        // ── Por categoría ───────────────────────────────────────────────────
+        // Cada ítem lleva su propia regla: compartido, solo seleccionados o personal.
+        // Útil cuando el evento mezcla gastos colectivos con gastos individuales.
+        SplitMode.BY_CATEGORY -> buildExpenseDrivenPreview(
+            mode = mode,
+            participantIds = participantIds,
+            expenses = expenses,
+        )
+
+        // ── Porcentaje personalizado ────────────────────────────────────────
+        // Para acuerdos explícitos de porcentaje acordados de antemano.
+        // La suma de todos los porcentajes debe ser exactamente 100 %.
         SplitMode.CUSTOM_PERCENTAGE -> {
             val sum = inputs.sum()
             when {
@@ -140,129 +170,7 @@ fun buildCalculationPreview(
                 )
             }
         }
-
-        SplitMode.BY_CATEGORY -> buildExpenseDrivenPreview(
-            mode = mode,
-            participantIds = participantIds,
-            expenses = expenses,
-        )
-
-        SplitMode.BY_WEIGHT -> when {
-            inputs.isEmpty() -> CalculationPreview(validationMessage = "Añade al menos un perfil al evento.")
-            inputs.any { it <= 0.0 } -> CalculationPreview(validationMessage = "Todos los factores deben ser mayores que 0.")
-            else -> CalculationPreview(
-                amounts = distributeProportionally(total = total, factors = inputs),
-                summary = "Reparto por peso/factor: ${inputs.joinToString()}",
-                calculatedTotal = total,
-            )
-        }
-
-        SplitMode.BY_INCOME -> when {
-            inputs.isEmpty() -> CalculationPreview(validationMessage = "Añade al menos un perfil al evento.")
-            inputs.any { it <= 0.0 } -> CalculationPreview(validationMessage = "Los valores de capacidad de pago deben ser mayores que 0.")
-            else -> CalculationPreview(
-                amounts = distributeProportionally(total = total, factors = inputs),
-                summary = "Capacidad de pago: ${inputs.joinToString()}",
-                calculatedTotal = total,
-            )
-        }
-
-        SplitMode.BASE_PLUS_SURPLUS -> when {
-            inputs.isEmpty() -> CalculationPreview(validationMessage = "Añade al menos un perfil al evento.")
-            inputs.any { it <= 0.0 } -> CalculationPreview(validationMessage = "Los factores del excedente deben ser mayores que 0.")
-            baseAmount == null || baseAmount < 0.0 -> CalculationPreview(validationMessage = "La cuota base debe ser un número válido y no negativo.")
-            else -> buildBasePlusSurplusPreview(
-                total = total,
-                factors = inputs,
-                baseAmount = baseAmount,
-            )
-        }
-
-        SplitMode.BY_ATTENDANCE -> when {
-            inputs.isEmpty() -> CalculationPreview(validationMessage = "Añade al menos un perfil al evento.")
-            inputs.any { it <= 0.0 } -> CalculationPreview(validationMessage = "Las asistencias deben ser mayores que 0.")
-            else -> CalculationPreview(
-                amounts = distributeProportionally(total = total, factors = inputs),
-                summary = "Reparto por asistencia: ${inputs.joinToString()} sesiones",
-                calculatedTotal = total,
-            )
-        }
-
-        SplitMode.MIXED -> buildMixedPreview(
-            total = total,
-            participantIds = participantIds,
-            expenses = expenses,
-            remainderFactors = inputs,
-        )
     }
-}
-
-private fun buildBasePlusSurplusPreview(
-    total: Double,
-    factors: List<Double>,
-    baseAmount: Double,
-): CalculationPreview {
-    val participantCount = factors.size
-    val totalCents = (total * 100).roundToInt()
-    val baseCentsPerParticipant = (baseAmount * 100).roundToInt()
-    val baseTotalCents = baseCentsPerParticipant * participantCount
-
-    if (baseTotalCents > totalCents) {
-        return CalculationPreview(
-            validationMessage = "La cuota base supera el total del evento para ${participantCount} perfiles."
-        )
-    }
-
-    val surplusCents = totalCents - baseTotalCents
-    val extraCents = distributeProportionallyCents(totalCents = surplusCents, factors = factors)
-    val amounts = List(participantCount) { index ->
-        (baseCentsPerParticipant + extraCents.getOrElse(index) { 0 }) / 100.0
-    }
-
-    return CalculationPreview(
-        amounts = amounts,
-        summary = "Base ${formatEuros(baseAmount)} + excedente repartido por factores",
-        calculatedTotal = total,
-    )
-}
-
-private fun buildMixedPreview(
-    total: Double,
-    participantIds: List<String>,
-    expenses: List<EventExpenseItem>,
-    remainderFactors: List<Double>,
-): CalculationPreview {
-    val expensePreview = buildExpenseDrivenPreview(
-        mode = SplitMode.BY_CATEGORY,
-        participantIds = participantIds,
-        expenses = expenses,
-    )
-    if (expensePreview.validationMessage != null) return expensePreview
-
-    val remainder = total - expensePreview.calculatedTotal
-    if (remainder < -0.01) {
-        return CalculationPreview(
-            validationMessage = "El total introducido no puede ser menor que la suma de los ítems del evento."
-        )
-    }
-
-    val normalizedRemainder = if (remainder < 0.0) 0.0 else remainder
-    val safeFactors = if (remainderFactors.isEmpty() || remainderFactors.any { it <= 0.0 }) {
-        List(participantIds.size) { 1.0 }
-    } else {
-        remainderFactors
-    }
-    val remainderDistribution = distributeProportionally(total = normalizedRemainder, factors = safeFactors)
-    val combinedAmounts = expensePreview.amounts.mapIndexed { index, amount ->
-        val combinedCents = ((amount + remainderDistribution.getOrElse(index) { 0.0 }) * 100).roundToInt()
-        combinedCents / 100.0
-    }
-
-    return CalculationPreview(
-        amounts = combinedAmounts,
-        summary = "Mixto: categorías por ítem + remanente repartido",
-        calculatedTotal = total,
-    )
 }
 
 private fun buildExpenseDrivenPreview(
@@ -385,7 +293,22 @@ private fun distributeProportionallyCents(totalCents: Int, factors: List<Double>
 // ---------------------------------------------------------------------------
 
 /**
- * Representa una transferencia de liquidación: [fromName] debe pagar [amount] a [toName].
+ * Calcula una vista previa del reparto según el [mode] indicado.
+ *
+ * Modos disponibles:
+ *  - [SplitMode.REAL_CONSUMPTION]: cada ítem se divide entre sus perfiles asignados.
+ *  - [SplitMode.SIMPLE_AVG]: división equitativa entre todos los participantes.
+ *  - [SplitMode.BY_CATEGORY]: cada ítem usa su categoría (compartido / seleccionados / personal).
+ *  - [SplitMode.CUSTOM_PERCENTAGE]: cada perfil asume el porcentaje indicado en [inputs].
+ *
+ * @param total        Importe total del evento en euros.
+ * @param mode         Modo de reparto seleccionado.
+ * @param inputs       Factores por perfil (porcentajes para [SplitMode.CUSTOM_PERCENTAGE];
+ *                     ignorado en los demás modos).
+ * @param participantIds IDs de los perfiles participantes, en el mismo orden que [inputs].
+ * @param expenses     Ítems de gasto del evento (necesarios para [SplitMode.REAL_CONSUMPTION]
+ *                     y [SplitMode.BY_CATEGORY]).
+ * @return [CalculationPreview] con los importes calculados o un mensaje de error de validación.
  */
 data class SettlementTransfer(
     val fromName: String,
