@@ -15,10 +15,11 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         // Kotlin/Native prebuilt toolchain (used by KMP iOS targets on macOS runners)
+        // URL pattern: https://download.jetbrains.com/kotlin/native/builds/releases/1.9.24/macos-aarch64/kotlin-native-prebuilt-macos-aarch64-1.9.24.tar.gz
         ivy {
             url = uri("https://download.jetbrains.com/kotlin/native/builds")
             patternLayout {
-                artifact("[organisation]/[revision]/[classifier]/[artifact]-[revision].[ext]")
+                artifact("releases/[revision]/[classifier]/[artifact]-[revision].[ext]")
             }
             metadataSources { artifact() }
             content { includeGroup("kotlin.native.prebuilt") }
