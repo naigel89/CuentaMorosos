@@ -10,6 +10,8 @@ data class EventItem(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val dateMillis: Long,
+    val ownerId: String,
+    val memberIds: List<String> = emptyList(),
     val lastCalculationMode: String? = null,
     val lastCalculationTotal: Double? = null,
     val lastCalculationTimestamp: Long? = null,
@@ -21,6 +23,8 @@ data class ProfileItem(
     val name: String,
     val icon: String,
     val totalPendingEuros: Double = 0.0,
+    val isGhost: Boolean = false,
+    val linkedEmail: String? = null,
 )
 
 data class UserPreferences(
@@ -47,7 +51,26 @@ data class EventExpenseItem(
     val amountEuros: Double,
     val category: String = "shared",
     val assignedProfileIds: List<String> = emptyList(),
+    val profileWeights: Map<String, Double> = emptyMap(),
 )
+
+data class EventInvitation(
+    val id: String = UUID.randomUUID().toString(),
+    val eventId: String,
+    val eventName: String,
+    val invitedByUid: String,
+    val invitedByEmail: String,
+    val invitedEmail: String,
+    val status: String = InvitationStatus.PENDING,
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val expiresAtMillis: Long = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000,
+)
+
+object InvitationStatus {
+    const val PENDING = "pending"
+    const val ACCEPTED = "accepted"
+    const val REJECTED = "rejected"
+}
 
 private val eventDateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 

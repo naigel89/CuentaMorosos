@@ -197,23 +197,23 @@ private fun buildExpenseDrivenPreview(
                 participantIds = participantIds,
                 assignedIds = expense.assignedProfileIds,
             )
-
+        
             SplitMode.BY_CATEGORY -> when (ExpenseCategory.fromId(expense.category)) {
                 ExpenseCategory.SHARED -> participantIds.indices.toList()
                 ExpenseCategory.SELECTED -> indexesForIds(
                     participantIds = participantIds,
                     assignedIds = expense.assignedProfileIds,
                 )
-
+        
                 ExpenseCategory.PERSONAL -> indexesForIds(
                     participantIds = participantIds,
                     assignedIds = expense.assignedProfileIds.take(1),
                 )
             }
-
+        
             else -> emptyList()
         }
-
+        
         if (recipientIndexes.isEmpty()) {
             val validationMessage = if (mode == SplitMode.BY_CATEGORY) {
                 "Revisa la categoría o los perfiles asignados de `${expense.name}`."
@@ -222,13 +222,16 @@ private fun buildExpenseDrivenPreview(
             }
             return CalculationPreview(validationMessage = validationMessage)
         }
-
+        
         distributeAmountAcrossIndexes(
             accumulatedCents = accumulatedCents,
             amount = expense.amountEuros,
             recipientIndexes = recipientIndexes,
+            weights = expense.profileWeights,
+            participantIds = participantIds
         )
     }
+
 
     return CalculationPreview(
         amounts = accumulatedCents.map { it / 100.0 },
@@ -252,17 +255,51 @@ private fun distributeAmountAcrossIndexes(
     accumulatedCents: IntArray,
     amount: Double,
     recipientIndexes: List<Int>,
+    weights: Map<String, Double> = emptyMap(),
+    participantIds: List<String> = emptyList(),
 ) {
     if (recipientIndexes.isEmpty()) return
-
+    
     val amountCents = (amount * 100).roundToInt()
+    
+    // Si hay pesos definidos para este gasto, los usamos solo en receptores válidos.
+    if (weights.isNotEmpty()) {
+        val weightedRecipients = recipientIndexes.mapNotNull { index ->
+            val participantId = participantIds.getOrNull(index) ?: return@mapNotNull null
+            val weight = weights[participantId] ?: return@mapNotNull null
+            if (weight > 0.0) {
+                index to weight
+            } else {
+                null
+            }
+        }
+        val totalWeight = weightedRecipients.sumOf { it.second }
+
+        if (totalWeight > 0.0) {
+            val provisionalCentsByIndex = weightedRecipients.associate { (index, weight) ->
+                index to floor((amountCents * weight) / totalWeight).toInt()
+            }
+            val assignedCents = provisionalCentsByIndex.values.sum()
+            val remainder = amountCents - assignedCents
+
+            weightedRecipients.forEachIndexed { position, (index, _) ->
+                val base = provisionalCentsByIndex[index] ?: 0
+                val withRemainder = if (position == 0) base + remainder else base
+                accumulatedCents[index] += withRemainder
+            }
+            return
+        }
+    }
+    
+    // Reparto equitativo estándar (si no hay pesos o la suma es 0)
     val baseCents = amountCents / recipientIndexes.size
     val remainderCents = amountCents % recipientIndexes.size
-
+    
     recipientIndexes.forEachIndexed { position, index ->
         accumulatedCents[index] += baseCents + if (position == 0) remainderCents else 0
     }
 }
+
 
 private fun distributeProportionally(total: Double, factors: List<Double>): List<Double> {
     val totalCents = (total * 100).roundToInt()
