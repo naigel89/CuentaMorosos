@@ -41,14 +41,15 @@ jobs:
       # Value: base64 content of google-services.json
       #   Command to encode: base64 -w 0 google-services.json
       - name: Inject google-services.json
-        if: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > app/google-services.json
-          echo "google-services.json injected successfully."
-
-      - name: Skip google-services.json (secret not set)
-        if: ${{ secrets.GOOGLE_SERVICES_JSON == '' }}
-        run: echo "WARNING: GOOGLE_SERVICES_JSON secret not set. Firebase will not be configured."
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 --decode > app/google-services.json
+            echo "google-services.json injected successfully."
+          else
+            echo "WARNING: GOOGLE_SERVICES_JSON secret not set. Firebase will not be configured."
+          fi
 
       # ── 5. Run unit tests ──────────────────────────────────────────────────
       - name: Run unit tests

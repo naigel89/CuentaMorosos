@@ -53,14 +53,16 @@ jobs:
       # Value: base64 content of GoogleService-Info.plist
       #   Command to encode: base64 -i GoogleService-Info.plist | tr -d '\n'
       - name: Inject GoogleService-Info.plist
-        if: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST != '' }}
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
         run: |
-          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" | base64 --decode > iosApp/GoogleService-Info.plist
-          echo "GoogleService-Info.plist injected successfully."
-
-      - name: Skip GoogleService-Info.plist (secret not set)
-        if: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST == '' }}
-        run: echo "WARNING: GOOGLE_SERVICE_INFO_PLIST secret not set. Firebase will not be configured for iOS."
+          if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            mkdir -p iosApp
+            echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > iosApp/GoogleService-Info.plist
+            echo "GoogleService-Info.plist injected successfully."
+          else
+            echo "WARNING: GOOGLE_SERVICE_INFO_PLIST secret not set. Firebase will not be configured for iOS."
+          fi
 
       # ── 6. Compile shared framework for iOS ───────────────────────────────
       - name: Compile shared framework (iosSimulatorArm64)
