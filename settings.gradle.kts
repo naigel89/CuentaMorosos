@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "CuentaMorosos"
 include(":app")
+include(":shared")

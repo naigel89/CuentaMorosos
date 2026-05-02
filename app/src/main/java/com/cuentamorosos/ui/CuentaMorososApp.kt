@@ -80,7 +80,7 @@ import com.cuentamorosos.model.SplitMode
 import com.cuentamorosos.model.UserPreferences
 import com.cuentamorosos.model.buildCalculationPreview
 import com.cuentamorosos.model.buildSettlementTransfers
-import com.cuentamorosos.model.currentDateText
+import com.cuentamorosos.currentDateText
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEventDate

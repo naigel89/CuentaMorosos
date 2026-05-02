@@ -11,4 +11,3 @@ interface EventRepository {
     suspend fun findUidByEmail(email: String): String?
     suspend fun replaceMemberId(oldId: String, newId: String)
 }
-

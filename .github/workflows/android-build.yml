@@ -1,0 +1,67 @@
+name: Android Build & Test
+
+on:
+  push:
+    branches: [ main, develop, master ]
+  pull_request:
+    branches: [ main, develop, master ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Build and test Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Java 17 ─────────────────────────────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # ── 3. Gradle cache ────────────────────────────────────────────────────
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # ── 4. google-services.json ────────────────────────────────────────────
+      # The file must be stored as a GitHub Secret (base64-encoded).
+      # Secret name: GOOGLE_SERVICES_JSON
+      # Value: base64 content of google-services.json
+      #   Command to encode: base64 -w 0 google-services.json
+      - name: Inject google-services.json
+        if: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > app/google-services.json
+          echo "google-services.json injected successfully."
+
+      - name: Skip google-services.json (secret not set)
+        if: ${{ secrets.GOOGLE_SERVICES_JSON == '' }}
+        run: echo "WARNING: GOOGLE_SERVICES_JSON secret not set. Firebase will not be configured."
+
+      # ── 5. Run unit tests ──────────────────────────────────────────────────
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --continue
+
+      # ── 6. Build debug APK ─────────────────────────────────────────────────
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      # ── 7. Upload APK as artifact ──────────────────────────────────────────
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7

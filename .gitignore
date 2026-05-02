@@ -8,3 +8,8 @@ local.properties
 .cxx
 .DS_Store
 app/build/
+shared/build/
+
+# Firebase config files (sensitive — added via GitHub Secrets in CI)
+app/google-services.json
+iosApp/GoogleService-Info.plist
