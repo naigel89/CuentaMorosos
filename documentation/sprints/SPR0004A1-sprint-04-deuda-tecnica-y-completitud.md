@@ -73,8 +73,8 @@ Hecho
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-30 | A | 1 | Alta | Creación del sprint 04 para cerrar deuda técnica acumulada. |
-| 2026-04-30 | A | 2 | Actualización | Sprint completado: eliminación de eventos/perfiles, permiso runtime, liquidación real, WorkManager y grid de iconos implementados. |
+| 2026-04-30 | A | A.1 | Alta | Creación del sprint 04 para cerrar deuda técnica acumulada. |
+| 2026-04-30 | A | A.2 | Actualización | Sprint completado: eliminación de eventos/perfiles, permiso runtime, liquidación real, WorkManager y grid de iconos implementados. |
 
 ## Objetivo del sprint
 Cerrar la deuda técnica acumulada en los sprints anteriores: permitir eliminar eventos y perfiles, solicitar el permiso de notificaciones en runtime, mejorar la liquidación de deudas y preparar las notificaciones en segundo plano.
@@ -156,4 +156,4 @@ Pendiente
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-30 | A | 1 | Alta | Creación del sprint 04 para cerrar deuda técnica acumulada: eliminación, permisos runtime, liquidación real y notificaciones en background. |
+| 2026-04-30 | A | A.1 | Alta | Creación del sprint 04 para cerrar deuda técnica acumulada: eliminación, permisos runtime, liquidación real y notificaciones en background. |

@@ -2,7 +2,7 @@
 
 > **Código:** SPR0009A1
 > **Versión:** A
-> **Revisión:** 1
+> **Revisión:** A.1
 > **Fecha:** 2026-04-30
 
 ## Objetivo del sprint
@@ -77,4 +77,4 @@ Pendiente
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-30 | A | 1 | Alta | Creación del sprint 09 con migración a Compose Multiplatform para iOS. |
+| 2026-04-30 | A | A.1 | Alta | Creación del sprint 09 con migración a Compose Multiplatform para iOS. |

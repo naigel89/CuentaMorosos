@@ -40,7 +40,7 @@ Hecho
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-05 | A | 1 | Alta | Creación inicial del sprint 01. |
-| 2026-04-05 | A | 2 | Actualización | Se concreta el alcance del sprint 01 con requisitos y tareas base. |
-| 2026-04-05 | A | 3 | Actualización | Se inicia el desarrollo técnico del sprint 01 con la base funcional de eventos, perfiles y persistencia local. |
-| 2026-04-06 | A | 4 | Actualización | Se marca el sprint 01 como completado tras implementar eventos, perfiles, navegación base y persistencia local. |
+| 2026-04-05 | A | A.1 | Alta | Creación inicial del sprint 01. |
+| 2026-04-05 | A | A.2 | Actualización | Se concreta el alcance del sprint 01 con requisitos y tareas base. |
+| 2026-04-05 | A | A.3 | Actualización | Se inicia el desarrollo técnico del sprint 01 con la base funcional de eventos, perfiles y persistencia local. |
+| 2026-04-06 | A | A.4 | Actualización | Se marca el sprint 01 como completado tras implementar eventos, perfiles, navegación base y persistencia local. |

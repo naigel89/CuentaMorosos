@@ -2,8 +2,8 @@
 
 > **Código:** BKL0001A1
 > **Versión:** A
-> **Revisión:** 12
-> **Fecha:** 2026-04-30
+> **Revisión:** A.17
+> **Fecha:** 2026-05-02
 
 ## Resumen
 Backlog general del proyecto. Debe recoger todos los requisitos, tareas técnicas y pendientes relevantes para planificar los próximos sprints.
@@ -31,6 +31,16 @@ Backlog general del proyecto. Debe recoger todos los requisitos, tareas técnica
 | DT0005A1 | DT | Notificaciones en segundo plano con WorkManager | Media | Sprint 04 | Hecho | FR0004A1, API0001A1 |
 | FR0001B1 | FR | Vista de calendario de eventos | Baja | Sprint 05 | Hecho | FR0001A1 |
 | UX0001A1 | UX | Búsqueda y filtrado de eventos | Media | Sprint 05 | Hecho | FR0001A1 |
+| US-01 | US | Registro de nuevo usuario | Alta | Sprint 06 | Hecho | — |
+| US-02 | US | Inicio de sesión | Alta | Sprint 06 | Hecho | US-01 |
+| US-03 | US | Recuperación de contraseña | Media | Sprint 06 | Hecho | US-01 |
+| US-04 | US | Cerrar sesión | Media | Sprint 06 | Hecho | US-02 |
+| US-05 | US | Crear un evento online | Alta | Sprint 07 | Hecho | SPR0006 |
+| US-06 | US | Ver eventos en tiempo real | Alta | Sprint 07 | Hecho | US-05 |
+| FR0006A1 | FR | Perfiles fantasma y vinculación manual | Alta | Sprint 08B.2 | Hecho | SPR0008A1 |
+| FR0007A1 | FR | Creador de evento opcional en el reparto | Media | Sprint 08B.1 | Hecho | SPR0008A1 |
+| FR0008A1 | FR | Divisiones porcentuales por ítem individual | Alta | Sprint 08B.2 | Hecho | FR0005A1 |
+| UI0006A1 | UI | Simplificación de la interfaz de modos de cálculo | Media | Sprint 08B.1 | Hecho | UI0005A1 |
 
 ## Notas de priorización
 - Priorizar primero la base de datos y el flujo mínimo de eventos y perfiles.
@@ -41,14 +51,19 @@ Backlog general del proyecto. Debe recoger todos los requisitos, tareas técnica
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-05 | A | 1 | Alta | Creación inicial del backlog del proyecto. |
-| 2026-04-05 | A | 2 | Actualización | Se priorizan requisitos y se reparte el trabajo por sprints reales. |
-| 2026-04-05 | A | 3 | Actualización | Se añade la calculadora automática de cuentas al backlog priorizado. |
-| 2026-04-05 | A | 4 | Actualización | Se marca como en progreso la base funcional del sprint 01 tras iniciar la implementación en la app. |
-| 2026-04-05 | A | 5 | Actualización | Se marca en progreso el sprint 02 con control manual de pagos y reparto rápido inicial. |
-| 2026-04-06 | A | 6 | Actualización | Se marcan como completados los sprints 01 y 02 tras cerrar la base funcional, pagos y calculadora avanzada. |
-| 2026-04-06 | A | 7 | Actualización | Se arranca el sprint 03 con recordatorios locales y personalización visual persistente. |
-| 2026-04-06 | A | 8 | Actualización | Se marca como completado el sprint 03 a nivel funcional tras cerrar ajustes, recordatorios y apariencia base. |
-| 2026-04-30 | A | 10 | Actualización | Sprint 04 completado; todos los ítems de deuda técnica marcados como Hecho. |
-| 2026-04-30 | A | 11 | Actualización | Sprint 05 arrancado: FR0001B1 (calendario) y UX0001A1 (búsqueda y filtrado) en progreso. |
-| 2026-04-30 | A | 12 | Actualización | Sprint 05 completado: calendario mensual y búsqueda+filtros en EventsScreen implementados. |
+| 2026-04-05 | A | A.1 | Alta | Creación inicial del backlog del proyecto. |
+| 2026-04-05 | A | A.2 | Actualización | Se priorizan requisitos y se reparte el trabajo por sprints reales. |
+| 2026-04-05 | A | A.3 | Actualización | Se añade la calculadora automática de cuentas al backlog priorizado. |
+| 2026-04-05 | A | A.4 | Actualización | Se marca como en progreso la base funcional del sprint 01 tras iniciar la implementación en la app. |
+| 2026-04-05 | A | A.5 | Actualización | Se marca en progreso el sprint 02 con control manual de pagos y reparto rápido inicial. |
+| 2026-04-06 | A | A.6 | Actualización | Se marcan como completados los sprints 01 y 02 tras cerrar la base funcional, pagos y calculadora avanzada. |
+| 2026-04-06 | A | A.7 | Actualización | Se arranca el sprint 03 con recordatorios locales y personalización visual persistente. |
+| 2026-04-06 | A | A.8 | Actualización | Se marca como completado el sprint 03 a nivel funcional tras cerrar ajustes, recordatorios y apariencia base. |
+| 2026-04-30 | A | A.10 | Actualización | Sprint 04 completado; todos los ítems de deuda técnica marcados como Hecho. |
+| 2026-04-30 | A | A.11 | Actualización | Sprint 05 arrancado: FR0001B1 (calendario) y UX0001A1 (búsqueda y filtrado) en progreso. |
+| 2026-04-30 | A | A.12 | Actualización | Sprint 05 completado: calendario mensual y búsqueda+filtros en EventsScreen implementados. |
+| 2026-04-30 | A | A.13 | Actualización | Sprint 06 completado: autenticación Firebase (registro, login, recuperación de contraseña, perfil, cierre de sesión) implementada. |
+| 2026-05-01 | A | A.14 | Actualización | Sprint 07 completado: ProfileRepository + FirestoreProfileRepository, deleteDebtsForProfile en cascada, ProfilesViewModel refactorizado con Firestore, CuentaMorososApp migrado para perfiles. |
+| 2026-05-01 | A | A.15 | Actualización | Se añaden requisitos de usabilidad (perfiles fantasma, creador opcional, % por ítem y UI simplificada) asignados al bloque Sprint 08B antes de la migración a iOS. |
+| 2026-05-01 | A | A.16 | Actualización | Sprint 08B.1 completado: creador opcional en reparto y simplificación de modos de cálculo marcados como Hecho; quedan pendientes perfiles fantasma y porcentajes por ítem (08B.2). |
+| 2026-05-02 | A | A.17 | Actualización | Sprint 08B.2 completado: perfiles fantasma con vinculación automática por email y reparto porcentual por ítem marcados como Hecho. |

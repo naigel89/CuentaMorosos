@@ -1,0 +1,1 @@
+# UI0006A1: Simplificación de la interfaz de modos de cálculo\n\nReduce la carga cognitiva ocultando los modos de cálculo secundarios tras un menú desplegable, dejando el "Consumo Real" como flujo principal y automático.

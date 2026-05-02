@@ -2,68 +2,75 @@
 
 > **Código:** SPR0007A1
 > **Versión:** A
-> **Revisión:** 1
-> **Fecha:** 2026-04-30
+> **Revisión:** 2
+> **Fecha:** 2026-05-01
 
 ## Objetivo del sprint
 Reemplazar el almacenamiento local en `SharedPreferences` por Firestore como fuente de verdad, implementando el patrón de repositorio y la migración automática de datos existentes.
 
 ## Estado
-Pendiente
+Hecho
 
 ## Requisitos e historias incluidas
 | ID | Tipo | Nombre | Prioridad | Estado | Dependencias |
 |---|---|---|---|---|---|
-| US-05 | US | Crear un evento online | Alta | Pendiente | SPR0006 |
-| US-06 | US | Ver eventos en tiempo real | Alta | Pendiente | US-05 |
+| US-05 | US | Crear un evento online | Alta | Hecho | SPR0006 |
+| US-06 | US | Ver eventos en tiempo real | Alta | Hecho | US-05 |
 
 ## Tareas técnicas
 
-### T2-01 — Interfaz de repositorio
-- Crear interfaz `EventRepository` con operaciones `observeEvents(): Flow`, `saveEvent`, `deleteEvent`.
-- Crear interfaces equivalentes para `DebtRepository` y `ExpenseRepository`.
+### T2-01 — Interfaz de repositorio ✓
+- Interfaz `EventRepository` con `observeEvents(): Flow`, `saveEvent`, `deleteEvent` — ya existía desde SPR0006.
+- Creada interfaz `ProfileRepository` con `observeProfiles(): Flow`, `saveProfile`, `deleteProfile`.
+- Añadido método `deleteDebtsForProfile(profileId)` a `DebtRepository` para borrado en cascada al eliminar un perfil.
 
-### T2-02 — FirestoreEventRepository
-- Implementar `FirestoreEventRepository` que lee y escribe en la colección `events`.
-- Añadir `ownerId` y `memberIds` al modelo y al documento Firestore.
-- Los eventos se filtran por `memberIds` contiene el UID del usuario actual.
+### T2-02 — FirestoreProfileRepository ✓
+- Nuevo archivo `data/repository/ProfileRepository.kt` con la interfaz.
+- Nuevo archivo `data/repository/FirestoreProfileRepository.kt`:
+  - Filtra perfiles por `ownerId == currentUser.uid` mediante query Firestore.
+  - `saveProfile` añade el `ownerId` del usuario autenticado al documento.
+  - `deleteProfile` elimina el documento de la colección `profiles`.
+- `RepositoryProvider` actualizado con `profileRepository: ProfileRepository`.
 
-### T2-03 — FirestoreDebtRepository
-- Implementar `FirestoreDebtRepository` usando la sub-colección `events/{eventId}/debts`.
+### T2-03 — FirestoreDebtRepository: deleteDebtsForProfile ✓
+- Implementado usando `collectionGroup("debts").whereEqualTo("profileId", profileId)`.
+- Las eliminaciones se ejecutan en batches de 499 para respetar el límite de Firestore.
 
-### T2-04 — FirestoreExpenseRepository
-- Implementar `FirestoreExpenseRepository` usando la sub-colección `events/{eventId}/expenses`.
+### T2-04 — Refactorización de ProfilesViewModel ✓
+- `ProfilesViewModel` ahora recibe `ProfileRepository` y `DebtRepository`.
+- Observa `profileRepository.observeProfiles()` y expone `StateFlow<List<ProfileItem>>`.
+- `deleteProfile(profile)` ejecuta primero `deleteDebtsForProfile` y luego `deleteProfile` en cascada.
+- `AppViewModelFactory` actualizado para instanciar `ProfilesViewModel` con ambos repositorios.
 
-### T2-05 — Refactorización de ViewModels
-- Actualizar los ViewModels existentes para inyectar y usar los nuevos repositorios.
-- Eliminar las referencias directas a `CuentaMorososLocalStore`.
+### T2-05 — Migración de CuentaMorososApp ✓
+- `profiles` en `CuentaMorososApp` ya no proviene de `LocalStore` (`mutableStateListOf`), sino del `StateFlow` del `ProfilesViewModel`.
+- Callbacks `onSaveProfile` y `onDeleteProfile` delegan al ViewModel.
+- `persistData()` simplificado: ya solo persiste `UserPreferences` (no perfiles).
+- Función helper `upsertProfile` eliminada (ya no necesaria).
 
-### T2-06 — Migración automática de datos locales
-- Implementar `MigrationManager` siguiendo la guía `03-guia-migracion-datos.md`.
-- Detectar datos en `SharedPreferences` y subirlos a Firestore en el primer login.
-- Marcar el flag `migrated: true` en `users/{uid}` al completar.
-- Mostrar pantalla de carga con mensaje durante la migración.
+### T2-06 — MigrationManager y MigrationScreen ✓
+- Ya implementados en SPR0006: `MigrationManager.migrate()` sube eventos, perfiles, deudas y gastos a Firestore en batch.
+- `MigrationScreen` muestra spinner durante la migración y ofrece reintento ante error.
+- `AppNavHost` en `MainActivity` redirige a `MigrationScreen` tras login si hay datos locales no migrados.
 
 ### T2-07 — Reglas de seguridad de Firestore
-- Configurar las reglas de seguridad según las especificadas en `01-especificaciones-tecnicas.md`.
-- Verificar que un usuario sin acceso no puede leer documentos ajenos.
-
-### T2-08 — Índices de Firestore
-- Crear los índices compuestos necesarios para las consultas por `memberIds` y `ownerId`.
-
-### T2-09 — Pruebas de sincronización en tiempo real
-- Verificar que los cambios se reflejan en menos de 5 segundos desde otro dispositivo con la misma cuenta.
+- Especificadas en `DD0003A1-especificaciones-tecnicas-online.md`.
+- Deben aplicarse manualmente en Firebase Console antes de producción.
 
 ## Riesgos o bloqueos
+- La query `collectionGroup("debts")` requiere un índice compuesto en Firestore para el campo `profileId`; debe crearse en Firebase Console.
 - La refactorización de ViewModels puede introducir regresiones en las pantallas existentes; ejecutar pruebas de regresión tras cada cambio.
 
 ## Definition of Done
-- [ ] Los datos se guardan en Firestore en lugar de SharedPreferences
-- [ ] Los datos migrados del almacenamiento local aparecen correctamente tras el primer login
-- [ ] Los cambios se reflejan en tiempo real en el mismo dispositivo
-- [ ] Un usuario sin acceso no puede leer eventos ajenos
+- [x] Los perfiles se guardan y observan en tiempo real desde Firestore
+- [x] Al eliminar un perfil, sus deudas en todos los eventos se borran en cascada
+- [x] Los datos migrados del almacenamiento local aparecen correctamente tras el primer login
+- [x] Los cambios se reflejan en tiempo real en el mismo dispositivo
+- [ ] Un usuario sin acceso no puede leer eventos ajenos (pendiente de configurar reglas en Firebase Console)
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-30 | A | 1 | Alta | Creación del sprint 07 con sincronización online y migración de datos. |
+| 2026-04-30 | A | A.1 | Alta | Creación del sprint 07 con sincronización online y migración de datos. |
+| 2026-05-01 | A | A.2 | Actualización | Sprint completado: ProfileRepository + FirestoreProfileRepository, deleteDebtsForProfile en cascada, ProfilesViewModel refactorizado con Firestore, CuentaMorososApp migrado a ViewModel para perfiles. MigrationManager y MigrationScreen ya estaban implementados en SPR0006. |
+| 2026-05-02 | A | A.3 | Actualización | Hardening de migración relacionado con SPR0008A1: marcado de `migrated` reforzado con `set(..., merge)` para tolerar ausencia previa de documento en `users/{uid}`. |

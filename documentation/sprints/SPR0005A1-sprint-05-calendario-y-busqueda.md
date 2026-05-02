@@ -57,8 +57,8 @@ Hecho
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-30 | A | 1 | Alta | Creación del sprint 05 con calendario y búsqueda de eventos. |
-| 2026-04-30 | A | 2 | Actualización | Sprint completado: CalendarScreen y búsqueda+filtros en EventsScreen implementados. |
+| 2026-04-30 | A | A.1 | Alta | Creación del sprint 05 con calendario y búsqueda de eventos. |
+| 2026-04-30 | A | A.2 | Actualización | Sprint completado: CalendarScreen y búsqueda+filtros en EventsScreen implementados. |
 
 > **Código:** SPR0005A1
 > **Versión:** A
@@ -110,4 +110,4 @@ En progreso
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-30 | A | 1 | Alta | Creación del sprint 05 con calendario y búsqueda de eventos. |
+| 2026-04-30 | A | A.1 | Alta | Creación del sprint 05 con calendario y búsqueda de eventos. |

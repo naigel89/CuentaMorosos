@@ -2,22 +2,22 @@
 
 > **Código:** SPR0008A1
 > **Versión:** A
-> **Revisión:** 1
-> **Fecha:** 2026-04-30
+> **Revisión:** A.3
+> **Fecha:** 2026-05-02
 
 ## Objetivo del sprint
 Permitir que varios usuarios accedan a un mismo evento, implementando el sistema de invitaciones, la gestión de participantes y las notificaciones push mediante Firebase Cloud Messaging.
 
 ## Estado
-Pendiente
+Completado (parcial — Cloud Functions y pruebas manuales pendientes)
 
 ## Requisitos e historias incluidas
 | ID | Tipo | Nombre | Prioridad | Estado | Dependencias |
 |---|---|---|---|---|---|
-| US-07 | US | Invitar a alguien a un evento por email | Alta | Pendiente | SPR0007 |
-| US-08 | US | Aceptar o rechazar una invitación | Alta | Pendiente | US-07 |
-| US-09 | US | Ver miembros de un evento | Media | Pendiente | US-07 |
-| US-10 | US | Expulsar a un miembro | Media | Pendiente | US-09 |
+| US-07 | US | Invitar a alguien a un evento por email | Alta | Completado | SPR0007 |
+| US-08 | US | Aceptar o rechazar una invitación | Alta | Completado | US-07 |
+| US-09 | US | Ver miembros de un evento | Media | Completado | US-07 |
+| US-10 | US | Expulsar a un miembro | Media | Completado | US-09 |
 
 ## Tareas técnicas
 
@@ -61,19 +61,29 @@ Pendiente
 ### T3-10 — Pruebas de colaboración
 - Prueba manual con dos cuentas distintas: invitación, aceptación y edición simultánea de un evento.
 
+### T3-11 — Hardening Firebase/Auth/FCM (A.3)
+- Se centraliza la sincronización del usuario autenticado en Firestore (`users/{uid}`) y del token FCM en un único punto (`FirebaseUserSyncManager`).
+- En login y arranque con sesión activa se sincronizan `uid`, `email`, `displayName` y `fcmToken`, evitando divergencias entre pantallas.
+- `CuentaMorososFirebaseMessagingService` delega el guardado del token en el manager central, con persistencia tolerante a fallos mediante `set(..., merge)`.
+- Se normalizan emails (`trim + lowercase`) para invitaciones y enlace de perfiles fantasma, reduciendo fallos por mayúsculas/minúsculas.
+- Se endurece migración: al marcar `migrated`, se usa `set(..., merge)` para no fallar si el documento de usuario aún no existe.
+- Se añade `kotlinx-coroutines-play-services` para soportar `await()` en tareas de Firebase.
+
 ## Riesgos o bloqueos
 - Las Cloud Functions requieren activar el plan Blaze de Firebase si se usan para enviar notificaciones; evaluar si se puede gestionar desde el cliente.
 - La invitación a usuarios no registrados requiere un flujo adicional de deep link.
 
 ## Definition of Done
-- [ ] El creador puede invitar a otro usuario por email
-- [ ] El invitado recibe una notificación push
-- [ ] El invitado puede aceptar o rechazar la invitación
-- [ ] Dos usuarios ven los cambios del mismo evento en tiempo real
-- [ ] El creador puede ver la lista de miembros del evento
-- [ ] El creador puede expulsar a un miembro
+- [x] El creador puede invitar a otro usuario por email
+- [ ] El invitado recibe una notificación push (requiere Cloud Functions / plan Blaze)
+- [x] El invitado puede aceptar o rechazar la invitación
+- [x] Dos usuarios ven los cambios del mismo evento en tiempo real (via Firestore listeners)
+- [x] El creador puede ver la lista de miembros del evento
+- [x] El creador puede expulsar a un miembro
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-30 | A | 1 | Alta | Creación del sprint 08 con colaboración e invitaciones. |
+| 2026-04-30 | A | A.1 | Alta | Creación del sprint 08 con colaboración e invitaciones. |
+| 2026-05-01 | A | A.2 | Alta | Implementación completa: EventInvitation model, InvitationRepository, FirestoreInvitationRepository, InvitationsViewModel, InviteMemberDialog, InvitationsScreen, sección MEMBERS en EventDetailScreen, removeMember en FirestoreEventRepository, CuentaMorososFirebaseMessagingService, guardado de uid+email en Firestore al login. |
+| 2026-05-02 | A | A.3 | Actualización | Hardening transversal Firebase/Auth/FCM: sincronización centralizada de usuario y token, normalización de email en invitaciones/perfiles fantasma, y refuerzo del marcado de migración con `set(..., merge)`. |

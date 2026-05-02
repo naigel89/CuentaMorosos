@@ -49,9 +49,9 @@ Hecho
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-05 | A | 1 | Alta | Creación inicial del sprint 02 para control de pagos. |
-| 2026-04-05 | A | 2 | Actualización | Se amplía el sprint 02 con la calculadora automática de reparto por evento. |
-| 2026-04-05 | A | 3 | Actualización | Se inicia la implementación técnica con detalle de evento, control manual de pagos y reparto rápido `simple_avg`. |
-| 2026-04-05 | A | 4 | Actualización | Se amplía la calculadora con modos `custom_percentage`, `by_weight` y `by_attendance`, validación y comparativa rápida. |
-| 2026-04-06 | A | 5 | Actualización | Se añade gestión de ítems del evento y nuevos modos `real_consumption` y `by_category` con persistencia y simulación previa. |
-| 2026-04-06 | A | 6 | Actualización | Se completa funcionalmente el sprint 02 con los modos restantes (`by_income`, `base_plus_surplus`, `mixed`) y ayuda de liquidación en la calculadora. |
+| 2026-04-05 | A | A.1 | Alta | Creación inicial del sprint 02 para control de pagos. |
+| 2026-04-05 | A | A.2 | Actualización | Se amplía el sprint 02 con la calculadora automática de reparto por evento. |
+| 2026-04-05 | A | A.3 | Actualización | Se inicia la implementación técnica con detalle de evento, control manual de pagos y reparto rápido `simple_avg`. |
+| 2026-04-05 | A | A.4 | Actualización | Se amplía la calculadora con modos `custom_percentage`, `by_weight` y `by_attendance`, validación y comparativa rápida. |
+| 2026-04-06 | A | A.5 | Actualización | Se añade gestión de ítems del evento y nuevos modos `real_consumption` y `by_category` con persistencia y simulación previa. |
+| 2026-04-06 | A | A.6 | Actualización | Se completa funcionalmente el sprint 02 con los modos restantes (`by_income`, `base_plus_surplus`, `mixed`) y ayuda de liquidación en la calculadora. |

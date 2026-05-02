@@ -39,8 +39,8 @@ Hecho
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-05 | A | 1 | Alta | Creación inicial del sprint 03 para recordatorios y apariencia. |
-| 2026-04-06 | A | 2 | Actualización | Se inicia la implementación con ajustes persistentes de tema, color secundario y motor local de recordatorios visibles en la app. |
-| 2026-04-06 | A | 3 | Actualización | Se añade preparación del canal local de notificaciones, permiso Android y vista previa visual en ajustes. |
-| 2026-04-06 | A | 4 | Actualización | Se completa funcionalmente el sprint 03 con personalización persistente, lógica de avisos locales y pulido visual mínimo consistente. |
-| 2026-04-30 | A | 5 | Corrección | Se cierran gaps reales del sprint: notificaciones nativas del SO implementadas en NotificationScheduler con postReminders(); botón manual "Enviar recordatorios ahora" añadido en SettingsScreen; eliminado StatusCard de desarrollo visible al usuario final en EventsScreen; corregido flash de tema en MainActivity eliminando el Surface externo con tema por defecto. |
+| 2026-04-05 | A | A.1 | Alta | Creación inicial del sprint 03 para recordatorios y apariencia. |
+| 2026-04-06 | A | A.2 | Actualización | Se inicia la implementación con ajustes persistentes de tema, color secundario y motor local de recordatorios visibles en la app. |
+| 2026-04-06 | A | A.3 | Actualización | Se añade preparación del canal local de notificaciones, permiso Android y vista previa visual en ajustes. |
+| 2026-04-06 | A | A.4 | Actualización | Se completa funcionalmente el sprint 03 con personalización persistente, lógica de avisos locales y pulido visual mínimo consistente. |
+| 2026-04-30 | A | A.5 | Corrección | Se cierran gaps reales del sprint: notificaciones nativas del SO implementadas en NotificationScheduler con postReminders(); botón manual "Enviar recordatorios ahora" añadido en SettingsScreen; eliminado StatusCard de desarrollo visible al usuario final en EventsScreen; corregido flash de tema en MainActivity eliminando el Surface externo con tema por defecto. |

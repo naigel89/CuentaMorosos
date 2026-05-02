@@ -1,0 +1,1 @@
+# FR0006A1: Perfiles fantasma y vinculación manual\n\nPermite crear perfiles locales sin cuenta Firebase para reducir la fricción inicial. Al registrarse, el sistema vincula el perfil local con el UID de Firebase mediante el email.

@@ -9,7 +9,7 @@
 Implementar el sistema de cuentas de usuario mediante Firebase Auth: registro, inicio de sesión, recuperación de contraseña y cierre de sesión, sentando las bases para la funcionalidad online.
 
 ## Estado
-Pendiente
+Hecho
 
 ## Requisitos e historias incluidas
 | ID | Tipo | Nombre | Prioridad | Estado | Dependencias |
@@ -73,14 +73,16 @@ Pendiente
 - La cuenta de Firebase debe estar correctamente configurada antes de empezar.
 
 ## Definition of Done
-- [ ] Un usuario puede registrarse con email y contraseña
-- [ ] Un usuario puede iniciar sesión con sus credenciales
-- [ ] La sesión persiste entre cierres de la app
-- [ ] El flujo de recuperación de contraseña envía un email correctamente
-- [ ] Un usuario puede cerrar sesión desde ajustes
-- [ ] Se crea el documento `users/{uid}` en Firestore al registrarse
+- [x] Un usuario puede registrarse con email y contraseña
+- [x] Un usuario puede iniciar sesión con sus credenciales
+- [x] La sesión persiste entre cierres de la app
+- [x] El flujo de recuperación de contraseña envía un email correctamente
+- [x] Un usuario puede cerrar sesión desde ajustes
+- [x] Se crea el documento `users/{uid}` en Firestore al registrarse
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-30 | A | 1 | Alta | Creación del sprint 06 con autenticación Firebase. |
+| 2026-04-30 | A | A.1 | Alta | Creación del sprint 06 con autenticación Firebase. |
+| 2026-04-30 | A | A.2 | Alta | Sprint 06 implementado: LoginScreen, RegisterScreen, ForgotPasswordScreen, UserProfileScreen, NavHost auth-aware, botón de cerrar sesión en Ajustes. |
+| 2026-05-02 | A | A.3 | Actualización | Ajuste de robustez alineado con SPR0008A1: consolidada la sincronización de `users/{uid}` (uid/email/displayName) en un manager común para registro, login y edición de perfil. |

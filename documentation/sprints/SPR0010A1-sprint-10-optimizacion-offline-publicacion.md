@@ -84,4 +84,4 @@ Pendiente
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-30 | A | 1 | Alta | Creación del sprint 10 con optimización, modo offline y publicación. |
+| 2026-04-30 | A | A.1 | Alta | Creación del sprint 10 con optimización, modo offline y publicación. |
