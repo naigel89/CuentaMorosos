@@ -6,6 +6,7 @@ import platform.Foundation.NSLocale
 import platform.Foundation.NSUUID
 import platform.Foundation.currentLocale
 import platform.Foundation.dateWithTimeIntervalSince1970
+import platform.Foundation.timeIntervalSince1970
 
 private val dateFormatter: NSDateFormatter by lazy {
     NSDateFormatter().apply {
