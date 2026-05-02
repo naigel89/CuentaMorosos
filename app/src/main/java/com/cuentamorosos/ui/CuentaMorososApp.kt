@@ -39,6 +39,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -47,13 +48,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
+import androidx.lifecycle.viewmodel.compose.viewModel
+
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,6 +85,8 @@ import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEventDate
 import com.cuentamorosos.model.parseEuroAmount
+import com.google.firebase.auth.FirebaseAuth
+import com.cuentamorosos.model.EventInvitation
 import java.text.DateFormatSymbols
 import java.util.Calendar
 import java.util.Locale
@@ -91,28 +95,34 @@ private enum class MainSection(val title: String, val emoji: String) {
     EVENTS("Eventos", "📅"),
     CALENDAR("Calendario", "🗓️"),
     PROFILES("Perfiles", "👤"),
+    INVITATIONS("Invitaciones", "✉️"),
     SETTINGS("Ajustes", "🎨")
 }
 
 @Composable
-fun CuentaMorososApp(store: CuentaMorososLocalStore) {
+fun CuentaMorososApp(store: CuentaMorososLocalStore, onSignOut: (() -> Unit)? = null) {
     val context = LocalContext.current
-    val events = remember { mutableStateListOf<EventItem>().apply { addAll(store.loadEvents()) } }
-    val profiles = remember { mutableStateListOf<ProfileItem>().apply { addAll(store.loadProfiles()) } }
-    val debts = remember { mutableStateListOf<EventDebtItem>().apply { addAll(store.loadDebts()) } }
-    val expenses = remember { mutableStateListOf<EventExpenseItem>().apply { addAll(store.loadExpenses()) } }
-
+    
+    val factory = remember(context) { AppViewModelFactory(context.applicationContext) }
+    val eventsViewModel: EventsViewModel = viewModel(factory = factory)
+    val eventDetailViewModel: EventDetailViewModel = viewModel(factory = factory)
+    val profilesViewModel: ProfilesViewModel = viewModel(factory = factory)
+    val invitationsViewModel: InvitationsViewModel = viewModel(factory = factory)
+    
+    val events by eventsViewModel.events.collectAsState()
+    val profiles by profilesViewModel.profiles.collectAsState()
+    val pendingInvitations by invitationsViewModel.pendingInvitations.collectAsState()
+    
+    val eventId by eventDetailViewModel.eventId.collectAsState()
+    val debts by eventDetailViewModel.debts.collectAsState(initial = emptyList())
+    val expenses by eventDetailViewModel.expenses.collectAsState(initial = emptyList())
+    
     var preferences by remember { mutableStateOf(store.loadPreferences()) }
     var currentSection by rememberSaveable { mutableStateOf(MainSection.EVENTS.name) }
-    var openedEventId by rememberSaveable { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
 
     fun persistData() {
-        store.saveEvents(events.toList())
-        store.saveProfiles(profiles.toList())
-        store.saveDebts(debts.toList())
-        store.saveExpenses(expenses.toList())
         store.savePreferences(preferences)
     }
 
@@ -162,9 +172,9 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
         }
     }
 
-    val selectedEvent by remember(events, openedEventId) {
+    val selectedEvent by remember(events, eventId) {
         derivedStateOf {
-            events.firstOrNull { it.id == openedEventId }
+            events.firstOrNull { it.id == eventId }
         }
     }
 
@@ -212,76 +222,93 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
                 profiles = profiles.toList(),
                 eventDebts = debts.filter { it.eventId == event.id },
                 eventExpenses = expenses.filter { it.eventId == event.id },
-                onBack = { openedEventId = null },
-                onAddProfileToEvent = { profile ->
-                    if (debts.none { it.eventId == event.id && it.profileId == profile.id }) {
-                        debts.add(
-                            EventDebtItem(
-                                eventId = event.id,
-                                profileId = profile.id
-                            )
-                        )
-                        persistData()
-                        feedbackMessage = "Perfil añadido al evento."
-                    }
-                },
-                onSaveDebt = { debt ->
-                    upsertDebt(debts = debts, debt = debt)
-                    persistData()
-                    feedbackMessage = "Importe y notas actualizados."
-                },
-                onTogglePaid = { debt ->
-                    upsertDebt(
-                        debts = debts,
-                        debt = debt.copy(paid = !debt.paid)
-                    )
-                    persistData()
-                    feedbackMessage = if (debt.paid) {
-                        "El perfil vuelve a pendientes."
-                    } else {
-                        "Perfil movido a Han pagado."
-                    }
-                },
-                onRemoveDebt = { debtId ->
-                    removeDebt(debts = debts, debtId = debtId)
-                    persistData()
-                    feedbackMessage = "Perfil eliminado del evento."
-                },
-                onSaveExpense = { expense ->
-                    upsertExpense(expenses = expenses, expense = expense)
-                    persistData()
-                    feedbackMessage = "Ítem del evento guardado."
-                },
-                onRemoveExpense = { expenseId ->
-                    removeExpense(expenses = expenses, expenseId = expenseId)
-                    persistData()
-                    feedbackMessage = "Ítem eliminado del evento."
-                },
-                onApplyCalculation = { calculation ->
-                    val eventEntries = debts.filter { it.eventId == event.id }
+                                onBack = { eventDetailViewModel.setEventId(null) },
+                                onAddProfileToEvent = { profile ->
+                                    if (debts.none { it.eventId == event.id && it.profileId == profile.id }) {
+                                        eventDetailViewModel.saveDebt(
+                                            EventDebtItem(
+                                                eventId = event.id,
+                                                profileId = profile.id
+                                            )
+                                        )
+                                        persistData()
+                                        feedbackMessage = "Perfil añadido al evento."
+                                    }
+                                },
+                                onSaveDebt = { debt ->
+                                    eventDetailViewModel.saveDebt(debt)
+                                    persistData()
+                                    feedbackMessage = "Importe y notas actualizados."
+                                },
+                                onTogglePaid = { debt ->
+                                    eventDetailViewModel.saveDebt(
+                                        debt.copy(paid = !debt.paid)
+                                    )
+                                    persistData()
+                                    feedbackMessage = if (debt.paid) {
+                                        "El perfil vuelve a pendientes."
+                                    } else {
+                                        "Perfil movido a Han pagado."
+                                    }
+                                },
+                                onRemoveDebt = { debtId ->
+                                    eventDetailViewModel.deleteDebt(event.id, debtId)
+                                    persistData()
+                                    feedbackMessage = "Perfil eliminado del evento."
+                                },
+                                onSaveExpense = { expense ->
+                                    eventDetailViewModel.saveExpense(expense)
+                                    persistData()
+                                    feedbackMessage = "Ítem del evento guardado."
+                                },
+                                onRemoveExpense = { expenseId ->
+                                    eventDetailViewModel.deleteExpense(event.id, expenseId)
+                                    persistData()
+                                    feedbackMessage = "Ítem eliminado del evento."
+                                },
+                                 onApplyCalculation = { calculation ->
+                                     val eventEntries = debts.filter { it.eventId == event.id }
 
-                    eventEntries.forEachIndexed { index, debt ->
-                        upsertDebt(
-                            debts = debts,
-                            debt = debt.copy(
-                                amountEuros = calculation.amounts.getOrElse(index) { 0.0 },
-                                calculationMode = calculation.mode.id
-                            )
-                        )
-                    }
+                                     eventEntries.forEachIndexed { index, debt ->
+                                         eventDetailViewModel.saveDebt(
+                                             debt.copy(
+                                                 amountEuros = calculation.amounts.getOrElse(index) { 0.0 },
+                                                 calculationMode = calculation.mode.id
+                                             )
+                                         )
+                                     }
 
-                    upsertEvent(
-                        events = events,
-                        event = event.copy(
-                            lastCalculationMode = calculation.mode.id,
-                            lastCalculationTotal = calculation.total,
-                            lastCalculationTimestamp = System.currentTimeMillis(),
-                            lastCalculationSummary = calculation.summary
-                        )
-                    )
-                    persistData()
-                    feedbackMessage = "Cálculo ${calculation.mode.label} aplicado al evento."
-                }
+                                     eventsViewModel.saveEvent(
+                                         event.copy(
+                                             lastCalculationMode = calculation.mode.id,
+                                             lastCalculationTotal = calculation.total,
+                                             lastCalculationTimestamp = System.currentTimeMillis(),
+                                             lastCalculationSummary = calculation.summary
+                                         )
+                                     )
+                                     persistData()
+                                     feedbackMessage = "Cálculo ${calculation.mode.label} aplicado al evento."
+                                 },
+                                 onInviteMember = { email ->
+                                     val currentUser = FirebaseAuth.getInstance().currentUser
+                                     if (currentUser != null) {
+                                         invitationsViewModel.sendInvitation(
+                                             EventInvitation(
+                                                 eventId = event.id,
+                                                 eventName = event.name,
+                                                 invitedByUid = currentUser.uid,
+                                                 invitedByEmail = currentUser.email ?: "",
+                                                 invitedEmail = email,
+                                             )
+                                         )
+                                         feedbackMessage = "Invitación enviada a $email."
+                                     }
+                                 },
+                                 onRemoveMember = { uid ->
+                                     eventsViewModel.removeMember(event.id, uid)
+                                     feedbackMessage = "Miembro eliminado del evento."
+                                 }
+
             )
         } else {
             when (MainSection.valueOf(currentSection)) {
@@ -294,19 +321,20 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
                     participantCountByEvent = participantCountByEvent,
                     pendingTotalsByEvent = pendingTotalsByEvent,
                     reminders = reminderMessages,
-                    onOpenEvent = { event ->
-                        openedEventId = event.id
-                    },
-                    onSaveEvent = { event ->
-                        upsertEvent(events = events, event = event)
-                        persistData()
-                        feedbackMessage = "Evento guardado correctamente."
-                    },
-                    onDeleteEvent = { event ->
-                        removeEvent(events = events, debts = debts, expenses = expenses, eventId = event.id)
-                        persistData()
-                        feedbackMessage = "Evento \"${event.name}\" eliminado."
-                    }
+                                onOpenEvent = { event ->
+                                    eventDetailViewModel.setEventId(event.id)
+                                },
+                                onSaveEvent = { event ->
+                                    eventsViewModel.saveEvent(event)
+                                    persistData()
+                                    feedbackMessage = "Evento guardado correctamente."
+                                },
+                                onDeleteEvent = { event ->
+                                    eventsViewModel.deleteEvent(event.id)
+                                    persistData()
+                                    feedbackMessage = "Evento \"${event.name}\" eliminado."
+                                }
+
                 )
 
                 MainSection.CALENDAR -> CalendarScreen(
@@ -315,7 +343,7 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
                         .padding(innerPadding),
                     events = events.toList(),
                     pendingTotalsByEvent = pendingTotalsByEvent,
-                    onOpenEvent = { event -> openedEventId = event.id }
+                    onOpenEvent = { event -> eventDetailViewModel.setEventId(event.id) }
                 )
 
                 MainSection.PROFILES -> ProfilesScreen(
@@ -325,18 +353,26 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
                     profiles = profiles.map { profile ->
                         profile.copy(totalPendingEuros = activeTotalsByProfile[profile.id] ?: 0.0)
                     },
+                    currentUid = FirebaseAuth.getInstance().currentUser?.uid,
                     eventCount = events.size,
                     pendingEventsByProfile = pendingEventsByProfile,
                     onSaveProfile = { profile ->
-                        upsertProfile(profiles = profiles, profile = profile)
-                        persistData()
+                        profilesViewModel.saveProfile(profile)
                         feedbackMessage = "Perfil guardado correctamente."
                     },
                     onDeleteProfile = { profile ->
-                        removeProfile(profiles = profiles, debts = debts, profileId = profile.id)
-                        persistData()
+                        profilesViewModel.deleteProfile(profile)
                         feedbackMessage = "Perfil \"${profile.name}\" eliminado."
                     }
+                )
+
+                MainSection.INVITATIONS -> InvitationsScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    invitations = pendingInvitations,
+                    onAccept = { invitation -> invitationsViewModel.acceptInvitation(invitation) },
+                    onReject = { invitation -> invitationsViewModel.rejectInvitation(invitation.id) },
                 )
 
                 MainSection.SETTINGS -> SettingsScreen(
@@ -354,13 +390,140 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore) {
                             ReminderWorker.cancel(context)
                         }
                         feedbackMessage = "Preferencias actualizadas."
-                    }
+                    },
+                    onSignOut = onSignOut
                 )
             }
         }
     }
 }
 }
+}
+
+// ── T3-04: InviteMemberDialog ─────────────────────────────────────────────────
+
+@Composable
+private fun InviteMemberDialog(
+    onDismiss: () -> Unit,
+    onInvite: (email: String) -> Unit,
+) {
+    var email by remember { mutableStateOf("") }
+    var validationMessage by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Invitar miembro") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Introduce el email del usuario que quieres invitar a este evento.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = {
+                        email = it
+                        validationMessage = null
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Email") },
+                    singleLine = true,
+                )
+                validationMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val trimmed = email.trim()
+                if (trimmed.isEmpty() || !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmed).matches()) {
+                    validationMessage = "Introduce un email válido."
+                } else {
+                    onInvite(trimmed)
+                }
+            }) {
+                Text("Invitar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
+}
+
+// ── T3-05: InvitationsScreen ──────────────────────────────────────────────────
+
+@Composable
+private fun InvitationsScreen(
+    modifier: Modifier = Modifier,
+    invitations: List<EventInvitation>,
+    onAccept: (EventInvitation) -> Unit,
+    onReject: (EventInvitation) -> Unit,
+) {
+    Column(
+        modifier = modifier.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "Invitaciones",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Invitaciones pendientes para unirte a eventos de otros usuarios.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        if (invitations.isEmpty()) {
+            EmptyState(
+                modifier = Modifier.weight(1f),
+                title = "Sin invitaciones pendientes",
+                message = "Cuando alguien te invite a un evento aparecerá aquí para que puedas aceptarla o rechazarla."
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(invitations, key = { it.id }) { invitation ->
+                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = invitation.eventName,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Invitado por: ${invitation.invitedByEmail}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { onAccept(invitation) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Aceptar")
+                                }
+                                OutlinedButton(
+                                    onClick = { onReject(invitation) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Rechazar")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -420,9 +583,11 @@ private fun EventsScreen(
             Button(
                 onClick = {
                     editableEvent = EventItem(
-                        name = "",
-                        dateMillis = System.currentTimeMillis()
-                    )
+                                        name = "",
+                                        dateMillis = System.currentTimeMillis(),
+                                        ownerId = FirebaseAuth.getInstance().currentUser?.uid ?: "",
+                                        memberIds = listOf(FirebaseAuth.getInstance().currentUser?.uid ?: "").filter { it.isNotBlank() }
+                                    )
                 },
                 modifier = Modifier.weight(1f)
             ) {
@@ -581,6 +746,7 @@ private fun SettingsScreen(
     preferences: UserPreferences,
     reminders: List<ReminderMessage>,
     onSavePreferences: (UserPreferences) -> Unit,
+    onSignOut: (() -> Unit)? = null,
 ) {
     var selectedThemeMode by remember(preferences.themeMode) { mutableStateOf(preferences.themeMode) }
     var selectedAccentColor by remember(preferences.accentColorId) { mutableStateOf(preferences.accentColorId) }
@@ -771,6 +937,26 @@ private fun SettingsScreen(
                 )
             }
         }
+        if (onSignOut != null) {
+            item {
+                HorizontalDivider()
+            }
+            item {
+                OutlinedButton(
+                    onClick = onSignOut,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Cerrar sesión")
+                }
+            }
+        }
     }
 }
 
@@ -778,6 +964,7 @@ private fun SettingsScreen(
 private fun ProfilesScreen(
     modifier: Modifier = Modifier,
     profiles: List<ProfileItem>,
+    currentUid: String?,
     eventCount: Int,
     pendingEventsByProfile: Map<String, List<String>>,
     onSaveProfile: (ProfileItem) -> Unit,
@@ -786,6 +973,13 @@ private fun ProfilesScreen(
     var selectedProfile by remember { mutableStateOf<ProfileItem?>(null) }
     var editableProfile by remember { mutableStateOf<ProfileItem?>(null) }
     var profileToDelete by remember { mutableStateOf<ProfileItem?>(null) }
+
+    // Own profile always first, rest sorted alphabetically
+    val sortedProfiles = remember(profiles, currentUid) {
+        val own = profiles.filter { it.id == currentUid }
+        val others = profiles.filter { it.id != currentUid }.sortedBy { it.name.lowercase() }
+        own + others
+    }
 
     Column(
         modifier = modifier.padding(16.dp),
@@ -829,29 +1023,65 @@ private fun ProfilesScreen(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(profiles, key = { it.id }) { profile ->
+                items(sortedProfiles, key = { it.id }) { profile ->
+                    val isOwnProfile = profile.id == currentUid
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { selectedProfile = profile }
+                            .clickable { selectedProfile = profile },
+                        colors = if (isOwnProfile) CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ) else CardDefaults.cardColors()
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = "${profile.icon} ${profile.name}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${profile.icon} ${profile.name}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isOwnProfile) MaterialTheme.colorScheme.onPrimaryContainer
+                                            else MaterialTheme.colorScheme.onSurface
+                                )
+                                if (isOwnProfile) {
+                                    Surface(
+                                        shape = MaterialTheme.shapes.small,
+                                        color = MaterialTheme.colorScheme.primary
+                                    ) {
+                                        Text(
+                                            text = "Tú",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
                             Text(
                                 text = "Pendiente activo: ${formatEuros(profile.totalPendingEuros)}",
-                                style = MaterialTheme.typography.bodyMedium
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (isOwnProfile) MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "Eventos abiertos: ${pendingEventsByProfile[profile.id]?.size ?: 0}",
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isOwnProfile) MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (profile.isGhost) {
+                                Text(
+                                    text = "Perfil local (fantasma)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
                         }
                     }
                 }
@@ -925,6 +1155,8 @@ private fun EventDetailScreen(
     onSaveExpense: (EventExpenseItem) -> Unit,
     onRemoveExpense: (String) -> Unit,
     onApplyCalculation: (CalculationApplication) -> Unit,
+    onInviteMember: (email: String) -> Unit = {},
+    onRemoveMember: (uid: String) -> Unit = {},
 ) {
     val profileById = profiles.associateBy { it.id }
     val eventParticipants = eventDebts.mapNotNull { debt ->
@@ -942,6 +1174,11 @@ private fun EventDetailScreen(
     var editableExpense by remember { mutableStateOf<EventExpenseItem?>(null) }
     var showAddProfileDialog by remember { mutableStateOf(false) }
     var showQuickSplitDialog by remember { mutableStateOf(false) }
+    var showInviteMemberDialog by remember { mutableStateOf(false) }
+    var showRemoveOwnerConfirm by remember { mutableStateOf<EventDebtItem?>(null) }
+    var showRemoveOwnerFromMembersConfirm by remember { mutableStateOf(false) }
+    val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val isOwner = event.ownerId == currentUid
 
     Column(
         modifier = modifier
@@ -1089,6 +1326,52 @@ private fun EventDetailScreen(
             }
         }
 
+        // ── Miembros del evento ───────────────────────────────────────────────
+        Text(
+            text = "Miembros",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        Button(
+            onClick = { showInviteMemberDialog = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Invitar miembro por email")
+        }
+
+        if (event.memberIds.isEmpty()) {
+            SuggestionCard(message = "Aún no hay miembros en este evento.")
+        } else {
+            event.memberIds.forEach { uid ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val label = if (uid == event.ownerId) "$uid (propietario)" else uid
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (isOwner) {
+                        if (uid == currentUid) {
+                            TextButton(onClick = { showRemoveOwnerFromMembersConfirm = true }) {
+                                Text("No participar", color = MaterialTheme.colorScheme.error)
+                            }
+                        } else {
+                            TextButton(onClick = { onRemoveMember(uid) }) {
+                                Text("Expulsar", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
     }
 
@@ -1132,7 +1415,58 @@ private fun EventDetailScreen(
             },
             onRemove = {
                 editableDebt = null
-                onRemoveDebt(debt.id)
+                if (debt.profileId == event.ownerId) {
+                    showRemoveOwnerConfirm = debt
+                } else {
+                    onRemoveDebt(debt.id)
+                }
+            }
+        )
+    }
+
+    if (showRemoveOwnerConfirm != null) {
+        val debtToRemove = showRemoveOwnerConfirm!!
+        AlertDialog(
+            onDismissRequest = { showRemoveOwnerConfirm = null },
+            title = { Text("Eliminar propietario") },
+            text = {
+                Text("¿Seguro? No participarás en el reparto de este evento.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRemoveOwnerConfirm = null
+                    onRemoveDebt(debtToRemove.id)
+                }) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveOwnerConfirm = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (showRemoveOwnerFromMembersConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRemoveOwnerFromMembersConfirm = false },
+            title = { Text("Salir del reparto") },
+            text = {
+                Text("¿Seguro? No participarás en el reparto de este evento.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRemoveOwnerFromMembersConfirm = false
+                    onRemoveMember(currentUid)
+                }) {
+                    Text("Confirmar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveOwnerFromMembersConfirm = false }) {
+                    Text("Cancelar")
+                }
             }
         )
     }
@@ -1145,6 +1479,16 @@ private fun EventDetailScreen(
             onApply = { calculation ->
                 showQuickSplitDialog = false
                 onApplyCalculation(calculation)
+            }
+        )
+    }
+
+    if (showInviteMemberDialog) {
+        InviteMemberDialog(
+            onDismiss = { showInviteMemberDialog = false },
+            onInvite = { email ->
+                showInviteMemberDialog = false
+                onInviteMember(email)
             }
         )
     }
@@ -1251,6 +1595,8 @@ private fun ProfileEditorDialog(
     )
     var name by remember(initialProfile.id) { mutableStateOf(initialProfile.name) }
     var selectedIcon by remember(initialProfile.id) { mutableStateOf(initialProfile.icon.ifBlank { "🙂" }) }
+    var isGhost by remember(initialProfile.id) { mutableStateOf(initialProfile.isGhost) }
+    var linkedEmail by remember(initialProfile.id) { mutableStateOf(initialProfile.linkedEmail.orEmpty()) }
     var validationMessage by remember(initialProfile.id) { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -1273,6 +1619,46 @@ private fun ProfileEditorDialog(
                     label = { Text("Nombre del perfil") },
                     singleLine = true
                 )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            isGhost = !isGhost
+                            if (!isGhost) {
+                                linkedEmail = ""
+                            }
+                            validationMessage = null
+                        },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = isGhost,
+                        onCheckedChange = { checked ->
+                            isGhost = checked
+                            if (!checked) {
+                                linkedEmail = ""
+                            }
+                            validationMessage = null
+                        }
+                    )
+                    Text("Perfil local (sin cuenta Firebase)")
+                }
+                if (isGhost) {
+                    OutlinedTextField(
+                        value = linkedEmail,
+                        onValueChange = {
+                            linkedEmail = it.trim()
+                            validationMessage = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Email para vincular (opcional)") },
+                        singleLine = true
+                    )
+                    Text(
+                        text = "Si este email se registra después, el perfil local se vinculará automáticamente.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Text(
                     text = "Selecciona un icono",
                     style = MaterialTheme.typography.titleSmall,
@@ -1328,12 +1714,23 @@ private fun ProfileEditorDialog(
                         return@TextButton
                     }
 
+                    val normalizedLinkedEmail = linkedEmail.trim().lowercase()
+                    val invalidLinkedEmail = isGhost &&
+                        normalizedLinkedEmail.isNotBlank() &&
+                        !android.util.Patterns.EMAIL_ADDRESS.matcher(normalizedLinkedEmail).matches()
+                    if (invalidLinkedEmail) {
+                        validationMessage = "El email de vinculación no es válido."
+                        return@TextButton
+                    }
+
                     validationMessage = null
                     run {
                         onSave(
                             initialProfile.copy(
                                 name = name.trim(),
-                                icon = selectedIcon
+                                icon = selectedIcon,
+                                isGhost = isGhost,
+                                linkedEmail = normalizedLinkedEmail.takeIf { isGhost && it.isNotBlank() }
                             )
                         )
                     }
@@ -1440,7 +1837,19 @@ private fun ExpenseEditorDialog(
     }
     var selectedCategoryId by remember(expense.id) { mutableStateOf(expense.category.ifBlank { ExpenseCategory.SHARED.id }) }
     var selectedProfileIds by remember(expense.id) { mutableStateOf(expense.assignedProfileIds) }
+    var selectedWeights by remember(expense.id) { 
+        mutableStateOf(expense.profileWeights.mapValues { it.value.toString() }) 
+    }
+    var showCustomSplit by remember(expense.id) {
+        mutableStateOf(expense.profileWeights.isNotEmpty())
+    }
     var validationMessage by remember(expense.id) { mutableStateOf<String?>(null) }
+
+    fun updateSelectedProfiles(newSelection: List<String>) {
+        selectedProfileIds = newSelection
+        selectedWeights = selectedWeights.filterKeys { it in newSelection }
+        validationMessage = null
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1479,14 +1888,24 @@ private fun ExpenseEditorDialog(
                 ExpenseCategory.entries.forEach { category ->
                     if (selectedCategoryId == category.id) {
                         Button(
-                            onClick = { selectedCategoryId = category.id },
+                            onClick = {
+                                selectedCategoryId = category.id
+                                if (category != ExpenseCategory.SELECTED) {
+                                    showCustomSplit = false
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(category.label)
                         }
                     } else {
                         OutlinedButton(
-                            onClick = { selectedCategoryId = category.id },
+                            onClick = {
+                                selectedCategoryId = category.id
+                                if (category != ExpenseCategory.SELECTED) {
+                                    showCustomSplit = false
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(category.label)
@@ -1510,28 +1929,95 @@ private fun ExpenseEditorDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    selectedProfileIds = if (isChecked) {
+                                    val newSelection = if (isChecked) {
                                         selectedProfileIds - profile.id
                                     } else {
                                         selectedProfileIds + profile.id
                                     }
-                                    validationMessage = null
+                                    updateSelectedProfiles(newSelection)
                                 },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(
                                 checked = isChecked,
                                 onCheckedChange = {
-                                    selectedProfileIds = if (isChecked) {
+                                    val newSelection = if (isChecked) {
                                         selectedProfileIds - profile.id
                                     } else {
                                         selectedProfileIds + profile.id
                                     }
-                                    validationMessage = null
+                                    updateSelectedProfiles(newSelection)
                                 }
                             )
                             Text("${profile.icon} ${profile.name}")
                         }
+                    }
+                    
+                    if (selectedCategoryId == ExpenseCategory.SELECTED.id && selectedProfileIds.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = {
+                                showCustomSplit = !showCustomSplit
+                                validationMessage = null
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                if (showCustomSplit) {
+                                    "Ocultar reparto personalizado"
+                                } else {
+                                    "Reparto personalizado (opcional)"
+                                }
+                            )
+                        }
+                    }
+
+                    if (
+                        selectedCategoryId == ExpenseCategory.SELECTED.id &&
+                        selectedProfileIds.isNotEmpty() &&
+                        showCustomSplit
+                    ) {
+                        Text(
+                            text = "Reparto personalizado (%)",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                        
+                        var totalWeight = 0.0
+                        selectedProfileIds.forEach { profileId ->
+                            val profile = profiles.find { it.id == profileId }
+                            val weightText = selectedWeights[profileId] ?: "0"
+                            totalWeight += parseDecimalValue(weightText) ?: 0.0
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "${profile?.icon ?: ""} ${profile?.name ?: "Perfil"}",
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                OutlinedTextField(
+                                    value = weightText,
+                                    onValueChange = {
+                                        selectedWeights = selectedWeights + (profileId to it)
+                                        validationMessage = null
+                                    },
+                                    modifier = Modifier.width(80.dp),
+                                    label = { Text("%") },
+                                    singleLine = true
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Total: ${String.format("%.2f", totalWeight)}% (debe ser 100%)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (kotlin.math.abs(totalWeight - 100.0) < 0.01) MaterialTheme.colorScheme.primary 
+                                    else MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
                     }
                 }
 
@@ -1549,15 +2035,39 @@ private fun ExpenseEditorDialog(
                 onClick = {
                     val parsedAmount = parseEuroAmount(amountText)
                     val selectedCategory = ExpenseCategory.fromId(selectedCategoryId)
+                    val customWeightValues = selectedProfileIds.mapNotNull { profileId ->
+                        parseDecimalValue(selectedWeights[profileId] ?: "")
+                    }
+                    val customWeightTotal = customWeightValues.sum()
                     validationMessage = when {
                         name.isBlank() -> "Indica un nombre para el ítem."
                         parsedAmount == null -> "Introduce un importe válido."
                         parsedAmount < 0.0 -> "El importe no puede ser negativo."
                         selectedCategory != ExpenseCategory.SHARED && selectedProfileIds.isEmpty() -> "Selecciona al menos un perfil para esta categoría."
+                        selectedCategory == ExpenseCategory.SELECTED && showCustomSplit &&
+                            selectedProfileIds.any { parseDecimalValue(selectedWeights[it] ?: "") == null } ->
+                                "Revisa los porcentajes del reparto personalizado."
+                        selectedCategory == ExpenseCategory.SELECTED && showCustomSplit &&
+                            selectedProfileIds.any { (parseDecimalValue(selectedWeights[it] ?: "") ?: 0.0) < 0.0 } ->
+                                "Los porcentajes no pueden ser negativos."
+                        selectedCategory == ExpenseCategory.SELECTED && showCustomSplit &&
+                            kotlin.math.abs(customWeightTotal - 100.0) >= 0.01 ->
+                                "El reparto personalizado debe sumar 100%."
                         else -> null
                     }
 
                     if (validationMessage == null && parsedAmount != null) {
+                        val normalizedWeights = if (
+                            selectedCategory == ExpenseCategory.SELECTED &&
+                            showCustomSplit
+                        ) {
+                            selectedProfileIds.associateWith { profileId ->
+                                parseDecimalValue(selectedWeights[profileId] ?: "") ?: 0.0
+                            }
+                        } else {
+                            emptyMap()
+                        }
+
                         onSave(
                             expense.copy(
                                 name = name.trim(),
@@ -1567,7 +2077,8 @@ private fun ExpenseEditorDialog(
                                     emptyList()
                                 } else {
                                     selectedProfileIds
-                                }
+                                },
+                                profileWeights = normalizedWeights
                             )
                         )
                     }
@@ -1694,6 +2205,7 @@ private fun QuickSplitDialog(
     }
     // REAL_CONSUMPTION es el modo predeterminado: refleja directamente los ítems del evento.
     var selectedModeId by remember { mutableStateOf(SplitMode.REAL_CONSUMPTION.id) }
+    var showModeSelector by remember { mutableStateOf(false) }
     var percentageInputs by remember(profiles.size) { mutableStateOf(defaultPercentageInputs(profiles.size)) }
 
     val totalValue = parseEuroAmount(totalText)
@@ -1754,30 +2266,60 @@ private fun QuickSplitDialog(
                     fontWeight = FontWeight.SemiBold
                 )
 
-                SplitMode.entries.chunked(2).forEach { rowModes ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = selectedMode.label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedButton(onClick = { showModeSelector = !showModeSelector }) {
+                        Text(if (showModeSelector) "Ocultar modos" else "Cambiar modo de reparto")
+                    }
+                }
+
+                if (showModeSelector) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        rowModes.forEach { mode ->
-                            if (selectedMode == mode) {
-                                Button(
-                                    onClick = { selectedModeId = mode.id },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(mode.label)
-                                }
-                            } else {
+                        listOf(SplitMode.SIMPLE_AVG, SplitMode.BY_CATEGORY).forEach { mode ->
+                            if (mode != selectedMode) {
                                 OutlinedButton(
-                                    onClick = { selectedModeId = mode.id },
-                                    modifier = Modifier.weight(1f)
+                                    onClick = {
+                                        selectedModeId = mode.id
+                                        showModeSelector = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text(mode.label)
                                 }
                             }
                         }
-                        if (rowModes.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
+
+                        Text(
+                            text = "Avanzado",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+
+                        if (selectedMode != SplitMode.CUSTOM_PERCENTAGE) {
+                            OutlinedButton(
+                                onClick = {
+                                    selectedModeId = SplitMode.CUSTOM_PERCENTAGE.id
+                                    showModeSelector = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(SplitMode.CUSTOM_PERCENTAGE.label)
+                            }
                         }
                     }
                 }
@@ -2166,21 +2708,43 @@ private fun SuggestionCard(message: String) {
 
 @Composable
 private fun ReminderSummaryCard(reminders: List<ReminderMessage>) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    var isVisible by remember { mutableStateOf(true) }
+    if (!isVisible) return
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+        )
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(
-                text = "Recordatorios activos",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "🔔 Recordatorios activos",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                TextButton(onClick = { isVisible = false }) {
+                    Text("Ocultar", style = MaterialTheme.typography.labelSmall)
+                }
+            }
             reminders.take(5).forEach { reminder ->
-                Text(
-                    text = "• ${reminder.title}: ${reminder.body}",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                                Text(
+                                    text = "• ${reminder.title}: ${reminder.body}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+
             }
         }
     }
@@ -2264,77 +2828,6 @@ private fun defaultPercentageInputs(count: Int): List<String> {
 
 private fun List<String>.updateAt(index: Int, value: String): List<String> = mapIndexed { currentIndex, currentValue ->
     if (currentIndex == index) value else currentValue
-}
-
-private fun upsertEvent(events: SnapshotStateList<EventItem>, event: EventItem) {
-    val updatedEvents = events
-        .filterNot { it.id == event.id }
-        .plus(event)
-        .sortedByDescending { it.dateMillis }
-
-    events.clear()
-    events.addAll(updatedEvents)
-}
-
-private fun upsertProfile(profiles: SnapshotStateList<ProfileItem>, profile: ProfileItem) {
-    val updatedProfiles = profiles
-        .filterNot { it.id == profile.id }
-        .plus(profile)
-        .sortedBy { it.name.lowercase() }
-
-    profiles.clear()
-    profiles.addAll(updatedProfiles)
-}
-
-private fun upsertDebt(debts: SnapshotStateList<EventDebtItem>, debt: EventDebtItem) {
-    val updatedDebts = debts
-        .filterNot { it.id == debt.id }
-        .plus(debt)
-
-    debts.clear()
-    debts.addAll(updatedDebts)
-}
-
-private fun removeDebt(debts: SnapshotStateList<EventDebtItem>, debtId: String) {
-    val updatedDebts = debts.filterNot { it.id == debtId }
-    debts.clear()
-    debts.addAll(updatedDebts)
-}
-
-private fun upsertExpense(expenses: SnapshotStateList<EventExpenseItem>, expense: EventExpenseItem) {
-    val updatedExpenses = expenses
-        .filterNot { it.id == expense.id }
-        .plus(expense)
-        .sortedBy { it.name.lowercase() }
-
-    expenses.clear()
-    expenses.addAll(updatedExpenses)
-}
-
-private fun removeExpense(expenses: SnapshotStateList<EventExpenseItem>, expenseId: String) {
-    val updatedExpenses = expenses.filterNot { it.id == expenseId }
-    expenses.clear()
-    expenses.addAll(updatedExpenses)
-}
-
-private fun removeEvent(
-    events: SnapshotStateList<EventItem>,
-    debts: SnapshotStateList<EventDebtItem>,
-    expenses: SnapshotStateList<EventExpenseItem>,
-    eventId: String,
-) {
-    events.removeAll { it.id == eventId }
-    debts.removeAll { it.eventId == eventId }
-    expenses.removeAll { it.eventId == eventId }
-}
-
-private fun removeProfile(
-    profiles: SnapshotStateList<ProfileItem>,
-    debts: SnapshotStateList<EventDebtItem>,
-    profileId: String,
-) {
-    profiles.removeAll { it.id == profileId }
-    debts.removeAll { it.profileId == profileId }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
