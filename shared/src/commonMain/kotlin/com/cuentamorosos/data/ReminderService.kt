@@ -1,5 +1,6 @@
 package com.cuentamorosos.data
 
+import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
@@ -18,7 +19,7 @@ object ReminderService {
         expenses: List<EventExpenseItem>,
         reminderDays: Int,
         remindersEnabled: Boolean,
-        nowMillis: Long = System.currentTimeMillis(),
+        nowMillis: Long = currentTimeMillis(),
     ): List<ReminderMessage> {
         if (!remindersEnabled) return emptyList()
 

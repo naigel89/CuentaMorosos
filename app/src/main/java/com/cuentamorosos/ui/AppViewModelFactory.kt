@@ -3,6 +3,7 @@ package com.cuentamorosos.ui
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.cuentamorosos.data.NotificationScheduler
 import com.cuentamorosos.data.repository.RepositoryProvider
 
 class AppViewModelFactory(private val appContext: Context) : ViewModelProvider.Factory {
@@ -15,7 +16,12 @@ class AppViewModelFactory(private val appContext: Context) : ViewModelProvider.F
             modelClass.isAssignableFrom(ProfilesViewModel::class.java) ->
                 ProfilesViewModel(RepositoryProvider.profileRepository, RepositoryProvider.debtRepository) as T
             modelClass.isAssignableFrom(InvitationsViewModel::class.java) ->
-                InvitationsViewModel(RepositoryProvider.invitationRepository, appContext) as T
+                InvitationsViewModel(
+                    invitationRepository = RepositoryProvider.invitationRepository,
+                    onNewInvitation = { eventName, invitedByEmail ->
+                        NotificationScheduler.postInvitationNotification(appContext, eventName, invitedByEmail)
+                    }
+                ) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }

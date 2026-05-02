@@ -8,18 +8,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.google.firebase.auth.FirebaseAuth
+import com.cuentamorosos.isValidEmail
 
 @Composable
 fun ForgotPasswordScreen(
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    /**
+     * Platform provides the password-reset email dispatch.
+     * Call [onResult] with null on success, or an error message on failure.
+     */
+    onResetPassword: (email: String, onResult: (error: String?) -> Unit) -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
 
-    val emailError = if (email.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches())
+    val emailError = if (email.isNotBlank() && !isValidEmail(email))
         "Formato de email incorrecto" else null
     val canSubmit = email.isNotBlank() && emailError == null && !isLoading && successMessage == null
 
@@ -83,16 +88,11 @@ fun ForgotPasswordScreen(
             onClick = {
                 isLoading = true
                 errorMessage = null
-                FirebaseAuth.getInstance()
-                    .sendPasswordResetEmail(email)
-                    .addOnSuccessListener {
-                        isLoading = false
-                        successMessage = "Email enviado correctamente. Revisa tu bandeja de entrada."
-                    }
-                    .addOnFailureListener { e ->
-                        isLoading = false
-                        errorMessage = "No se pudo enviar el email. Verifica que la dirección es correcta."
-                    }
+                onResetPassword(email) { error ->
+                    isLoading = false
+                    if (error == null) successMessage = "Email enviado correctamente. Revisa tu bandeja de entrada."
+                    else errorMessage = "No se pudo enviar el email. Verifica que la dirección es correcta."
+                }
             },
             enabled = canSubmit,
             modifier = Modifier.fillMaxWidth()

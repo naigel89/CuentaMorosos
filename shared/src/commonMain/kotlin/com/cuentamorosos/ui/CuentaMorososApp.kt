@@ -62,12 +62,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
-import com.cuentamorosos.data.CuentaMorososLocalStore
-import com.cuentamorosos.data.NotificationScheduler
+import com.cuentamorosos.calendarFieldsForYearMonth
+import com.cuentamorosos.currentTimeMillis
+import com.cuentamorosos.currentYearMonth
 import com.cuentamorosos.data.ReminderMessage
 import com.cuentamorosos.data.ReminderService
-import com.cuentamorosos.data.ReminderWorker
+import com.cuentamorosos.formatDateMillis
+import com.cuentamorosos.isValidEmail
+import com.cuentamorosos.nextMonth
+import com.cuentamorosos.previousMonth
+import com.cuentamorosos.shortWeekDayNames
 import com.cuentamorosos.model.CalculationApplication
 import com.cuentamorosos.model.CalculationPreview
 import com.cuentamorosos.model.EventDebtItem
@@ -85,11 +89,7 @@ import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEventDate
 import com.cuentamorosos.model.parseEuroAmount
-import com.google.firebase.auth.FirebaseAuth
 import com.cuentamorosos.model.EventInvitation
-import java.text.DateFormatSymbols
-import java.util.Calendar
-import java.util.Locale
 
 private enum class MainSection(val title: String, val emoji: String) {
     EVENTS("Eventos", "📅"),
@@ -100,31 +100,31 @@ private enum class MainSection(val title: String, val emoji: String) {
 }
 
 @Composable
-fun CuentaMorososApp(store: CuentaMorososLocalStore, onSignOut: (() -> Unit)? = null) {
-    val context = LocalContext.current
-    
-    val factory = remember(context) { AppViewModelFactory(context.applicationContext) }
-    val eventsViewModel: EventsViewModel = viewModel(factory = factory)
-    val eventDetailViewModel: EventDetailViewModel = viewModel(factory = factory)
-    val profilesViewModel: ProfilesViewModel = viewModel(factory = factory)
-    val invitationsViewModel: InvitationsViewModel = viewModel(factory = factory)
-    
+fun CuentaMorososApp(
+    currentUserUid: String?,
+    preferences: UserPreferences,
+    onSavePreferences: (UserPreferences) -> Unit,
+    onScheduleReminders: () -> Unit,
+    onCancelReminders: () -> Unit,
+    onPostReminders: (List<ReminderMessage>) -> Unit,
+    onSignOut: (() -> Unit)? = null,
+) {
+    val eventsViewModel: EventsViewModel = viewModel()
+    val eventDetailViewModel: EventDetailViewModel = viewModel()
+    val profilesViewModel: ProfilesViewModel = viewModel()
+    val invitationsViewModel: InvitationsViewModel = viewModel()
+
     val events by eventsViewModel.events.collectAsState()
     val profiles by profilesViewModel.profiles.collectAsState()
     val pendingInvitations by invitationsViewModel.pendingInvitations.collectAsState()
-    
+
     val eventId by eventDetailViewModel.eventId.collectAsState()
     val debts by eventDetailViewModel.debts.collectAsState(initial = emptyList())
     val expenses by eventDetailViewModel.expenses.collectAsState(initial = emptyList())
-    
-    var preferences by remember { mutableStateOf(store.loadPreferences()) }
+
     var currentSection by rememberSaveable { mutableStateOf(MainSection.EVENTS.name) }
     val snackbarHostState = remember { SnackbarHostState() }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
-
-    fun persistData() {
-        store.savePreferences(preferences)
-    }
 
     LaunchedEffect(feedbackMessage) {
         feedbackMessage?.let { message ->
@@ -215,189 +215,179 @@ fun CuentaMorososApp(store: CuentaMorososLocalStore, onSignOut: (() -> Unit)? = 
                 val event = selectedEvent
                 if (event != null) {
                     EventDetailScreen(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                event = event,
-                profiles = profiles.toList(),
-                eventDebts = debts.filter { it.eventId == event.id },
-                eventExpenses = expenses.filter { it.eventId == event.id },
-                                onBack = { eventDetailViewModel.setEventId(null) },
-                                onAddProfileToEvent = { profile ->
-                                    if (debts.none { it.eventId == event.id && it.profileId == profile.id }) {
-                                        eventDetailViewModel.saveDebt(
-                                            EventDebtItem(
-                                                eventId = event.id,
-                                                profileId = profile.id
-                                            )
-                                        )
-                                        persistData()
-                                        feedbackMessage = "Perfil añadido al evento."
-                                    }
-                                },
-                                onSaveDebt = { debt ->
-                                    eventDetailViewModel.saveDebt(debt)
-                                    persistData()
-                                    feedbackMessage = "Importe y notas actualizados."
-                                },
-                                onTogglePaid = { debt ->
-                                    eventDetailViewModel.saveDebt(
-                                        debt.copy(paid = !debt.paid)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        event = event,
+                        profiles = profiles.toList(),
+                        eventDebts = debts.filter { it.eventId == event.id },
+                        eventExpenses = expenses.filter { it.eventId == event.id },
+                        currentUserUid = currentUserUid,
+                        onBack = { eventDetailViewModel.setEventId(null) },
+                        onAddProfileToEvent = { profile ->
+                            if (debts.none { it.eventId == event.id && it.profileId == profile.id }) {
+                                eventDetailViewModel.saveDebt(
+                                    EventDebtItem(
+                                        eventId = event.id,
+                                        profileId = profile.id
                                     )
-                                    persistData()
-                                    feedbackMessage = if (debt.paid) {
-                                        "El perfil vuelve a pendientes."
-                                    } else {
-                                        "Perfil movido a Han pagado."
-                                    }
-                                },
-                                onRemoveDebt = { debtId ->
-                                    eventDetailViewModel.deleteDebt(event.id, debtId)
-                                    persistData()
-                                    feedbackMessage = "Perfil eliminado del evento."
-                                },
-                                onSaveExpense = { expense ->
-                                    eventDetailViewModel.saveExpense(expense)
-                                    persistData()
-                                    feedbackMessage = "Ítem del evento guardado."
-                                },
-                                onRemoveExpense = { expenseId ->
-                                    eventDetailViewModel.deleteExpense(event.id, expenseId)
-                                    persistData()
-                                    feedbackMessage = "Ítem eliminado del evento."
-                                },
-                                 onApplyCalculation = { calculation ->
-                                     val eventEntries = debts.filter { it.eventId == event.id }
+                                )
+                                feedbackMessage = "Perfil añadido al evento."
+                            }
+                        },
+                        onSaveDebt = { debt ->
+                            eventDetailViewModel.saveDebt(debt)
+                            feedbackMessage = "Importe y notas actualizados."
+                        },
+                        onTogglePaid = { debt ->
+                            eventDetailViewModel.saveDebt(
+                                debt.copy(paid = !debt.paid)
+                            )
+                            feedbackMessage = if (debt.paid) {
+                                "El perfil vuelve a pendientes."
+                            } else {
+                                "Perfil movido a Han pagado."
+                            }
+                        },
+                        onRemoveDebt = { debtId ->
+                            eventDetailViewModel.deleteDebt(event.id, debtId)
+                            feedbackMessage = "Perfil eliminado del evento."
+                        },
+                        onSaveExpense = { expense ->
+                            eventDetailViewModel.saveExpense(expense)
+                            feedbackMessage = "Ítem del evento guardado."
+                        },
+                        onRemoveExpense = { expenseId ->
+                            eventDetailViewModel.deleteExpense(event.id, expenseId)
+                            feedbackMessage = "Ítem eliminado del evento."
+                        },
+                        onApplyCalculation = { calculation ->
+                            val eventEntries = debts.filter { it.eventId == event.id }
 
-                                     eventEntries.forEachIndexed { index, debt ->
-                                         eventDetailViewModel.saveDebt(
-                                             debt.copy(
-                                                 amountEuros = calculation.amounts.getOrElse(index) { 0.0 },
-                                                 calculationMode = calculation.mode.id
-                                             )
-                                         )
-                                     }
+                            eventEntries.forEachIndexed { index, debt ->
+                                eventDetailViewModel.saveDebt(
+                                    debt.copy(
+                                        amountEuros = calculation.amounts.getOrElse(index) { 0.0 },
+                                        calculationMode = calculation.mode.id
+                                    )
+                                )
+                            }
 
-                                     eventsViewModel.saveEvent(
-                                         event.copy(
-                                             lastCalculationMode = calculation.mode.id,
-                                             lastCalculationTotal = calculation.total,
-                                             lastCalculationTimestamp = System.currentTimeMillis(),
-                                             lastCalculationSummary = calculation.summary
-                                         )
-                                     )
-                                     persistData()
-                                     feedbackMessage = "Cálculo ${calculation.mode.label} aplicado al evento."
-                                 },
-                                 onInviteMember = { email ->
-                                     val currentUser = FirebaseAuth.getInstance().currentUser
-                                     if (currentUser != null) {
-                                         invitationsViewModel.sendInvitation(
-                                             EventInvitation(
-                                                 eventId = event.id,
-                                                 eventName = event.name,
-                                                 invitedByUid = currentUser.uid,
-                                                 invitedByEmail = currentUser.email ?: "",
-                                                 invitedEmail = email,
-                                             )
-                                         )
-                                         feedbackMessage = "Invitación enviada a $email."
-                                     }
-                                 },
-                                 onRemoveMember = { uid ->
-                                     eventsViewModel.removeMember(event.id, uid)
-                                     feedbackMessage = "Miembro eliminado del evento."
-                                 }
-
-            )
-        } else {
-            when (MainSection.valueOf(currentSection)) {
-                MainSection.EVENTS -> EventsScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    events = events,
-                    profileCount = profiles.size,
-                    participantCountByEvent = participantCountByEvent,
-                    pendingTotalsByEvent = pendingTotalsByEvent,
-                    reminders = reminderMessages,
-                                onOpenEvent = { event ->
-                                    eventDetailViewModel.setEventId(event.id)
-                                },
-                                onSaveEvent = { event ->
-                                    eventsViewModel.saveEvent(event)
-                                    persistData()
-                                    feedbackMessage = "Evento guardado correctamente."
-                                },
-                                onDeleteEvent = { event ->
-                                    eventsViewModel.deleteEvent(event.id)
-                                    persistData()
-                                    feedbackMessage = "Evento \"${event.name}\" eliminado."
-                                }
-
-                )
-
-                MainSection.CALENDAR -> CalendarScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    events = events.toList(),
-                    pendingTotalsByEvent = pendingTotalsByEvent,
-                    onOpenEvent = { event -> eventDetailViewModel.setEventId(event.id) }
-                )
-
-                MainSection.PROFILES -> ProfilesScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    profiles = profiles.map { profile ->
-                        profile.copy(totalPendingEuros = activeTotalsByProfile[profile.id] ?: 0.0)
-                    },
-                    currentUid = FirebaseAuth.getInstance().currentUser?.uid,
-                    eventCount = events.size,
-                    pendingEventsByProfile = pendingEventsByProfile,
-                    onSaveProfile = { profile ->
-                        profilesViewModel.saveProfile(profile)
-                        feedbackMessage = "Perfil guardado correctamente."
-                    },
-                    onDeleteProfile = { profile ->
-                        profilesViewModel.deleteProfile(profile)
-                        feedbackMessage = "Perfil \"${profile.name}\" eliminado."
-                    }
-                )
-
-                MainSection.INVITATIONS -> InvitationsScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    invitations = pendingInvitations,
-                    onAccept = { invitation -> invitationsViewModel.acceptInvitation(invitation) },
-                    onReject = { invitation -> invitationsViewModel.rejectInvitation(invitation.id) },
-                )
-
-                MainSection.SETTINGS -> SettingsScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    preferences = preferences,
-                    reminders = reminderMessages,
-                    onSavePreferences = { updatedPreferences ->
-                        preferences = updatedPreferences
-                        persistData()
-                        if (updatedPreferences.remindersEnabled) {
-                            ReminderWorker.schedule(context)
-                        } else {
-                            ReminderWorker.cancel(context)
+                            eventsViewModel.saveEvent(
+                                event.copy(
+                                    lastCalculationMode = calculation.mode.id,
+                                    lastCalculationTotal = calculation.total,
+                                    lastCalculationTimestamp = currentTimeMillis(),
+                                    lastCalculationSummary = calculation.summary
+                                )
+                            )
+                            feedbackMessage = "Cálculo ${calculation.mode.label} aplicado al evento."
+                        },
+                        onInviteMember = { email ->
+                            if (currentUserUid != null) {
+                                invitationsViewModel.sendInvitation(
+                                    EventInvitation(
+                                        eventId = event.id,
+                                        eventName = event.name,
+                                        invitedByUid = currentUserUid,
+                                        invitedByEmail = "",
+                                        invitedEmail = email,
+                                    )
+                                )
+                                feedbackMessage = "Invitación enviada a $email."
+                            }
+                        },
+                        onRemoveMember = { uid ->
+                            eventsViewModel.removeMember(event.id, uid)
+                            feedbackMessage = "Miembro eliminado del evento."
                         }
-                        feedbackMessage = "Preferencias actualizadas."
-                    },
-                    onSignOut = onSignOut
-                )
+                    )
+                } else {
+                    when (MainSection.valueOf(currentSection)) {
+                        MainSection.EVENTS -> EventsScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding),
+                            events = events,
+                            profileCount = profiles.size,
+                            participantCountByEvent = participantCountByEvent,
+                            pendingTotalsByEvent = pendingTotalsByEvent,
+                            reminders = reminderMessages,
+                            currentUserUid = currentUserUid,
+                            onOpenEvent = { event ->
+                                eventDetailViewModel.setEventId(event.id)
+                            },
+                            onSaveEvent = { event ->
+                                eventsViewModel.saveEvent(event)
+                                feedbackMessage = "Evento guardado correctamente."
+                            },
+                            onDeleteEvent = { event ->
+                                eventsViewModel.deleteEvent(event.id)
+                                feedbackMessage = "Evento \"${event.name}\" eliminado."
+                            }
+                        )
+
+                        MainSection.CALENDAR -> CalendarScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding),
+                            events = events.toList(),
+                            pendingTotalsByEvent = pendingTotalsByEvent,
+                            onOpenEvent = { event -> eventDetailViewModel.setEventId(event.id) }
+                        )
+
+                        MainSection.PROFILES -> ProfilesScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding),
+                            profiles = profiles.map { profile ->
+                                profile.copy(totalPendingEuros = activeTotalsByProfile[profile.id] ?: 0.0)
+                            },
+                            currentUid = currentUserUid,
+                            eventCount = events.size,
+                            pendingEventsByProfile = pendingEventsByProfile,
+                            onSaveProfile = { profile ->
+                                profilesViewModel.saveProfile(profile)
+                                feedbackMessage = "Perfil guardado correctamente."
+                            },
+                            onDeleteProfile = { profile ->
+                                profilesViewModel.deleteProfile(profile)
+                                feedbackMessage = "Perfil \"${profile.name}\" eliminado."
+                            }
+                        )
+
+                        MainSection.INVITATIONS -> InvitationsScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding),
+                            invitations = pendingInvitations,
+                            onAccept = { invitation -> invitationsViewModel.acceptInvitation(invitation) },
+                            onReject = { invitation -> invitationsViewModel.rejectInvitation(invitation.id) },
+                        )
+
+                        MainSection.SETTINGS -> SettingsScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding),
+                            preferences = preferences,
+                            reminders = reminderMessages,
+                            onSavePreferences = { updatedPreferences ->
+                                onSavePreferences(updatedPreferences)
+                                if (updatedPreferences.remindersEnabled) {
+                                    onScheduleReminders()
+                                } else {
+                                    onCancelReminders()
+                                }
+                                feedbackMessage = "Preferencias actualizadas."
+                            },
+                            onPostReminders = onPostReminders,
+                            onSignOut = onSignOut
+                        )
+                    }
+                }
             }
         }
     }
-}
-}
 }
 
 // ── T3-04: InviteMemberDialog ─────────────────────────────────────────────────
@@ -437,7 +427,7 @@ private fun InviteMemberDialog(
         confirmButton = {
             TextButton(onClick = {
                 val trimmed = email.trim()
-                if (trimmed.isEmpty() || !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmed).matches()) {
+                if (trimmed.isEmpty() || !isValidEmail(trimmed)) {
                     validationMessage = "Introduce un email válido."
                 } else {
                     onInvite(trimmed)
@@ -534,6 +524,7 @@ private fun EventsScreen(
     participantCountByEvent: Map<String, Int>,
     pendingTotalsByEvent: Map<String, Double>,
     reminders: List<ReminderMessage>,
+    currentUserUid: String?,
     onOpenEvent: (EventItem) -> Unit,
     onSaveEvent: (EventItem) -> Unit,
     onDeleteEvent: (EventItem) -> Unit,
@@ -583,11 +574,11 @@ private fun EventsScreen(
             Button(
                 onClick = {
                     editableEvent = EventItem(
-                                        name = "",
-                                        dateMillis = System.currentTimeMillis(),
-                                        ownerId = FirebaseAuth.getInstance().currentUser?.uid ?: "",
-                                        memberIds = listOf(FirebaseAuth.getInstance().currentUser?.uid ?: "").filter { it.isNotBlank() }
-                                    )
+                        name = "",
+                        dateMillis = currentTimeMillis(),
+                        ownerId = currentUserUid ?: "",
+                        memberIds = listOfNotNull(currentUserUid).filter { it.isNotBlank() }
+                    )
                 },
                 modifier = Modifier.weight(1f)
             ) {
@@ -746,6 +737,7 @@ private fun SettingsScreen(
     preferences: UserPreferences,
     reminders: List<ReminderMessage>,
     onSavePreferences: (UserPreferences) -> Unit,
+    onPostReminders: (List<ReminderMessage>) -> Unit,
     onSignOut: (() -> Unit)? = null,
 ) {
     var selectedThemeMode by remember(preferences.themeMode) { mutableStateOf(preferences.themeMode) }
@@ -753,7 +745,6 @@ private fun SettingsScreen(
     var reminderDaysText by remember(preferences.reminderDays) { mutableStateOf(preferences.reminderDays.toString()) }
     var remindersEnabled by remember(preferences.remindersEnabled) { mutableStateOf(preferences.remindersEnabled) }
     var validationMessage by remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
 
     LazyColumn(
         modifier = modifier.padding(16.dp),
@@ -927,7 +918,7 @@ private fun SettingsScreen(
         }
         item {
             OutlinedButton(
-                onClick = { NotificationScheduler.postReminders(context, reminders) },
+                onClick = { onPostReminders(reminders) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = remindersEnabled && reminders.isNotEmpty()
             ) {
@@ -1147,6 +1138,7 @@ private fun EventDetailScreen(
     profiles: List<ProfileItem>,
     eventDebts: List<EventDebtItem>,
     eventExpenses: List<EventExpenseItem>,
+    currentUserUid: String?,
     onBack: () -> Unit,
     onAddProfileToEvent: (ProfileItem) -> Unit,
     onSaveDebt: (EventDebtItem) -> Unit,
@@ -1177,7 +1169,7 @@ private fun EventDetailScreen(
     var showInviteMemberDialog by remember { mutableStateOf(false) }
     var showRemoveOwnerConfirm by remember { mutableStateOf<EventDebtItem?>(null) }
     var showRemoveOwnerFromMembersConfirm by remember { mutableStateOf(false) }
-    val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val currentUid = currentUserUid ?: ""
     val isOwner = event.ownerId == currentUid
 
     Column(
@@ -1717,7 +1709,7 @@ private fun ProfileEditorDialog(
                     val normalizedLinkedEmail = linkedEmail.trim().lowercase()
                     val invalidLinkedEmail = isGhost &&
                         normalizedLinkedEmail.isNotBlank() &&
-                        !android.util.Patterns.EMAIL_ADDRESS.matcher(normalizedLinkedEmail).matches()
+                        !isValidEmail(normalizedLinkedEmail)
                     if (invalidLinkedEmail) {
                         validationMessage = "El email de vinculación no es válido."
                         return@TextButton
@@ -1837,8 +1829,8 @@ private fun ExpenseEditorDialog(
     }
     var selectedCategoryId by remember(expense.id) { mutableStateOf(expense.category.ifBlank { ExpenseCategory.SHARED.id }) }
     var selectedProfileIds by remember(expense.id) { mutableStateOf(expense.assignedProfileIds) }
-    var selectedWeights by remember(expense.id) { 
-        mutableStateOf(expense.profileWeights.mapValues { it.value.toString() }) 
+    var selectedWeights by remember(expense.id) {
+        mutableStateOf(expense.profileWeights.mapValues { it.value.toString() })
     }
     var showCustomSplit by remember(expense.id) {
         mutableStateOf(expense.profileWeights.isNotEmpty())
@@ -1952,7 +1944,7 @@ private fun ExpenseEditorDialog(
                             Text("${profile.icon} ${profile.name}")
                         }
                     }
-                    
+
                     if (selectedCategoryId == ExpenseCategory.SELECTED.id && selectedProfileIds.isNotEmpty()) {
                         OutlinedButton(
                             onClick = {
@@ -1982,13 +1974,13 @@ private fun ExpenseEditorDialog(
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(top = 8.dp)
                         )
-                        
+
                         var totalWeight = 0.0
                         selectedProfileIds.forEach { profileId ->
                             val profile = profiles.find { it.id == profileId }
                             val weightText = selectedWeights[profileId] ?: "0"
                             totalWeight += parseDecimalValue(weightText) ?: 0.0
-                            
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -2012,9 +2004,9 @@ private fun ExpenseEditorDialog(
                             }
                         }
                         Text(
-                            text = "Total: ${String.format("%.2f", totalWeight)}% (debe ser 100%)",
+                            text = "Total: ${"%.2f".format(totalWeight)}% (debe ser 100%)",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (kotlin.math.abs(totalWeight - 100.0) < 0.01) MaterialTheme.colorScheme.primary 
+                            color = if (kotlin.math.abs(totalWeight - 100.0) < 0.01) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(top = 4.dp)
                         )
@@ -2739,12 +2731,11 @@ private fun ReminderSummaryCard(reminders: List<ReminderMessage>) {
                 }
             }
             reminders.take(5).forEach { reminder ->
-                                Text(
-                                    text = "• ${reminder.title}: ${reminder.body}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-
+                Text(
+                    text = "• ${reminder.title}: ${reminder.body}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
     }
@@ -2841,10 +2832,9 @@ private fun CalendarScreen(
     pendingTotalsByEvent: Map<String, Double>,
     onOpenEvent: (EventItem) -> Unit,
 ) {
-    // Estado del mes mostrado: año + mes (1-based)
-    val today = remember { Calendar.getInstance() }
-    var displayYear by remember { mutableStateOf(today.get(Calendar.YEAR)) }
-    var displayMonth by remember { mutableStateOf(today.get(Calendar.MONTH) + 1) } // 1-12
+    val todayFields = remember { currentYearMonth() }
+    var displayYear by remember { mutableStateOf(todayFields.year) }
+    var displayMonth by remember { mutableStateOf(todayFields.month) }
     var selectedDay by remember { mutableStateOf<Int?>(null) }
 
     // Mapa día-del-mes → lista de eventos de ese mes/año
@@ -2852,12 +2842,15 @@ private fun CalendarScreen(
         derivedStateOf {
             val map = mutableMapOf<Int, MutableList<EventItem>>()
             events.forEach { event ->
-                val cal = Calendar.getInstance().apply { timeInMillis = event.dateMillis }
-                if (cal.get(Calendar.YEAR) == displayYear &&
-                    cal.get(Calendar.MONTH) + 1 == displayMonth
-                ) {
-                    val day = cal.get(Calendar.DAY_OF_MONTH)
-                    map.getOrPut(day) { mutableListOf() }.add(event)
+                val dateText = formatDateMillis(event.dateMillis) // "dd/MM/yyyy"
+                val parts = dateText.split("/")
+                if (parts.size == 3) {
+                    val day = parts[0].toIntOrNull() ?: return@forEach
+                    val month = parts[1].toIntOrNull() ?: return@forEach
+                    val year = parts[2].toIntOrNull() ?: return@forEach
+                    if (year == displayYear && month == displayMonth) {
+                        map.getOrPut(day) { mutableListOf() }.add(event)
+                    }
                 }
             }
             map as Map<Int, List<EventItem>>
@@ -2871,30 +2864,30 @@ private fun CalendarScreen(
         }
     }
 
-    // Calcular la cuadrícula del mes
-    val calGrid by remember(displayYear, displayMonth) {
+    // Calcular la cuadrícula del mes usando expect/actual
+    val calFields by remember(displayYear, displayMonth) {
+        derivedStateOf { calendarFieldsForYearMonth(displayYear, displayMonth) }
+    }
+
+    val calGrid by remember(calFields) {
         derivedStateOf {
-            val cal = Calendar.getInstance().apply {
-                set(Calendar.YEAR, displayYear)
-                set(Calendar.MONTH, displayMonth - 1)
-                set(Calendar.DAY_OF_MONTH, 1)
-            }
-            // 0=Dom, 1=Lun … ajustamos para semana europea (lunes primero)
-            val firstDow = (cal.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7
-            val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-            // Construimos lista de celdas: null = vacía, Int = día
             val cells = mutableListOf<Int?>()
-            repeat(firstDow) { cells.add(null) }
-            for (d in 1..daysInMonth) cells.add(d)
-            // Rellenar hasta múltiplo de 7
+            repeat(calFields.firstWeekDayOffset) { cells.add(null) }
+            for (d in 1..calFields.daysInMonth) cells.add(d)
             while (cells.size % 7 != 0) cells.add(null)
             cells
         }
     }
 
+    // Month names via formatting (reuse formatDateMillis approach)
     val monthNames = remember {
-        DateFormatSymbols(Locale("es", "ES")).months
+        listOf(
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        )
     }
+
+    val weekDayLabels = remember { shortWeekDayNames() }
 
     Column(modifier = modifier.verticalScroll(rememberScrollState())) {
         // ── Cabecera mes ──────────────────────────────────────────────────────
@@ -2906,20 +2899,22 @@ private fun CalendarScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             IconButton(onClick = {
-                if (displayMonth == 1) { displayMonth = 12; displayYear-- }
-                else displayMonth--
+                val prev = previousMonth(displayYear, displayMonth)
+                displayYear = prev.year
+                displayMonth = prev.month
                 selectedDay = null
             }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Mes anterior")
             }
             Text(
-                text = "${monthNames[displayMonth - 1].replaceFirstChar { it.uppercase() }} $displayYear",
+                text = "${monthNames[displayMonth - 1]} $displayYear",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
             IconButton(onClick = {
-                if (displayMonth == 12) { displayMonth = 1; displayYear++ }
-                else displayMonth++
+                val next = nextMonth(displayYear, displayMonth)
+                displayYear = next.year
+                displayMonth = next.month
                 selectedDay = null
             }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Mes siguiente")
@@ -2927,7 +2922,6 @@ private fun CalendarScreen(
         }
 
         // ── Encabezados días de la semana ──────────────────────────────────────
-        val weekDayLabels = listOf("L", "M", "X", "J", "V", "S", "D")
         Row(modifier = Modifier.fillMaxWidth()) {
             weekDayLabels.forEach { label ->
                 Text(
@@ -2943,9 +2937,11 @@ private fun CalendarScreen(
         Spacer(Modifier.height(4.dp))
 
         // ── Cuadrícula de días ────────────────────────────────────────────────
-        val todayDay = if (today.get(Calendar.YEAR) == displayYear &&
-            today.get(Calendar.MONTH) + 1 == displayMonth
-        ) today.get(Calendar.DAY_OF_MONTH) else -1
+        val todayDay = if (todayFields.year == displayYear && todayFields.month == displayMonth) {
+            // Get today's day from current date text
+            val todayText = currentDateText() // "dd/MM/yyyy"
+            todayText.split("/").firstOrNull()?.toIntOrNull() ?: -1
+        } else -1
 
         calGrid.chunked(7).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {

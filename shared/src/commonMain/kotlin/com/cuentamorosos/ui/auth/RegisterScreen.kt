@@ -13,16 +13,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.cuentamorosos.data.FirebaseUserSyncManager
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthUserCollisionException
-import com.google.firebase.auth.FirebaseAuthWeakPasswordException
-import kotlinx.coroutines.launch
+import com.cuentamorosos.isValidEmail
 
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    /**
+     * Platform provides the actual account creation.
+     * Call [onResult] with null on success, or an error message on failure.
+     */
+    onRegister: (email: String, password: String, onResult: (error: String?) -> Unit) -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -31,9 +32,8 @@ fun RegisterScreen(
     var confirmVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
 
-    val emailError = if (email.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches())
+    val emailError = if (email.isNotBlank() && !isValidEmail(email))
         "Formato de email incorrecto" else null
     val passwordError = if (password.isNotBlank() && password.length < 8)
         "Mínimo 8 caracteres" else null
@@ -130,23 +130,11 @@ fun RegisterScreen(
             onClick = {
                 isLoading = true
                 errorMessage = null
-                FirebaseAuth.getInstance()
-                    .createUserWithEmailAndPassword(email, password)
-                    .addOnSuccessListener {
-                        scope.launch {
-                            FirebaseUserSyncManager.syncCurrentUser(defaultMigrated = false)
-                            isLoading = false
-                            onRegisterSuccess()
-                        }
-                    }
-                    .addOnFailureListener { e ->
-                        isLoading = false
-                        errorMessage = when (e) {
-                            is FirebaseAuthUserCollisionException -> "Ya existe una cuenta con ese email."
-                            is FirebaseAuthWeakPasswordException -> "Contraseña demasiado débil."
-                            else -> "Error al registrarse. Inténtalo de nuevo."
-                        }
-                    }
+                onRegister(email, password) { error ->
+                    isLoading = false
+                    if (error == null) onRegisterSuccess()
+                    else errorMessage = error
+                }
             },
             enabled = canSubmit,
             modifier = Modifier.fillMaxWidth()

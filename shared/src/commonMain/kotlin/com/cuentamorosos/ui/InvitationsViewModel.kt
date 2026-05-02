@@ -1,9 +1,7 @@
 package com.cuentamorosos.ui
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cuentamorosos.data.NotificationScheduler
 import com.cuentamorosos.data.repository.InvitationRepository
 import com.cuentamorosos.model.EventInvitation
 import kotlinx.coroutines.flow.SharingStarted
@@ -14,7 +12,8 @@ import kotlinx.coroutines.launch
 
 class InvitationsViewModel(
     private val invitationRepository: InvitationRepository,
-    private val appContext: Context,
+    /** Called when a new invitation arrives so the platform can post a notification. */
+    private val onNewInvitation: ((eventName: String, invitedByEmail: String) -> Unit)? = null,
 ) : ViewModel() {
 
     // IDs de invitaciones ya notificadas en esta sesión para no repetir la notificación
@@ -26,11 +25,7 @@ class InvitationsViewModel(
                 invitations.forEach { invitation ->
                     if (invitation.id !in notifiedIds) {
                         notifiedIds.add(invitation.id)
-                        NotificationScheduler.postInvitationNotification(
-                            context = appContext,
-                            eventName = invitation.eventName,
-                            invitedByEmail = invitation.invitedByEmail,
-                        )
+                        onNewInvitation?.invoke(invitation.eventName, invitation.invitedByEmail)
                     }
                 }
             }

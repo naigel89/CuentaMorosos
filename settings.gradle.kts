@@ -3,6 +3,8 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        // Compose Multiplatform plugin
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
 }
 
@@ -15,6 +17,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Compose Multiplatform runtime artifacts
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
 }
 

@@ -34,7 +34,6 @@ class EventsViewModel(
         val isNew = _events.value.none { it.id == event.id }
         viewModelScope.launch {
             eventRepository.saveEvent(event)
-            // When creating a new event, automatically add the owner as a participant
             if (isNew && event.ownerId.isNotBlank()) {
                 runCatching {
                     debtRepository.saveDebt(

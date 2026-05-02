@@ -8,26 +8,27 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.cuentamorosos.data.FirebaseUserSyncManager
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.userProfileChangeRequest
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserProfileScreen(
-    onNavigateBack: () -> Unit
+    /** Current user's email address (read-only display). */
+    userEmail: String,
+    /** Current display name; null if not set. */
+    currentDisplayName: String?,
+    onNavigateBack: () -> Unit,
+    /**
+     * Platform provides the profile update operation.
+     * Call [onResult] with null on success, or an error message on failure.
+     */
+    onUpdateDisplayName: (name: String, onResult: (error: String?) -> Unit) -> Unit,
 ) {
-    val auth = FirebaseAuth.getInstance()
-    val user = auth.currentUser
-    val scope = rememberCoroutineScope()
-
-    var displayName by remember { mutableStateOf(user?.displayName ?: "") }
+    var displayName by remember(currentDisplayName) { mutableStateOf(currentDisplayName ?: "") }
     var isLoading by remember { mutableStateOf(false) }
     var successMessage by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val isDirty = displayName != (user?.displayName ?: "")
+    val isDirty = displayName != (currentDisplayName ?: "")
 
     Scaffold(
         topBar = {
@@ -58,7 +59,7 @@ fun UserProfileScreen(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = (user?.email?.firstOrNull()?.uppercaseChar() ?: '?').toString(),
+                        text = (userEmail.firstOrNull()?.uppercaseChar() ?: '?').toString(),
                         style = MaterialTheme.typography.headlineLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -68,7 +69,7 @@ fun UserProfileScreen(
             Spacer(Modifier.height(24.dp))
 
             OutlinedTextField(
-                value = user?.email ?: "",
+                value = userEmail,
                 onValueChange = {},
                 label = { Text("Email") },
                 readOnly = true,
@@ -109,19 +110,11 @@ fun UserProfileScreen(
                     isLoading = true
                     errorMessage = null
                     successMessage = null
-                    val profileUpdates = userProfileChangeRequest { this.displayName = displayName }
-                    user?.updateProfile(profileUpdates)
-                        ?.addOnSuccessListener {
-                            scope.launch {
-                                FirebaseUserSyncManager.syncCurrentUserProfile()
-                                isLoading = false
-                                successMessage = "Nombre actualizado correctamente."
-                            }
-                        }
-                        ?.addOnFailureListener {
-                            isLoading = false
-                            errorMessage = "Error al actualizar el nombre."
-                        }
+                    onUpdateDisplayName(displayName) { error ->
+                        isLoading = false
+                        if (error == null) successMessage = "Nombre actualizado correctamente."
+                        else errorMessage = "Error al actualizar el nombre."
+                    }
                 },
                 enabled = isDirty && !isLoading,
                 modifier = Modifier.fillMaxWidth()

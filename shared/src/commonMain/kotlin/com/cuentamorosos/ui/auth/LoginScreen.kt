@@ -13,15 +13,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
-import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.cuentamorosos.isValidEmail
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    onNavigateToForgotPassword: () -> Unit
+    onNavigateToForgotPassword: () -> Unit,
+    /**
+     * Platform provides the actual sign-in operation.
+     * Call [onResult] with null on success, or an error message on failure.
+     */
+    onLogin: (email: String, password: String, onResult: (error: String?) -> Unit) -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -29,11 +32,12 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val emailError = if (email.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches())
+    val emailError = if (email.isNotBlank() && !isValidEmail(email))
         "Formato de email incorrecto" else null
     val passwordError = if (password.isNotBlank() && password.length < 8)
         "Mínimo 8 caracteres" else null
-    val canSubmit = email.isNotBlank() && password.isNotBlank() && emailError == null && passwordError == null && !isLoading
+    val canSubmit = email.isNotBlank() && password.isNotBlank() &&
+            emailError == null && passwordError == null && !isLoading
 
     Column(
         modifier = Modifier
@@ -102,20 +106,11 @@ fun LoginScreen(
             onClick = {
                 isLoading = true
                 errorMessage = null
-                FirebaseAuth.getInstance()
-                    .signInWithEmailAndPassword(email, password)
-                        .addOnSuccessListener { 
-                            isLoading = false
-                            onLoginSuccess() 
-                        }
-                    .addOnFailureListener { e ->
-                        isLoading = false
-                        errorMessage = when (e) {
-                            is FirebaseAuthInvalidUserException -> "No existe ninguna cuenta con ese email."
-                            is FirebaseAuthInvalidCredentialsException -> "Contraseña incorrecta."
-                            else -> "Error al iniciar sesión. Inténtalo de nuevo."
-                        }
-                    }
+                onLogin(email, password) { error ->
+                    isLoading = false
+                    if (error == null) onLoginSuccess()
+                    else errorMessage = error
+                }
             },
             enabled = canSubmit,
             modifier = Modifier.fillMaxWidth()

@@ -26,13 +26,13 @@ import com.cuentamorosos.data.NotificationScheduler
 import com.cuentamorosos.data.ReminderWorker
 import com.cuentamorosos.data.repository.RepositoryProvider
 import com.cuentamorosos.ui.CuentaMorososApp
-
 import com.cuentamorosos.ui.auth.ForgotPasswordScreen
 import com.cuentamorosos.ui.auth.LoginScreen
 import com.cuentamorosos.ui.auth.MigrationScreen
 import com.cuentamorosos.ui.auth.RegisterScreen
 import com.cuentamorosos.ui.auth.UserProfileScreen
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 
 private object Routes {
     const val LOGIN = "login"
@@ -146,7 +146,12 @@ private fun AppNavHost(store: CuentaMorososLocalStore) {
                     }
                 },
                 onNavigateToRegister = { navController.navigate(Routes.REGISTER) },
-                onNavigateToForgotPassword = { navController.navigate(Routes.FORGOT_PASSWORD) }
+                onNavigateToForgotPassword = { navController.navigate(Routes.FORGOT_PASSWORD) },
+                onLogin = { email, password, onResult ->
+                    auth.signInWithEmailAndPassword(email, password)
+                        .addOnSuccessListener { onResult(null) }
+                        .addOnFailureListener { e -> onResult(e.localizedMessage ?: "Error al iniciar sesión") }
+                }
             )
         }
 
@@ -170,13 +175,23 @@ private fun AppNavHost(store: CuentaMorososLocalStore) {
                         }
                     }
                 },
-                onNavigateToLogin = { navController.popBackStack() }
+                onNavigateToLogin = { navController.popBackStack() },
+                onRegister = { email, password, onResult ->
+                    auth.createUserWithEmailAndPassword(email, password)
+                        .addOnSuccessListener { onResult(null) }
+                        .addOnFailureListener { e -> onResult(e.localizedMessage ?: "Error al crear cuenta") }
+                }
             )
         }
 
         composable(Routes.FORGOT_PASSWORD) {
             ForgotPasswordScreen(
-                onNavigateToLogin = { navController.popBackStack() }
+                onNavigateToLogin = { navController.popBackStack() },
+                onResetPassword = { email, onResult ->
+                    auth.sendPasswordResetEmail(email)
+                        .addOnSuccessListener { onResult(null) }
+                        .addOnFailureListener { e -> onResult(e.localizedMessage ?: "Error al enviar el correo") }
+                }
             )
         }
 
@@ -191,10 +206,23 @@ private fun AppNavHost(store: CuentaMorososLocalStore) {
         }
 
         composable(Routes.MAIN) {
+            val preferences = remember(store) { store.loadPreferences() }
+            var currentPreferences by remember { mutableStateOf(preferences) }
+
             CuentaMorososApp(
-                store = store,
+                currentUserUid = auth.currentUser?.uid,
+                preferences = currentPreferences,
+                onSavePreferences = { updatedPrefs ->
+                    currentPreferences = updatedPrefs
+                    store.savePreferences(updatedPrefs)
+                },
+                onScheduleReminders = { ReminderWorker.schedule(context) },
+                onCancelReminders = { ReminderWorker.cancel(context) },
+                onPostReminders = { messages ->
+                    NotificationScheduler.postReminders(context, messages)
+                },
                 onSignOut = {
-                    FirebaseAuth.getInstance().signOut()
+                    auth.signOut()
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(Routes.MAIN) { inclusive = true }
                     }
@@ -203,8 +231,20 @@ private fun AppNavHost(store: CuentaMorososLocalStore) {
         }
 
         composable(Routes.USER_PROFILE) {
+            val user = auth.currentUser
             UserProfileScreen(
-                onNavigateBack = { navController.popBackStack() }
+                userEmail = user?.email ?: "",
+                currentDisplayName = user?.displayName,
+                onNavigateBack = { navController.popBackStack() },
+                onUpdateDisplayName = { name, onResult ->
+                    val profileUpdates = UserProfileChangeRequest.Builder()
+                        .setDisplayName(name)
+                        .build()
+                    user?.updateProfile(profileUpdates)
+                        ?.addOnSuccessListener { onResult(null) }
+                        ?.addOnFailureListener { e -> onResult(e.localizedMessage ?: "Error al actualizar nombre") }
+                        ?: onResult("No hay sesión activa")
+                }
             )
         }
     }
