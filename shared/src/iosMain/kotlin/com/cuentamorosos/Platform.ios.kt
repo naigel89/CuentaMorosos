@@ -5,13 +5,13 @@ import platform.Foundation.NSDateFormatter
 import platform.Foundation.NSLocale
 import platform.Foundation.NSUUID
 import platform.Foundation.currentLocale
-import platform.Foundation.timeIntervalSince1970
+import platform.Foundation.dateWithTimeIntervalSince1970
 
 private val dateFormatter: NSDateFormatter by lazy {
     NSDateFormatter().apply {
         dateFormat = "dd/MM/yyyy"
         locale = NSLocale.currentLocale
-        isLenient = false
+        lenient = false
     }
 }
 
@@ -20,7 +20,7 @@ actual fun generateUuid(): String = NSUUID().UUIDString()
 actual fun currentTimeMillis(): Long = (NSDate().timeIntervalSince1970 * 1000).toLong()
 
 actual fun formatDateMillis(millis: Long): String {
-    val date = NSDate(timeIntervalSince1970 = millis / 1000.0)
+    val date = NSDate.dateWithTimeIntervalSince1970(millis / 1000.0)
     return dateFormatter.stringFromDate(date)
 }
 
