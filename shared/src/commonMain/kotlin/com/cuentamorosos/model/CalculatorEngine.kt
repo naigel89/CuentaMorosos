@@ -43,32 +43,6 @@ enum class SplitMode(
     }
 }
 
-enum class ExpenseCategory(
-    val id: String,
-    val label: String,
-    val helperText: String,
-) {
-    SHARED(
-        id = "shared",
-        label = "Compartido",
-        helperText = "Se divide entre todos los perfiles del evento."
-    ),
-    SELECTED(
-        id = "selected",
-        label = "Solo seleccionados",
-        helperText = "Se reparte entre los perfiles marcados en el ítem."
-    ),
-    PERSONAL(
-        id = "personal",
-        label = "Cargo individual",
-        helperText = "Se asigna completo al primer perfil seleccionado."
-    );
-
-    companion object {
-        fun fromId(id: String): ExpenseCategory = entries.firstOrNull { it.id == id } ?: SHARED
-    }
-}
-
 data class CalculationPreview(
     val amounts: List<Double> = emptyList(),
     val validationMessage: String? = null,
@@ -160,16 +134,17 @@ private fun buildExpenseDrivenPreview(
                 participantIds = participantIds,
                 assignedIds = expense.assignedProfileIds,
             )
-            SplitMode.BY_CATEGORY -> when (ExpenseCategory.fromId(expense.category)) {
-                ExpenseCategory.SHARED -> participantIds.indices.toList()
-                ExpenseCategory.SELECTED -> indexesForIds(
-                    participantIds = participantIds,
-                    assignedIds = expense.assignedProfileIds,
-                )
-                ExpenseCategory.PERSONAL -> indexesForIds(
-                    participantIds = participantIds,
-                    assignedIds = expense.assignedProfileIds.take(1),
-                )
+            SplitMode.BY_CATEGORY -> {
+                val category = ExpenseCategory.fromId(expense.category)
+                // SHARED divides among all; all other categories split among assigned profiles
+                if (category == ExpenseCategory.SHARED) {
+                    participantIds.indices.toList()
+                } else {
+                    indexesForIds(
+                        participantIds = participantIds,
+                        assignedIds = expense.assignedProfileIds,
+                    )
+                }
             }
             else -> emptyList()
         }

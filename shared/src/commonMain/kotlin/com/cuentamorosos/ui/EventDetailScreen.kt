@@ -610,30 +610,30 @@ private fun ExpenseEditorDialog(
                         Button(
                             onClick = {
                                 selectedCategoryId = category.id
-                                if (category != ExpenseCategory.SELECTED) {
+                                if (category != ExpenseCategory.SHARED) {
                                     showCustomSplit = false
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(category.label)
+                            Text("${category.iconEmoji} ${category.label}")
                         }
                     } else {
                         OutlinedButton(
                             onClick = {
                                 selectedCategoryId = category.id
-                                if (category != ExpenseCategory.SELECTED) {
+                                if (category != ExpenseCategory.SHARED) {
                                     showCustomSplit = false
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(category.label)
+                            Text("${category.iconEmoji} ${category.label}")
                         }
                     }
                 }
                 Text(
-                    text = ExpenseCategory.fromId(selectedCategoryId).helperText,
+                    text = "Categoría: ${ExpenseCategory.fromId(selectedCategoryId).label}",
                     style = MaterialTheme.typography.bodySmall
                 )
 
@@ -673,7 +673,7 @@ private fun ExpenseEditorDialog(
                         }
                     }
 
-                    if (selectedCategoryId == ExpenseCategory.SELECTED.id && selectedProfileIds.isNotEmpty()) {
+                    if (selectedCategoryId != ExpenseCategory.SHARED.id && selectedProfileIds.isNotEmpty()) {
                         OutlinedButton(
                             onClick = {
                                 showCustomSplit = !showCustomSplit
@@ -692,7 +692,7 @@ private fun ExpenseEditorDialog(
                     }
 
                     if (
-                        selectedCategoryId == ExpenseCategory.SELECTED.id &&
+                        selectedCategoryId != ExpenseCategory.SHARED.id &&
                         selectedProfileIds.isNotEmpty() &&
                         showCustomSplit
                     ) {
@@ -764,13 +764,13 @@ private fun ExpenseEditorDialog(
                         parsedAmount == null -> "Introduce un importe válido."
                         parsedAmount < 0.0 -> "El importe no puede ser negativo."
                         selectedCategory != ExpenseCategory.SHARED && selectedProfileIds.isEmpty() -> "Selecciona al menos un perfil para esta categoría."
-                        selectedCategory == ExpenseCategory.SELECTED && showCustomSplit &&
+                        selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
                             selectedProfileIds.any { parseDecimalValue(selectedWeights[it] ?: "") == null } ->
                                 "Revisa los porcentajes del reparto personalizado."
-                        selectedCategory == ExpenseCategory.SELECTED && showCustomSplit &&
+                        selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
                             selectedProfileIds.any { (parseDecimalValue(selectedWeights[it] ?: "") ?: 0.0) < 0.0 } ->
                                 "Los porcentajes no pueden ser negativos."
-                        selectedCategory == ExpenseCategory.SELECTED && showCustomSplit &&
+                        selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
                             kotlin.math.abs(customWeightTotal - 100.0) >= 0.01 ->
                                 "El reparto personalizado debe sumar 100%."
                         else -> null
@@ -778,7 +778,7 @@ private fun ExpenseEditorDialog(
 
                     if (validationMessage == null && parsedAmount != null) {
                         val normalizedWeights = if (
-                            selectedCategory == ExpenseCategory.SELECTED &&
+                            selectedCategory != ExpenseCategory.SHARED &&
                             showCustomSplit
                         ) {
                             selectedProfileIds.associateWith { profileId ->

@@ -1,11 +1,30 @@
 package com.cuentamorosos.model
 
+import androidx.compose.ui.graphics.Color
 import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.formatDateMillis
 import com.cuentamorosos.generateUuid
 import com.cuentamorosos.parseDateString
 import com.cuentamorosos.currentDateText
 import kotlin.math.roundToInt
+
+enum class ExpenseCategory(
+    val id: String,
+    val label: String,
+    val iconEmoji: String,
+    val iconBgColor: Color,
+) {
+    SHARED("shared", "Compartido", "\uD83D\uDC65", Color(0xFFB388FF)),
+    FLIGHT("flight", "Vuelo", "\u2708\uFE0F", Color(0xFFDFDCE1)),
+    ACCOMMODATION("accommodation", "Alojamiento", "\uD83C\uDFE8", Color(0xFFC8C5CB)),
+    FOOD("food", "Comida", "\uD83C\uDF7D\uFE0F", Color(0xFFFFB4AB)),
+    TRANSPORT("transport", "Transporte", "\uD83D\uDE8C", Color(0xFF39FF14)),
+    OTHER("other", "Otro", "\uD83D\uDCE6", Color(0xFFBACCB0));
+
+    companion object {
+        fun fromId(id: String): ExpenseCategory = entries.firstOrNull { it.id == id } ?: OTHER
+    }
+}
 
 data class EventItem(
     val id: String = generateUuid(),
