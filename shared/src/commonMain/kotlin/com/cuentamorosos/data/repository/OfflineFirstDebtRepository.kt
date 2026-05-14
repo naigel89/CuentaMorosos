@@ -48,6 +48,26 @@ class OfflineFirstDebtRepository(
             }
     }
 
+    override fun observeAllDebts(): Flow<List<EventDebtItem>> {
+        // Observe network state and control sync
+        networkMonitor.isOnline
+            .onEach { isOnline ->
+                if (isOnline) {
+                    startSyncAll()
+                } else {
+                    stopSync()
+                }
+            }
+            .launchIn(syncScope)
+
+        return queries.selectAll()
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            .map { cachedDebts ->
+                cachedDebts.map { it.toDebtItem() }
+            }
+    }
+
     private fun startSync(eventId: String) {
         syncJob?.cancel()
         syncJob = syncScope.launch(Dispatchers.Default) {
@@ -74,6 +94,39 @@ class OfflineFirstDebtRepository(
                     backoffMs = 1000L
                 } catch (e: Exception) {
                     println("[OfflineFirstDebtRepo] Sync error: ${e.message}")
+                    delay(backoffMs)
+                    backoffMs = minOf(backoffMs * 2, maxBackoffMs)
+                }
+            }
+        }
+    }
+
+    private fun startSyncAll() {
+        syncJob?.cancel()
+        syncJob = syncScope.launch(Dispatchers.Default) {
+            var backoffMs = 1000L
+            val maxBackoffMs = 30000L
+            while (isActive) {
+                try {
+                    remoteRepository.observeAllDebts().collect { remoteDebts ->
+                        queries.transaction {
+                            remoteDebts.forEach { debt ->
+                                queries.upsert(
+                                    id = debt.id,
+                                    eventId = debt.eventId,
+                                    profileId = debt.profileId,
+                                    amountEuros = debt.amountEuros,
+                                    paid = if (debt.paid) 1 else 0,
+                                    notes = debt.notes,
+                                    calculationMode = debt.calculationMode,
+                                    updatedAt = currentTimeMillis()
+                                )
+                            }
+                        }
+                    }
+                    backoffMs = 1000L
+                } catch (e: Exception) {
+                    println("[OfflineFirstDebtRepo] SyncAll error: ${e.message}")
                     delay(backoffMs)
                     backoffMs = minOf(backoffMs * 2, maxBackoffMs)
                 }

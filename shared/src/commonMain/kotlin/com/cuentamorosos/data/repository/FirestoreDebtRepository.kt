@@ -5,7 +5,9 @@ import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.tasks.await
 
 class FirestoreDebtRepository : DebtRepository {
 
@@ -20,6 +22,23 @@ class FirestoreDebtRepository : DebtRepository {
             .map { snapshot ->
                 snapshot.documents.mapNotNull { it.toDebtItem() }
             }
+
+    override fun observeAllDebts(): Flow<List<EventDebtItem>> = flow {
+        val eventsSnapshot = db.collection("events").get()
+        val allDebts = mutableListOf<EventDebtItem>()
+
+        for (eventDoc in eventsSnapshot.documents) {
+            val debtsSnapshot = db.collection("events")
+                .document(eventDoc.id)
+                .collection("debts")
+                .get()
+
+            for (debtDoc in debtsSnapshot.documents) {
+                debtDoc.toDebtItem()?.let { allDebts.add(it) }
+            }
+        }
+        emit(allDebts)
+    }
 
     override suspend fun saveDebt(debt: EventDebtItem) {
         db.collection("events")

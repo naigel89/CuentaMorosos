@@ -47,6 +47,26 @@ class OfflineFirstExpenseRepository(
             }
     }
 
+    override fun observeAllExpenses(): Flow<List<EventExpenseItem>> {
+        // Observe network state and control sync
+        networkMonitor.isOnline
+            .onEach { isOnline ->
+                if (isOnline) {
+                    startSyncAll()
+                } else {
+                    stopSync()
+                }
+            }
+            .launchIn(syncScope)
+
+        return queries.selectAll()
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            .map { cachedExpenses ->
+                cachedExpenses.map { it.toExpenseItem() }
+            }
+    }
+
     private fun startSync(eventId: String) {
         syncJob?.cancel()
         syncJob = syncScope.launch(Dispatchers.Default) {
@@ -73,6 +93,39 @@ class OfflineFirstExpenseRepository(
                     backoffMs = 1000L
                 } catch (e: Exception) {
                     println("[OfflineFirstExpenseRepo] Sync error: ${e.message}")
+                    delay(backoffMs)
+                    backoffMs = minOf(backoffMs * 2, maxBackoffMs)
+                }
+            }
+        }
+    }
+
+    private fun startSyncAll() {
+        syncJob?.cancel()
+        syncJob = syncScope.launch(Dispatchers.Default) {
+            var backoffMs = 1000L
+            val maxBackoffMs = 30000L
+            while (isActive) {
+                try {
+                    remoteRepository.observeAllExpenses().collect { remoteExpenses ->
+                        queries.transaction {
+                            remoteExpenses.forEach { expense ->
+                                queries.upsert(
+                                    id = expense.id,
+                                    eventId = expense.eventId,
+                                    description = expense.name,
+                                    amountEuros = expense.amountEuros,
+                                    category = expense.category,
+                                    paidByProfileId = expense.assignedProfileIds.firstOrNull() ?: "",
+                                    dateMillis = 0L,
+                                    updatedAt = currentTimeMillis()
+                                )
+                            }
+                        }
+                    }
+                    backoffMs = 1000L
+                } catch (e: Exception) {
+                    println("[OfflineFirstExpenseRepo] SyncAll error: ${e.message}")
                     delay(backoffMs)
                     backoffMs = minOf(backoffMs * 2, maxBackoffMs)
                 }

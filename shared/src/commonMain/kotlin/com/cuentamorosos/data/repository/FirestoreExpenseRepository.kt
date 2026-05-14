@@ -5,7 +5,9 @@ import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.tasks.await
 
 class FirestoreExpenseRepository : ExpenseRepository {
 
@@ -20,6 +22,23 @@ class FirestoreExpenseRepository : ExpenseRepository {
             .map { snapshot ->
                 snapshot.documents.mapNotNull { it.toExpenseItem() }
             }
+
+    override fun observeAllExpenses(): Flow<List<EventExpenseItem>> = flow {
+        val eventsSnapshot = db.collection("events").get()
+        val allExpenses = mutableListOf<EventExpenseItem>()
+
+        for (eventDoc in eventsSnapshot.documents) {
+            val expensesSnapshot = db.collection("events")
+                .document(eventDoc.id)
+                .collection("expenses")
+                .get()
+
+            for (expenseDoc in expensesSnapshot.documents) {
+                expenseDoc.toExpenseItem()?.let { allExpenses.add(it) }
+            }
+        }
+        emit(allExpenses)
+    }
 
     override suspend fun saveExpense(expense: EventExpenseItem) {
         db.collection("events")
