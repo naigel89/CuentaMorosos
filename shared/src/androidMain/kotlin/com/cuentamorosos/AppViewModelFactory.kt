@@ -2,6 +2,7 @@ package com.cuentamorosos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.cuentamorosos.ui.DashboardViewModel
 import com.cuentamorosos.ui.EventDetailViewModel
 import com.cuentamorosos.ui.EventsViewModel
 import com.cuentamorosos.ui.InvitationsViewModel
@@ -38,6 +39,15 @@ class AppViewModelFactory(
             modelClass.isAssignableFrom(InvitationsViewModel::class.java) -> {
                 InvitationsViewModel(
                     invitationRepository = repositoryProvider.invitationRepository
+                ) as T
+            }
+            modelClass.isAssignableFrom(DashboardViewModel::class.java) -> {
+                DashboardViewModel(
+                    eventRepository = repositoryProvider.eventRepository,
+                    debtRepository = repositoryProvider.debtRepository,
+                    expenseRepository = repositoryProvider.expenseRepository,
+                    profileRepository = repositoryProvider.profileRepository,
+                    currentUserUid = "", // TODO: pass actual UID from MainActivity
                 ) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
