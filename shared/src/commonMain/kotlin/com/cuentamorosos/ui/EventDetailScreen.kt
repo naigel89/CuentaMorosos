@@ -3,17 +3,16 @@ package com.cuentamorosos.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -95,200 +94,179 @@ fun EventDetailScreen(
     val currentUid = currentUserUid ?: ""
     val isOwner = event.ownerId == currentUid
 
-    Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isWide = maxWidth >= 600.dp
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
         ) {
-            OutlinedButton(onClick = onBack) {
-                Text("Volver")
-            }
-            Text(
-                text = event.name,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Text(
-            text = "Fecha: ${event.formattedDate()}",
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        StatusCard(
-            title = "Resumen del evento",
-            message = "Pendientes: ${pendingParticipants.size} · Han pagado: ${paidParticipants.size} · Total activo: ${formatEuros(pendingTotal)}"
-        )
-
-        event.lastCalculationMode?.let { mode ->
-            val label = SplitMode.fromId(mode).label
-            val summary = event.lastCalculationSummary?.let { " · $it" }.orEmpty()
-            StatusCard(
-                title = "Último cálculo aplicado",
-                message = "Modo: $label · Total del evento: ${formatEuros(event.lastCalculationTotal ?: 0.0)}$summary"
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = { showAddProfileDialog = true },
-                modifier = Modifier.weight(1f)
+            // Header (always full width)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text("Añadir perfil")
-            }
-            OutlinedButton(
-                onClick = {
-                    editableExpense = EventExpenseItem(
-                        eventId = event.id,
-                        name = "",
-                        amountEuros = 0.0
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(onClick = onBack) {
+                        Text("Volver")
+                    }
+                    Text(
+                        text = event.name,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
                     )
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Añadir ítem")
-            }
-        }
-
-        if (eventDebts.isNotEmpty()) {
-            OutlinedButton(
-                onClick = { showQuickSplitDialog = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Abrir calculadora")
-            }
-        }
-
-        if (eventDebts.isNotEmpty() && eventDebts.all { it.amountEuros == 0.0 }) {
-            SuggestionCard(
-                message = "Todavía no hay importes asignados. Usa la calculadora para simular distintos repartos y aplicarlos cuando te convenzan."
-            )
-        }
-
-        Text(
-            text = "Ítems del evento",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        if (eventExpenses.isEmpty()) {
-            SuggestionCard(
-                message = "Añade gastos del evento con categoría y perfiles implicados para usar `consumo real` o `por categoría`."
-            )
-        } else {
-            Text(
-                text = "Total registrado en ítems: ${formatEuros(eventExpenseTotal)}",
-                style = MaterialTheme.typography.bodySmall
-            )
-            eventExpenses.forEach { expense ->
-                ExpenseCard(
-                    expense = expense,
-                    profiles = profiles,
-                    onEdit = { editableExpense = expense }
-                )
-            }
-        }
-
-        Text(
-            text = "Pendientes",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        if (pendingParticipants.isEmpty()) {
-            EmptyState(
-                title = if (eventDebts.isEmpty()) "Evento sin perfiles" else "No hay pagos pendientes",
-                message = if (eventDebts.isEmpty()) {
-                    "Añade uno o más perfiles existentes para empezar a registrar importes y notas."
-                } else {
-                    "Todos los perfiles del evento están actualmente marcados como pagados."
                 }
-            )
-        } else {
-            pendingParticipants.forEach { (debt, profile) ->
-                DebtCard(
-                    profile = profile,
-                    debt = debt,
-                    onEdit = { editableDebt = debt },
-                    onTogglePaid = { onTogglePaid(debt) }
+
+                Text(
+                    text = "Fecha: ${event.formattedDate()}",
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
-        }
 
-        if (paidParticipants.isNotEmpty()) {
-            Text(
-                text = "Han pagado",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            paidParticipants.forEach { (debt, profile) ->
-                DebtCard(
-                    profile = profile,
-                    debt = debt,
-                    onEdit = { editableDebt = debt },
-                    onTogglePaid = { onTogglePaid(debt) }
-                )
-            }
-        }
-
-        // ── Miembros del evento ───────────────────────────────────────────────
-        Text(
-            text = "Miembros",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        Button(
-            onClick = { showInviteMemberDialog = true },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Invitar miembro por email")
-        }
-
-        if (event.memberIds.isEmpty()) {
-            SuggestionCard(message = "Aún no hay miembros en este evento.")
-        } else {
-            event.memberIds.forEach { uid ->
+            if (isWide) {
+                // Two-column layout
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    val label = if (uid == event.ownerId) "$uid (propietario)" else uid
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (isOwner) {
-                        if (uid == currentUid) {
-                            TextButton(onClick = { showRemoveOwnerFromMembersConfirm = true }) {
-                                Text("No participar", color = MaterialTheme.colorScheme.error)
-                            }
-                        } else {
-                            TextButton(onClick = { onRemoveMember(uid) }) {
-                                Text("Expulsar", color = MaterialTheme.colorScheme.error)
+                    // Expenses column (2/3)
+                    Column(
+                        modifier = Modifier.weight(0.67f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TotalCostCard(
+                            totalExpenses = eventExpenseTotal,
+                            totalPending = pendingTotal,
+                            expenseCount = eventExpenses.size,
+                        )
+
+                        OutlinedButton(
+                            onClick = {
+                                editableExpense = EventExpenseItem(
+                                    eventId = event.id,
+                                    name = "",
+                                    amountEuros = 0.0
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Añadir ítem")
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (eventExpenses.isEmpty()) {
+                                SuggestionCard(
+                                    message = "Añade gastos del evento con categoría y perfiles implicados para usar `consumo real` o `por categoría`."
+                                )
+                            } else {
+                            eventExpenses.forEach { expense ->
+                                ExpenseItemCard(
+                                    expense = expense,
+                                    paidByProfile = null,
+                                    onTap = { editableExpense = expense },
+                                    onEdit = { editableExpense = expense },
+                                    onDelete = { onRemoveExpense(expense.id) },
+                                )
                             }
                         }
+                        }
                     }
+
+                    // Settlement column (1/3)
+                    Column(
+                        modifier = Modifier
+                            .weight(0.33f)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        SettlementPanel(
+                            event = event,
+                            debts = eventDebts,
+                            profiles = profiles,
+                            pendingTotal = pendingTotal,
+                            expenseTotal = eventExpenseTotal,
+                            onCalculateTotals = { showQuickSplitDialog = true },
+                            onTogglePaid = onTogglePaid,
+                            onAddProfile = { showAddProfileDialog = true },
+                            onInviteMember = { showInviteMemberDialog = true },
+                        )
+                    }
+                }
+            } else {
+                // Single column layout (mobile)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TotalCostCard(
+                        totalExpenses = eventExpenseTotal,
+                        totalPending = pendingTotal,
+                        expenseCount = eventExpenses.size,
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            editableExpense = EventExpenseItem(
+                                eventId = event.id,
+                                name = "",
+                                amountEuros = 0.0
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Añadir ítem")
+                    }
+
+                    if (eventExpenses.isEmpty()) {
+                        SuggestionCard(
+                            message = "Añade gastos del evento con categoría y perfiles implicados para usar `consumo real` o `por categoría`."
+                        )
+                    } else {
+                        eventExpenses.forEach { expense ->
+                            ExpenseItemCard(
+                                expense = expense,
+                                paidByProfile = null,
+                                onTap = { editableExpense = expense },
+                                onEdit = { editableExpense = expense },
+                                onDelete = { onRemoveExpense(expense.id) },
+                            )
+                        }
+                    }
+
+                    SettlementPanel(
+                        event = event,
+                        debts = eventDebts,
+                        profiles = profiles,
+                        pendingTotal = pendingTotal,
+                        expenseTotal = eventExpenseTotal,
+                        onCalculateTotals = { showQuickSplitDialog = true },
+                        onTogglePaid = onTogglePaid,
+                        onAddProfile = { showAddProfileDialog = true },
+                        onInviteMember = { showInviteMemberDialog = true },
+                    )
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
+
+    // ── Dialogs (preserved exactly as before, outside scroll area) ──────────────
 
     if (showAddProfileDialog) {
         AddProfileToEventDialog(
@@ -500,45 +478,6 @@ private fun AddProfileToEventDialog(
             }
         }
     )
-}
-
-// ── ExpenseCard ───────────────────────────────────────────────────────────────
-
-@Composable
-private fun ExpenseCard(
-    expense: EventExpenseItem,
-    profiles: List<ProfileItem>,
-    onEdit: () -> Unit,
-) {
-    val category = ExpenseCategory.fromId(expense.category)
-    val assignedNames = expense.assignedProfileIds
-        .mapNotNull { profileId -> profiles.firstOrNull { it.id == profileId }?.name }
-        .ifEmpty { listOf("Todos los perfiles") }
-        .joinToString()
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = expense.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = "${formatEuros(expense.amountEuros)} · ${category.label}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Text(
-                text = assignedNames,
-                style = MaterialTheme.typography.bodySmall
-            )
-            OutlinedButton(onClick = onEdit) {
-                Text("Editar ítem")
-            }
-        }
-    }
 }
 
 // ── ExpenseEditorDialog ───────────────────────────────────────────────────────
@@ -912,66 +851,6 @@ private fun DebtEditorDialog(
             }
         }
     )
-}
-
-// ── DebtCard ──────────────────────────────────────────────────────────────────
-
-@Composable
-private fun DebtCard(
-    profile: ProfileItem,
-    debt: EventDebtItem,
-    onEdit: () -> Unit,
-    onTogglePaid: () -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "${profile.icon} ${profile.name}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = formatEuros(debt.amountEuros),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = debt.paid,
-                        onCheckedChange = { onTogglePaid() }
-                    )
-                    Text(if (debt.paid) "Pagado" else "Pendiente")
-                }
-            }
-
-            if (debt.notes.isNotBlank()) {
-                Text(
-                    text = debt.notes,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            debt.calculationMode?.let { mode ->
-                Text(
-                    text = "Origen del importe: $mode",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            OutlinedButton(onClick = onEdit) {
-                Text("Editar importe y notas")
-            }
-        }
-    }
 }
 
 // ── QuickSplitDialog ──────────────────────────────────────────────────────────
