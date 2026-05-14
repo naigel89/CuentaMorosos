@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var repositoryProvider: RepositoryProvider
     private lateinit var viewModelFactory: AppViewModelFactory
     private lateinit var localStore: CuentaMorososLocalStore
+    private lateinit var networkMonitor: com.cuentamorosos.data.NetworkMonitor
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,7 +47,8 @@ class MainActivity : ComponentActivity() {
 
         // Initialize SQLDelight driver and repositories
         val sqlDriver = DriverFactory(applicationContext).createDriver()
-        repositoryProvider = RepositoryProvider(sqlDriver)
+        networkMonitor = NetworkMonitorFactory(applicationContext).create()
+        repositoryProvider = RepositoryProvider(sqlDriver, networkMonitor)
         viewModelFactory = AppViewModelFactory(repositoryProvider)
         localStore = CuentaMorososLocalStore(applicationContext)
 
@@ -81,6 +83,7 @@ class MainActivity : ComponentActivity() {
                             user = currentUser!!,
                             viewModelFactory = viewModelFactory,
                             localStore = localStore,
+                            networkMonitor = networkMonitor,
                             application = application
                         )
                     } else {
@@ -105,13 +108,10 @@ private fun MainAppContent(
     user: com.google.firebase.auth.FirebaseUser,
     viewModelFactory: ViewModelProvider.Factory,
     localStore: CuentaMorososLocalStore,
+    networkMonitor: com.cuentamorosos.data.NetworkMonitor,
     application: android.app.Application
 ) {
     var preferences by remember { mutableStateOf(localStore.loadPreferences()) }
-
-    val networkMonitor = remember(application) {
-        NetworkMonitorFactory(application).create()
-    }
 
     CuentaMorososApp(
         viewModelFactory = viewModelFactory,

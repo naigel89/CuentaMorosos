@@ -1,6 +1,8 @@
 package com.cuentamorosos
 
 import app.cash.sqldelight.db.SqlDriver
+import com.cuentamorosos.data.NetworkMonitor
+import com.cuentamorosos.data.PendingOperationQueue
 import com.cuentamorosos.data.repository.DebtRepository
 import com.cuentamorosos.data.repository.EventRepository
 import com.cuentamorosos.data.repository.ExpenseRepository
@@ -18,6 +20,7 @@ import com.cuentamorosos.data.repository.ProfileRepository
 import com.cuentamorosos.db.CuentaMorososDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Provides all repositories for the app.
@@ -27,9 +30,11 @@ import kotlinx.coroutines.Dispatchers
  */
 class RepositoryProvider(
     sqlDriver: SqlDriver,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main)
+    private val networkMonitor: NetworkMonitor,
 ) {
     private val database = CuentaMorososDatabase(sqlDriver)
+    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val pendingQueue = PendingOperationQueue(database, syncScope)
 
     // Remote (Firestore) repositories — use Firebase singletons via dev.gitlive
     val remoteEventRepository: EventRepository = FirestoreEventRepository()
@@ -42,25 +47,33 @@ class RepositoryProvider(
     val eventRepository: EventRepository = OfflineFirstEventRepository(
         remoteRepository = remoteEventRepository,
         database = database,
-        scope = scope
+        networkMonitor = networkMonitor,
+        syncScope = syncScope,
+        pendingQueue = pendingQueue,
     )
 
     val debtRepository: DebtRepository = OfflineFirstDebtRepository(
         remoteRepository = remoteDebtRepository,
         database = database,
-        scope = scope
+        networkMonitor = networkMonitor,
+        syncScope = syncScope,
+        pendingQueue = pendingQueue,
     )
 
     val expenseRepository: ExpenseRepository = OfflineFirstExpenseRepository(
         remoteRepository = remoteExpenseRepository,
         database = database,
-        scope = scope
+        networkMonitor = networkMonitor,
+        syncScope = syncScope,
+        pendingQueue = pendingQueue,
     )
 
     val profileRepository: ProfileRepository = OfflineFirstProfileRepository(
         remoteRepository = remoteProfileRepository,
         database = database,
-        scope = scope
+        networkMonitor = networkMonitor,
+        syncScope = syncScope,
+        pendingQueue = pendingQueue,
     )
 
     // Invitations are online-only (no offline cache needed)
