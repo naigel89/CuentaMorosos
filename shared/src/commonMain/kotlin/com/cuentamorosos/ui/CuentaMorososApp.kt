@@ -159,6 +159,10 @@ fun CuentaMorososApp(
         }
     }
 
+    val totalSpent by remember(expenses) {
+        derivedStateOf { expenses.sumOf { it.amountEuros } }
+    }
+
     val participantCountByEvent by remember(debts) {
         derivedStateOf {
             debts.groupBy { it.eventId }.mapValues { it.value.size }
@@ -331,9 +335,10 @@ fun CuentaMorososApp(
                                     .fillMaxSize()
                                     .padding(innerPadding),
                                 events = events,
-                                profileCount = profiles.size,
+                                profiles = profiles.toList(),
                                 participantCountByEvent = participantCountByEvent,
                                 pendingTotalsByEvent = pendingTotalsByEvent,
+                                totalSpent = totalSpent,
                                 reminders = reminderMessages,
                                 currentUserUid = currentUserUid,
                                 onOpenEvent = { event ->

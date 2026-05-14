@@ -1,26 +1,25 @@
 package com.cuentamorosos.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,12 +36,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.currentDateText
-import com.cuentamorosos.isValidEmail
 import com.cuentamorosos.data.ReminderMessage
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.ProfileItem
-import com.cuentamorosos.model.SplitMode
-import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEventDate
 
@@ -52,9 +48,10 @@ import com.cuentamorosos.model.parseEventDate
 fun EventsScreen(
     modifier: Modifier = Modifier,
     events: List<EventItem>,
-    profileCount: Int,
+    profiles: List<ProfileItem>,
     participantCountByEvent: Map<String, Int>,
     pendingTotalsByEvent: Map<String, Double>,
+    totalSpent: Double,
     reminders: List<ReminderMessage>,
     currentUserUid: String?,
     onOpenEvent: (EventItem) -> Unit,
@@ -65,8 +62,15 @@ fun EventsScreen(
     var eventToDelete by remember { mutableStateOf<EventItem?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Filtro: 0 = Todos, 1 = Con deuda pendiente, 2 = Sin deuda
+    // Filtro: 0 = Todos, 1 = Con deuda, 2 = Sin deuda
     var activeFilter by remember { mutableStateOf(0) }
+
+    val totalPending by remember(pendingTotalsByEvent) {
+        derivedStateOf { pendingTotalsByEvent.values.sum() }
+    }
+    val activeEventCount by remember(pendingTotalsByEvent) {
+        derivedStateOf { pendingTotalsByEvent.count { it.value > 0.0 } }
+    }
 
     val filteredEvents by remember(events, searchQuery, activeFilter, pendingTotalsByEvent) {
         derivedStateOf {
@@ -85,149 +89,118 @@ fun EventsScreen(
         }
     }
 
-    Column(
-        modifier = modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = "Eventos",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "Desde aquí ya puedes abrir cada evento y controlar deudas, pagos y reparto rápido.",
-            style = MaterialTheme.typography.bodyMedium
-        )
+    val filterLabel = when (activeFilter) {
+        1 -> "con deuda"
+        2 -> "sin deuda"
+        else -> ""
+    }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Button(
-                onClick = {
-                    editableEvent = EventItem(
-                        name = "",
-                        dateMillis = currentTimeMillis(),
-                        ownerId = currentUserUid ?: "",
-                        memberIds = listOfNotNull(currentUserUid?.takeIf { it.isNotBlank() })
-                    )
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Nuevo evento")
-            }
-        }
-
-        // ── Barra de búsqueda ─────────────────────────────────────────────────
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Buscar evento") },
-            singleLine = true,
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    TextButton(onClick = { searchQuery = "" }) { Text("✕") }
-                }
-            },
-        )
-
-        // ── Chips de filtro ───────────────────────────────────────────────────
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Todos", "Con deuda", "Sin deuda").forEachIndexed { index, label ->
-                FilterChip(
-                    selected = activeFilter == index,
-                    onClick = { activeFilter = index },
-                    label = { Text(label) },
+            item { BalanceSummaryCard(totalPending, activeEventCount, totalSpent) }
+            item { CreateEventCard(onCreate = {
+                editableEvent = EventItem(
+                    name = "",
+                    dateMillis = currentTimeMillis(),
+                    ownerId = currentUserUid ?: "",
+                    memberIds = listOfNotNull(currentUserUid?.takeIf { it.isNotBlank() })
                 )
-            }
-        }
-
-        if (reminders.isNotEmpty()) {
-            ReminderSummaryCard(reminders = reminders)
-        }
-
-        if (events.isEmpty()) {
-            EmptyState(
-                modifier = Modifier.weight(1f),
-                title = "Todavía no hay eventos",
-                message = "Pulsa en `Nuevo evento` para registrar el primero con nombre y fecha."
-            )
-        } else if (filteredEvents.isEmpty()) {
-            EmptyState(
-                modifier = Modifier.weight(1f),
-                title = "Sin resultados",
-                message = if (searchQuery.isNotBlank())
-                    "No hay eventos que coincidan con «$searchQuery»."
-                else
-                    "No hay eventos que cumplan el filtro seleccionado.",
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(filteredEvents, key = { it.id }) { event ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenEvent(event) }
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                text = event.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "Fecha: ${event.formattedDate()}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = "Participantes: ${participantCountByEvent[event.id] ?: 0} · Pendiente activo: ${formatEuros(pendingTotalsByEvent[event.id] ?: 0.0)}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            event.lastCalculationMode?.let { mode ->
-                                val label = SplitMode.fromId(mode).label
-                                val summary = event.lastCalculationSummary?.let { " · $it" }.orEmpty()
-                                Text(
-                                    text = "Último cálculo: $label · ${formatEuros(event.lastCalculationTotal ?: 0.0)}$summary",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = { onOpenEvent(event) },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Abrir evento")
-                                }
-                                OutlinedButton(
-                                    onClick = { editableEvent = event },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Editar")
-                                }
-                                OutlinedButton(
-                                    onClick = { eventToDelete = event },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Eliminar")
-                                }
+            }) }
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Buscar evento") },
+                    singleLine = true,
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Limpiar búsqueda")
                             }
                         }
+                    },
+                )
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Todos", "Con deuda", "Sin deuda").forEachIndexed { index, label ->
+                        FilterChip(
+                            selected = activeFilter == index,
+                            onClick = { activeFilter = index },
+                            label = { Text(label) },
+                        )
                     }
                 }
             }
+            if (reminders.isNotEmpty()) {
+                item { ReminderSummaryCard(reminders = reminders) }
+            }
+
+            if (events.isEmpty()) {
+                item {
+                    EmptyStateMessage(
+                        title = "No tenés eventos aún",
+                        message = "Pulsa en \"Crear nuevo evento\" para registrar el primero con nombre y fecha.",
+                    )
+                }
+            } else if (filteredEvents.isEmpty()) {
+                item {
+                    EmptyStateMessage(
+                        title = "Sin resultados",
+                        message = if (searchQuery.isNotBlank())
+                            "No se encontraron eventos para '$searchQuery'."
+                        else
+                            "No hay eventos $filterLabel.",
+                        onClear = {
+                            if (searchQuery.isNotBlank()) searchQuery = ""
+                            else activeFilter = 0
+                        },
+                        clearLabel = if (searchQuery.isNotBlank()) "Limpiar búsqueda" else "Resetear filtro",
+                    )
+                }
+            } else {
+                items(filteredEvents, key = { it.id }) { event ->
+                    val eventProfiles = event.memberIds.mapNotNull { memberId ->
+                        profiles.find { it.id == memberId }
+                    }
+                    EventCard(
+                        event = event,
+                        participantCount = participantCountByEvent[event.id] ?: 0,
+                        pendingTotal = pendingTotalsByEvent[event.id] ?: 0.0,
+                        profiles = eventProfiles,
+                        onTap = { onOpenEvent(event) },
+                        onEdit = { editableEvent = event },
+                        onDelete = { eventToDelete = event },
+                    )
+                }
+            }
+        }
+
+        // FAB for quick event creation
+        FloatingActionButton(
+            onClick = {
+                editableEvent = EventItem(
+                    name = "",
+                    dateMillis = currentTimeMillis(),
+                    ownerId = currentUserUid ?: "",
+                    memberIds = listOfNotNull(currentUserUid?.takeIf { it.isNotBlank() })
+                )
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            containerColor = NeoFintechColors.dark().primaryContainer,
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Crear evento")
         }
     }
 
+    // ── EventEditorDialog ─────────────────────────────────────────────────
     editableEvent?.let { event ->
         EventEditorDialog(
             initialEvent = event,
@@ -239,6 +212,7 @@ fun EventsScreen(
         )
     }
 
+    // ── Delete Confirmation ───────────────────────────────────────────────
     eventToDelete?.let { event ->
         AlertDialog(
             onDismissRequest = { eventToDelete = null },
@@ -260,6 +234,41 @@ fun EventsScreen(
                 }
             }
         )
+    }
+}
+
+// ── EmptyStateMessage ────────────────────────────────────────────────────────
+
+@Composable
+private fun EmptyStateMessage(
+    title: String,
+    message: String,
+    onClear: (() -> Unit)? = null,
+    clearLabel: String = "Limpiar",
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        onClear?.let {
+            TextButton(onClick = it) {
+                Text(clearLabel)
+            }
+        }
     }
 }
 
@@ -321,11 +330,11 @@ private fun EventEditorDialog(
                     val parsedDate = parseEventDate(dateText)
                     when {
                         name.isBlank() -> {
-                            validationMessage = "Indica un nombre para el evento."
+                            validationMessage = "El nombre no puede estar vacío"
                             return@TextButton
                         }
                         parsedDate == null -> {
-                            validationMessage = "Introduce una fecha válida con formato dd/MM/yyyy."
+                            validationMessage = "Selecciona una fecha válida"
                             return@TextButton
                         }
                         else -> {
