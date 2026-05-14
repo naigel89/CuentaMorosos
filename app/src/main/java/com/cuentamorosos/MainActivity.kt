@@ -1,251 +1,230 @@
 package com.cuentamorosos
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.core.content.ContextCompat
-import kotlinx.coroutines.launch
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModelProvider
 import com.cuentamorosos.data.CuentaMorososLocalStore
 import com.cuentamorosos.data.FirebaseUserSyncManager
-import com.cuentamorosos.data.MigrationManager
+import com.cuentamorosos.data.NetworkMonitorFactory
 import com.cuentamorosos.data.NotificationScheduler
 import com.cuentamorosos.data.ReminderWorker
-import com.cuentamorosos.data.repository.RepositoryProvider
+import com.cuentamorosos.db.DriverFactory
+import com.cuentamorosos.model.UserPreferences
 import com.cuentamorosos.ui.CuentaMorososApp
+import com.cuentamorosos.ui.CuentaMorososTheme
 import com.cuentamorosos.ui.auth.ForgotPasswordScreen
 import com.cuentamorosos.ui.auth.LoginScreen
-import com.cuentamorosos.ui.auth.MigrationScreen
 import com.cuentamorosos.ui.auth.RegisterScreen
-import com.cuentamorosos.ui.auth.UserProfileScreen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
-
-private object Routes {
-    const val LOGIN = "login"
-    const val REGISTER = "register"
-    const val FORGOT_PASSWORD = "forgot_password"
-    const val MIGRATION = "migration"
-    const val MAIN = "main"
-    const val USER_PROFILE = "user_profile"
-}
+import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
 
-    private val requestNotificationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-            // El usuario aceptó o rechazó — no bloqueamos el flujo en ningún caso.
-        }
+    private lateinit var repositoryProvider: RepositoryProvider
+    private lateinit var viewModelFactory: AppViewModelFactory
+    private lateinit var localStore: CuentaMorososLocalStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        RepositoryProvider.init(this)
         enableEdgeToEdge()
+
+        // Ensure notification channel exists
         NotificationScheduler.ensureChannel(this)
-        requestNotificationsPermissionIfNeeded()
-        scheduleReminderWorkerIfEnabled()
-        setContent {
-            val store = remember(applicationContext) {
-                CuentaMorososLocalStore(applicationContext)
+
+        // Initialize SQLDelight driver and repositories
+        val sqlDriver = DriverFactory(applicationContext).createDriver()
+        repositoryProvider = RepositoryProvider(sqlDriver)
+        viewModelFactory = AppViewModelFactory(repositoryProvider)
+        localStore = CuentaMorososLocalStore(applicationContext)
+
+        // Sync Firebase user on startup if already logged in
+        FirebaseAuth.getInstance().currentUser?.let {
+            runBlocking {
+                FirebaseUserSyncManager.syncCurrentUser()
+                FirebaseUserSyncManager.ensureOwnProfile()
             }
-            AppNavHost(store = store)
         }
-    }
 
-    private fun requestNotificationsPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val granted = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!granted) {
-            requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
+        setContent {
+            val preferences = remember { localStore.loadPreferences() }
+            CuentaMorososTheme(preferences = preferences) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val auth = remember { FirebaseAuth.getInstance() }
+                    var currentUser by remember { mutableStateOf(auth.currentUser) }
 
-    private fun scheduleReminderWorkerIfEnabled() {
-        val prefs = CuentaMorososLocalStore(applicationContext).loadPreferences()
-        if (prefs.remindersEnabled) {
-            ReminderWorker.schedule(applicationContext)
-        } else {
-            ReminderWorker.cancel(applicationContext)
+                    // Listen to auth state changes
+                    LaunchedEffect(auth) {
+                        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+                            currentUser = firebaseAuth.currentUser
+                        }
+                        auth.addAuthStateListener(listener)
+                    }
+
+                    if (currentUser != null) {
+                        MainAppContent(
+                            user = currentUser!!,
+                            viewModelFactory = viewModelFactory,
+                            localStore = localStore,
+                            application = application
+                        )
+                    } else {
+                        AuthFlow(
+                            auth = auth,
+                            onAuthSuccess = { user ->
+                                currentUser = user
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
+/**
+ * Main app content shown when user is authenticated.
+ */
 @Composable
-private fun AppNavHost(store: CuentaMorososLocalStore) {
-    val navController = rememberNavController()
-    val auth = FirebaseAuth.getInstance()
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+private fun MainAppContent(
+    user: com.google.firebase.auth.FirebaseUser,
+    viewModelFactory: ViewModelProvider.Factory,
+    localStore: CuentaMorososLocalStore,
+    application: android.app.Application
+) {
+    var preferences by remember { mutableStateOf(localStore.loadPreferences()) }
 
-    // Si hay sesión activa, comprobar si necesita migración antes de ir a MAIN
-    var startDestination by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) {
-        val user = auth.currentUser
-        if (user != null) {
-            FirebaseUserSyncManager.syncCurrentUser()
-            runCatching { FirebaseUserSyncManager.ensureOwnProfile() }
-        }
-        startDestination = when {
-            user == null -> Routes.LOGIN
-            MigrationManager.hasLocalData(context) && !MigrationManager.isMigrated(user.uid) -> Routes.MIGRATION
-            else -> Routes.MAIN
-        }
+    val networkMonitor = remember(application) {
+        NetworkMonitorFactory(application).create()
     }
 
-    val destination = startDestination ?: return
+    CuentaMorososApp(
+        viewModelFactory = viewModelFactory,
+        currentUserUid = user.uid,
+        preferences = preferences,
+        onSavePreferences = { updated ->
+            preferences = updated
+            localStore.savePreferences(updated)
+        },
+        onScheduleReminders = {
+            ReminderWorker.schedule(application)
+        },
+        onCancelReminders = {
+            ReminderWorker.cancel(application)
+        },
+        onPostReminders = { messages ->
+            NotificationScheduler.postReminders(application, messages)
+        },
+        networkMonitor = networkMonitor,
+        onSignOut = {
+            FirebaseAuth.getInstance().signOut()
+        }
+    )
+}
 
-    NavHost(navController = navController, startDestination = destination) {
+/**
+ * Auth flow: login → register → forgot password navigation.
+ */
+@Composable
+private fun AuthFlow(
+    auth: FirebaseAuth,
+    onAuthSuccess: (com.google.firebase.auth.FirebaseUser) -> Unit
+) {
+    var showLogin by remember { mutableStateOf(true) }
+    var showRegister by remember { mutableStateOf(false) }
+    var showForgotPassword by remember { mutableStateOf(false) }
 
-        composable(Routes.LOGIN) {
-            LoginScreen(
-                onLoginSuccess = {
-                    scope.launch {
-                        val currentUser = auth.currentUser
-                        if (currentUser != null) {
-                            FirebaseUserSyncManager.syncCurrentUser()
-                            runCatching { FirebaseUserSyncManager.ensureOwnProfile() }
-                            runCatching {
-                                RepositoryProvider.profileRepository.linkGhostProfile(
-                                    currentUser.email ?: "",
-                                    currentUser.uid
-                                )
-                            }
-                        }
-
-                        val uid = currentUser?.uid
-                        if (uid != null && MigrationManager.hasLocalData(context)) {
-                            val needsMigration = !MigrationManager.isMigrated(uid)
-                            if (needsMigration) {
-                                navController.navigate(Routes.MIGRATION) {
-                                    popUpTo(Routes.LOGIN) { inclusive = true }
-                                }
-                                return@launch
-                            }
-                        }
-
-                        navController.navigate(Routes.MAIN) {
-                            popUpTo(Routes.LOGIN) { inclusive = true }
+    if (showLogin) {
+        LoginScreen(
+            onLoginSuccess = {
+                auth.currentUser?.let { user ->
+                    runBlocking {
+                        FirebaseUserSyncManager.syncCurrentUser()
+                        FirebaseUserSyncManager.ensureOwnProfile()
+                    }
+                    onAuthSuccess(user)
+                }
+            },
+            onNavigateToRegister = {
+                showLogin = false
+                showRegister = true
+            },
+            onNavigateToForgotPassword = {
+                showLogin = false
+                showForgotPassword = true
+            },
+            onLogin = { email, password, onResult ->
+                auth.signInWithEmailAndPassword(email, password)
+                    .addOnSuccessListener { result ->
+                        result.user?.let { onResult(null) }
+                            ?: onResult("No se pudo iniciar sesión")
+                    }
+                    .addOnFailureListener { e ->
+                        onResult(e.localizedMessage ?: "Error al iniciar sesión")
+                    }
+            }
+        )
+    } else if (showRegister) {
+        RegisterScreen(
+            onRegisterSuccess = {
+                auth.currentUser?.let { user ->
+                    runBlocking {
+                        FirebaseUserSyncManager.syncCurrentUser(defaultMigrated = true)
+                        FirebaseUserSyncManager.ensureOwnProfile()
+                    }
+                    onAuthSuccess(user)
+                }
+            },
+            onNavigateToLogin = {
+                showRegister = false
+                showLogin = true
+            },
+            onRegister = { email, password, onResult ->
+                auth.createUserWithEmailAndPassword(email, password)
+                    .addOnSuccessListener { result ->
+                        // Set display name
+                        val displayName = email.substringBefore("@")
+                        result.user?.updateProfile(
+                            UserProfileChangeRequest.Builder()
+                                .setDisplayName(displayName)
+                                .build()
+                        )?.addOnSuccessListener {
+                            onResult(null)
                         }
                     }
-                },
-                onNavigateToRegister = { navController.navigate(Routes.REGISTER) },
-                onNavigateToForgotPassword = { navController.navigate(Routes.FORGOT_PASSWORD) },
-                onLogin = { email, password, onResult ->
-                    auth.signInWithEmailAndPassword(email, password)
-                        .addOnSuccessListener { onResult(null) }
-                        .addOnFailureListener { e -> onResult(e.localizedMessage ?: "Error al iniciar sesión") }
-                }
-            )
-        }
-
-        composable(Routes.REGISTER) {
-            RegisterScreen(
-                onRegisterSuccess = {
-                    scope.launch {
-                        val currentUser = auth.currentUser
-                        if (currentUser != null) {
-                            runCatching { FirebaseUserSyncManager.ensureOwnProfile() }
-                            runCatching {
-                                RepositoryProvider.profileRepository.linkGhostProfile(
-                                    currentUser.email ?: "",
-                                    currentUser.uid
-                                )
-                            }
-                        }
-
-                        navController.navigate(Routes.MAIN) {
-                            popUpTo(Routes.LOGIN) { inclusive = true }
-                        }
+                    .addOnFailureListener { e ->
+                        onResult(e.localizedMessage ?: "Error al registrarse")
                     }
-                },
-                onNavigateToLogin = { navController.popBackStack() },
-                onRegister = { email, password, onResult ->
-                    auth.createUserWithEmailAndPassword(email, password)
-                        .addOnSuccessListener { onResult(null) }
-                        .addOnFailureListener { e -> onResult(e.localizedMessage ?: "Error al crear cuenta") }
-                }
-            )
-        }
-
-        composable(Routes.FORGOT_PASSWORD) {
-            ForgotPasswordScreen(
-                onNavigateToLogin = { navController.popBackStack() },
-                onResetPassword = { email, onResult ->
-                    auth.sendPasswordResetEmail(email)
-                        .addOnSuccessListener { onResult(null) }
-                        .addOnFailureListener { e -> onResult(e.localizedMessage ?: "Error al enviar el correo") }
-                }
-            )
-        }
-
-        composable(Routes.MIGRATION) {
-            MigrationScreen(
-                onMigrationComplete = {
-                    navController.navigate(Routes.MAIN) {
-                        popUpTo(Routes.MIGRATION) { inclusive = true }
+            }
+        )
+    } else if (showForgotPassword) {
+        ForgotPasswordScreen(
+            onNavigateToLogin = {
+                showForgotPassword = false
+                showLogin = true
+            },
+            onResetPassword = { email, onResult ->
+                auth.sendPasswordResetEmail(email)
+                    .addOnSuccessListener { onResult(null) }
+                    .addOnFailureListener { e ->
+                        onResult(e.localizedMessage ?: "Error al enviar email")
                     }
-                }
-            )
-        }
-
-        composable(Routes.MAIN) {
-            val preferences = remember(store) { store.loadPreferences() }
-            var currentPreferences by remember { mutableStateOf(preferences) }
-
-            CuentaMorososApp(
-                currentUserUid = auth.currentUser?.uid,
-                preferences = currentPreferences,
-                onSavePreferences = { updatedPrefs ->
-                    currentPreferences = updatedPrefs
-                    store.savePreferences(updatedPrefs)
-                },
-                onScheduleReminders = { ReminderWorker.schedule(context) },
-                onCancelReminders = { ReminderWorker.cancel(context) },
-                onPostReminders = { messages ->
-                    NotificationScheduler.postReminders(context, messages)
-                },
-                onSignOut = {
-                    auth.signOut()
-                    navController.navigate(Routes.LOGIN) {
-                        popUpTo(Routes.MAIN) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(Routes.USER_PROFILE) {
-            val user = auth.currentUser
-            UserProfileScreen(
-                userEmail = user?.email ?: "",
-                currentDisplayName = user?.displayName,
-                onNavigateBack = { navController.popBackStack() },
-                onUpdateDisplayName = { name, onResult ->
-                    val profileUpdates = UserProfileChangeRequest.Builder()
-                        .setDisplayName(name)
-                        .build()
-                    user?.updateProfile(profileUpdates)
-                        ?.addOnSuccessListener { onResult(null) }
-                        ?.addOnFailureListener { e -> onResult(e.localizedMessage ?: "Error al actualizar nombre") }
-                        ?: onResult("No hay sesión activa")
-                }
-            )
-        }
+            }
+        )
     }
 }

@@ -2,9 +2,12 @@ plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("com.android.library")
     id("org.jetbrains.compose")
+    id("app.cash.sqldelight")
 }
 
 kotlin {
+    jvm()
+
     androidTarget {
         compilations.all {
             kotlinOptions {
@@ -46,14 +49,25 @@ kotlin {
             implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel:2.8.0")
             implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
             implementation("org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
+
+            // SQLDelight runtime (KMP)
+            implementation("app.cash.sqldelight:coroutines-extensions:2.0.2")
         }
         androidMain.dependencies {
             implementation(compose.preview)
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
             implementation("androidx.activity:activity-compose:1.9.1")
+            // SQLDelight Android driver
+            implementation("app.cash.sqldelight:android-driver:2.0.2")
+        }
+        jvmMain.dependencies {
+            // SQLDelight JVM (SQLite) driver
+            implementation("app.cash.sqldelight:sqlite-driver:2.0.2")
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation("app.cash.sqldelight:sqlite-driver:2.0.2")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
         }
         if (isMac) {
             val iosX64Main = findByName("iosX64Main")
@@ -65,6 +79,10 @@ kotlin {
                     iosX64Main.dependsOn(this)
                     iosArm64Main.dependsOn(this)
                     iosSimulatorArm64Main.dependsOn(this)
+                    dependencies {
+                        // SQLDelight iOS driver
+                        implementation("app.cash.sqldelight:native-driver:2.0.2")
+                    }
                 }
             }
         }
@@ -90,5 +108,13 @@ android {
 
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
+    }
+}
+
+sqldelight {
+    databases {
+        create("CuentaMorososDatabase") {
+            packageName.set("com.cuentamorosos.db")
+        }
     }
 }

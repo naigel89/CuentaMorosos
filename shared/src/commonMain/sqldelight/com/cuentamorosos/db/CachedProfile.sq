@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS CachedProfile (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    icon TEXT NOT NULL DEFAULT '🙂',
+    email TEXT NOT NULL DEFAULT '',
+    isGhost INTEGER NOT NULL DEFAULT 0,      -- BOOLEAN stored as 0/1
+    totalPendingEuros REAL NOT NULL DEFAULT 0.0,
+    updatedAt INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM CachedProfile ORDER BY name ASC;
+
+upsert:
+INSERT OR REPLACE INTO CachedProfile
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM CachedProfile WHERE id = ?;
+
+deleteAll:
+DELETE FROM CachedProfile;

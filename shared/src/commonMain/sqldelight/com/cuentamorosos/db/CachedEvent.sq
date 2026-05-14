@@ -1,0 +1,25 @@
+CREATE TABLE IF NOT EXISTS CachedEvent (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    dateMillis INTEGER NOT NULL,
+    ownerId TEXT NOT NULL,
+    memberIds TEXT NOT NULL,                  -- JSON array as text
+    lastCalculationMode TEXT,
+    lastCalculationTotal REAL,
+    lastCalculationTimestamp INTEGER,
+    lastCalculationSummary TEXT,
+    updatedAt INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM CachedEvent ORDER BY dateMillis DESC;
+
+upsert:
+INSERT OR REPLACE INTO CachedEvent
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM CachedEvent WHERE id = ?;
+
+deleteAll:
+DELETE FROM CachedEvent;
