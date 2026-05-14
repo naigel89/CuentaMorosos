@@ -1,0 +1,25 @@
+CREATE TABLE PendingOperation (
+    id TEXT NOT NULL PRIMARY KEY,
+    entityType TEXT NOT NULL,
+    entityId TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    retryCount INTEGER NOT NULL DEFAULT 0
+);
+
+insertOperation:
+INSERT OR REPLACE INTO PendingOperation (id, entityType, entityId, operation, payload, createdAt, retryCount)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectPending:
+SELECT * FROM PendingOperation ORDER BY createdAt ASC LIMIT ?;
+
+deleteOperation:
+DELETE FROM PendingOperation WHERE id = ?;
+
+updateRetryCount:
+UPDATE PendingOperation SET retryCount = retryCount + 1 WHERE id = ?;
+
+countPending:
+SELECT COUNT(*) FROM PendingOperation;
