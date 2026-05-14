@@ -3,8 +3,6 @@ package com.cuentamorosos.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,7 +34,6 @@ fun SettingsScreen(
     onSignOut: (() -> Unit)? = null,
 ) {
     var selectedThemeMode by remember(preferences.themeMode) { mutableStateOf(preferences.themeMode) }
-    var selectedAccentColor by remember(preferences.accentColorId) { mutableStateOf(preferences.accentColorId) }
     var reminderDaysText by remember(preferences.reminderDays) { mutableStateOf(preferences.reminderDays.toString()) }
     var remindersEnabled by remember(preferences.remindersEnabled) { mutableStateOf(preferences.remindersEnabled) }
     var validationMessage by remember { mutableStateOf<String?>(null) }
@@ -47,98 +44,16 @@ fun SettingsScreen(
     ) {
         item {
             Text(
-                text = "Ajustes y apariencia",
+                text = "Ajustes",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
         }
         item {
             Text(
-                text = "Personaliza el tema visual y el comportamiento de los recordatorios del proyecto.",
+                text = "Configura los recordatorios del proyecto.",
                 style = MaterialTheme.typography.bodyMedium
             )
-        }
-        item {
-            StatusCard(
-                title = "Tema",
-                message = "Selecciona claro, oscuro o sistema y aplica un color destacado persistente."
-            )
-        }
-        item {
-            AppearancePreviewCard(
-                preferences = UserPreferences(
-                    themeMode = selectedThemeMode,
-                    accentColorId = selectedAccentColor,
-                    reminderDays = reminderDaysText.toIntOrNull() ?: preferences.reminderDays,
-                    remindersEnabled = remindersEnabled,
-                )
-            )
-        }
-        item {
-            Text(
-                text = "Modo de tema",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ThemeModeOption.entries.forEach { option ->
-                    if (selectedThemeMode == option.id) {
-                        Button(
-                            onClick = { selectedThemeMode = option.id },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(option.label)
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = { selectedThemeMode = option.id },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(option.label)
-                        }
-                    }
-                }
-            }
-        }
-        item {
-            Text(
-                text = "Color secundario",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AccentColorOption.entries.chunked(2).forEach { rowOptions ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        rowOptions.forEach { option ->
-                            if (selectedAccentColor == option.id) {
-                                Button(
-                                    onClick = { selectedAccentColor = option.id },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(option.label)
-                                }
-                            } else {
-                                OutlinedButton(
-                                    onClick = { selectedAccentColor = option.id },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(option.label)
-                                }
-                            }
-                        }
-                        if (rowOptions.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
         }
         item {
             StatusCard(
@@ -194,7 +109,7 @@ fun SettingsScreen(
                         onSavePreferences(
                             UserPreferences(
                                 themeMode = selectedThemeMode,
-                                accentColorId = selectedAccentColor,
+                                accentColorId = preferences.accentColorId, // keep for backward compat
                                 reminderDays = parsedDays,
                                 remindersEnabled = remindersEnabled,
                             )

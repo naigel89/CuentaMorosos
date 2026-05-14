@@ -141,36 +141,3 @@ fun ReminderSummaryCard(reminders: List<ReminderMessage>) {
         }
     }
 }
-
-// ── AppearancePreviewCard ─────────────────────────────────────────────────────
-
-@Composable
-fun AppearancePreviewCard(preferences: UserPreferences) {
-    val accent = AccentColorOption.fromId(preferences.accentColorId)
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                text = "Vista previa de apariencia",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = "Tema: ${ThemeModeOption.fromId(preferences.themeMode).label}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Text(
-                text = "Color destacado: ${accent.label}",
-                color = accent.color,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "Recordatorios cada ${preferences.reminderDays} día(s)",
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-    }
-}
