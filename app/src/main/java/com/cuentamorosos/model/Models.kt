@@ -1,18 +1,15 @@
 package com.cuentamorosos.model
 
-import com.cuentamorosos.currentTimeMillis
-import com.cuentamorosos.formatDateMillis
-import com.cuentamorosos.generateUuid
-import com.cuentamorosos.parseDateString
-import com.cuentamorosos.currentDateText
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
 import kotlin.math.roundToInt
 
 data class EventItem(
-    val id: String = generateUuid(),
+    val id: String = UUID.randomUUID().toString(),
     val name: String,
     val dateMillis: Long,
-    val ownerId: String,
-    val memberIds: List<String> = emptyList(),
     val lastCalculationMode: String? = null,
     val lastCalculationTotal: Double? = null,
     val lastCalculationTimestamp: Long? = null,
@@ -20,12 +17,10 @@ data class EventItem(
 )
 
 data class ProfileItem(
-    val id: String = generateUuid(),
+    val id: String = UUID.randomUUID().toString(),
     val name: String,
     val icon: String,
     val totalPendingEuros: Double = 0.0,
-    val isGhost: Boolean = false,
-    val linkedEmail: String? = null,
 )
 
 data class UserPreferences(
@@ -37,7 +32,7 @@ data class UserPreferences(
 )
 
 data class EventDebtItem(
-    val id: String = generateUuid(),
+    val id: String = UUID.randomUUID().toString(),
     val eventId: String,
     val profileId: String,
     val amountEuros: Double = 0.0,
@@ -47,48 +42,32 @@ data class EventDebtItem(
 )
 
 data class EventExpenseItem(
-    val id: String = generateUuid(),
+    val id: String = UUID.randomUUID().toString(),
     val eventId: String,
     val name: String,
     val amountEuros: Double,
     val category: String = "shared",
     val assignedProfileIds: List<String> = emptyList(),
-    val profileWeights: Map<String, Double> = emptyMap(),
 )
 
-data class EventInvitation(
-    val id: String = generateUuid(),
-    val eventId: String,
-    val eventName: String,
-    val invitedByUid: String,
-    val invitedByEmail: String,
-    val invitedEmail: String,
-    val status: String = InvitationStatus.PENDING,
-    val createdAtMillis: Long = currentTimeMillis(),
-    val expiresAtMillis: Long = currentTimeMillis() + 7L * 24 * 60 * 60 * 1000,
-)
+private val eventDateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
-object InvitationStatus {
-    const val PENDING = "pending"
-    const val ACCEPTED = "accepted"
-    const val REJECTED = "rejected"
+fun EventItem.formattedDate(): String = synchronized(eventDateFormatter) {
+    eventDateFormatter.format(Date(dateMillis))
 }
 
-fun EventItem.formattedDate(): String = formatDateMillis(dateMillis)
-
-fun parseEventDate(value: String): Long? = parseDateString(value)
-
-fun currentDateFormatted(): String = currentDateText()
-
-fun formatEuros(value: Double): String = buildString {
-    val intPart = value.toLong()
-    val decPart = ((value - intPart) * 100).roundToInt().let { if (it < 0) -it else it }
-    append(intPart)
-    append('.')
-    if (decPart < 10) append('0')
-    append(decPart)
-    append(" €")
+fun parseEventDate(value: String): Long? = synchronized(eventDateFormatter) {
+    runCatching {
+        eventDateFormatter.isLenient = false
+        eventDateFormatter.parse(value)?.time
+    }.getOrNull()
 }
+
+fun currentDateText(): String = synchronized(eventDateFormatter) {
+    eventDateFormatter.format(Date())
+}
+
+fun formatEuros(value: Double): String = String.format(Locale.getDefault(), "%.2f €", value)
 
 fun parseEuroAmount(value: String): Double? = value
     .trim()

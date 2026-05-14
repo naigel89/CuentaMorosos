@@ -23,13 +23,6 @@ class CuentaMorososLocalStore(context: Context) {
                 id = id,
                 name = name,
                 dateMillis = item.optLong("dateMillis", System.currentTimeMillis()),
-                ownerId = item.optString("ownerId").ifBlank { "" },
-                memberIds = buildList {
-                    val ids = item.optJSONArray("memberIds") ?: JSONArray()
-                    for (i in 0 until ids.length()) {
-                        ids.optString(i)?.takeIf { it.isNotBlank() }?.let(::add)
-                    }
-                },
                 lastCalculationMode = item.optString("lastCalculationMode").takeIf { it.isNotBlank() },
                 lastCalculationTotal = item.optDouble("lastCalculationTotal").takeIf { item.has("lastCalculationTotal") },
                 lastCalculationTimestamp = item.optLong("lastCalculationTimestamp").takeIf { item.has("lastCalculationTimestamp") },
@@ -68,9 +61,7 @@ class CuentaMorososLocalStore(context: Context) {
                 id = id,
                 name = name,
                 icon = item.optString("icon").ifBlank { "🙂" },
-                totalPendingEuros = item.optDouble("totalPendingEuros", 0.0),
-                isGhost = item.optBoolean("isGhost", false),
-                linkedEmail = item.optString("linkedEmail").takeIf { it.isNotBlank() }
+                totalPendingEuros = item.optDouble("totalPendingEuros", 0.0)
             )
         }
     }.sortedBy { it.name.lowercase() }
@@ -84,8 +75,6 @@ class CuentaMorososLocalStore(context: Context) {
                         .put("name", profile.name)
                         .put("icon", profile.icon)
                         .put("totalPendingEuros", profile.totalPendingEuros)
-                        .put("isGhost", profile.isGhost)
-                        .put("linkedEmail", profile.linkedEmail ?: JSONObject.NULL)
                 )
             }
         }
@@ -138,27 +127,19 @@ class CuentaMorososLocalStore(context: Context) {
         if (id.isBlank() || eventId.isBlank() || name.isBlank()) {
             null
         } else {
-                EventExpenseItem(
-                    id = id,
-                    eventId = eventId,
-                    name = name,
-                    amountEuros = item.optDouble("amountEuros", 0.0),
-                    category = item.optString("category").ifBlank { "shared" },
-                    assignedProfileIds = buildList {
-                        val ids = item.optJSONArray("assignedProfileIds") ?: JSONArray()
-                        for (index in 0 until ids.length()) {
-                            ids.optString(index)?.takeIf { it.isNotBlank() }?.let(::add)
-                        }
-                    },
-                    profileWeights = buildMap {
-                        val weightsObj = item.optJSONObject("profileWeights") ?: JSONObject()
-                        weightsObj.keys().forEach { key ->
-                            val value = weightsObj.optDouble(key, Double.NaN)
-                            if (!value.isNaN()) put(key, value)
-                        }
+            EventExpenseItem(
+                id = id,
+                eventId = eventId,
+                name = name,
+                amountEuros = item.optDouble("amountEuros", 0.0),
+                category = item.optString("category").ifBlank { "shared" },
+                assignedProfileIds = buildList {
+                    val ids = item.optJSONArray("assignedProfileIds") ?: JSONArray()
+                    for (index in 0 until ids.length()) {
+                        ids.optString(index)?.takeIf { it.isNotBlank() }?.let(::add)
                     }
-                )
-
+                }
+            )
         }
     }
 
@@ -178,14 +159,6 @@ class CuentaMorososLocalStore(context: Context) {
                                 expense.assignedProfileIds.forEach(::put)
                             }
                         )
-                        .put(
-                            "profileWeights",
-                            JSONObject().apply {
-                                expense.profileWeights.forEach { (id, weight) ->
-                                    put(id, weight)
-                                }
-                            }
-                        )
                 )
             }
         }
@@ -198,7 +171,7 @@ class CuentaMorososLocalStore(context: Context) {
 
         return UserPreferences(
             themeMode = item.optString("themeMode").ifBlank { "system" },
-            accentColorId = item.optString("accentColorId").ifBlank { "rose" },
+            accentColorId = item.optString("accentColorId").ifBlank { "rose" }, // silently ignored, kept for backward compat
             reminderDays = item.optInt("reminderDays", 7).coerceAtLeast(1),
             remindersEnabled = item.optBoolean("remindersEnabled", true)
         )
@@ -207,7 +180,6 @@ class CuentaMorososLocalStore(context: Context) {
     fun savePreferences(preferences: UserPreferences) {
         val payload = JSONObject()
             .put("themeMode", preferences.themeMode)
-            .put("accentColorId", preferences.accentColorId)
             .put("reminderDays", preferences.reminderDays)
             .put("remindersEnabled", preferences.remindersEnabled)
 
