@@ -32,43 +32,52 @@ import com.cuentamorosos.model.formatEuros
 fun ExpenseItemCard(
     expense: EventExpenseItem,
     paidByProfile: ProfileItem?,
+    isCurrentUser: Boolean,
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val category = ExpenseCategory.fromId(expense.category)
+    val colors = NeoFintechColors.light()
+
     val splitBadge = when {
         expense.assignedProfileIds.isEmpty() -> "Sin asignar"
         expense.assignedProfileIds.size == 1 -> "Individual"
         else -> "Repartido (${expense.assignedProfileIds.size})"
     }
 
+    val paidByText = when {
+        isCurrentUser -> "Pagado por ti"
+        paidByProfile != null -> "Pagado por ${paidByProfile.name}"
+        else -> "Sin asignar"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onTap),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+            .clickable(onClick = onTap)
+            .cardShadow(),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
+        shape = NeoFintechShapes.lg,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Category icon
+            // Category icon circle (48dp per design)
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(NeoFintechShapes.md)
+                    .size(48.dp)
+                    .clip(NeoFintechShapes.full)
                     .background(category.iconBgColor.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = category.iconEmoji,
-                    fontSize = 20.sp,
+                    fontSize = 22.sp,
                 )
             }
 
@@ -83,33 +92,29 @@ fun ExpenseItemCard(
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    color = colors.onSurface,
                 )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Text(
+                    text = paidByText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+                // Split badge (pill)
+                Surface(
+                    color = colors.surfaceContainer.copy(alpha = 0.5f),
+                    shape = NeoFintechShapes.full,
                 ) {
                     Text(
-                        text = "Por: ${paidByProfile?.name ?: "Sin asignar"}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = splitBadge,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurfaceVariant,
+                        fontFamily = JetBrainsMonoFontFamily(),
                     )
-                    // Split badge
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
-                        shape = NeoFintechShapes.full,
-                    ) {
-                        Text(
-                            text = splitBadge,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontFamily = JetBrainsMonoFontFamily(),
-                        )
-                    }
                 }
             }
 
-            // Amount
+            // Amount + actions
             Column(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -119,14 +124,14 @@ fun ExpenseItemCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = JetBrainsMonoFontFamily(),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = colors.onSurface,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     TextButton(onClick = onEdit) {
-                        Text("Editar", fontSize = 11.sp)
+                        Text("Editar", fontSize = 11.sp, color = colors.onSurfaceVariant)
                     }
                     TextButton(onClick = onDelete) {
-                        Text("Eliminar", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                        Text("Eliminar", fontSize = 11.sp, color = colors.error)
                     }
                 }
             }

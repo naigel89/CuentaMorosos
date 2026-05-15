@@ -17,17 +17,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.model.formatEuros
 
+/**
+ * Compact total cost card for the EventDetail header.
+ * Shows the total event cost prominently with a neon green accent.
+ */
 @Composable
 fun TotalCostCard(
     totalExpenses: Double,
     totalPending: Double,
     expenseCount: Int,
 ) {
+    val colors = NeoFintechColors.light()
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .cardShadow(),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLow),
+        shape = NeoFintechShapes.xl,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -35,40 +42,42 @@ fun TotalCostCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "Costo total del evento",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "TOTAL DEL EVENTO",
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
             )
             Text(
                 text = formatEuros(totalExpenses),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = NeoFintechColors.dark().primaryContainer,
+                color = colors.primaryContainer,
             )
-            HorizontalDivider()
-            Column(
+            HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.3f))
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("Gastos", style = MaterialTheme.typography.bodySmall)
-                    Text("$expenseCount", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("Pendiente", style = MaterialTheme.typography.bodySmall)
-                    Text(
-                        formatEuros(totalPending),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = if (totalPending > 0) MaterialTheme.colorScheme.error else NeoFintechColors.dark().primaryContainer,
-                    )
-                }
+                Text("Gastos", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text(
+                    "$expenseCount",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = JetBrainsMonoFontFamily(),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Pendiente", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text(
+                    formatEuros(totalPending),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = JetBrainsMonoFontFamily(),
+                    color = if (totalPending > 0) colors.error else colors.primaryContainer,
+                )
             }
         }
     }

@@ -138,7 +138,8 @@ class CuentaMorososLocalStore(context: Context) {
                     for (index in 0 until ids.length()) {
                         ids.optString(index)?.takeIf { it.isNotBlank() }?.let(::add)
                     }
-                }
+                },
+                paidByProfileId = item.optString("paidByProfileId", ""),
             )
         }
     }
@@ -159,6 +160,11 @@ class CuentaMorososLocalStore(context: Context) {
                                 expense.assignedProfileIds.forEach(::put)
                             }
                         )
+                        .apply {
+                            if (expense.paidByProfileId.isNotBlank()) {
+                                put("paidByProfileId", expense.paidByProfileId)
+                            }
+                        }
                 )
             }
         }

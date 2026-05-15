@@ -73,6 +73,7 @@ data class EventExpenseItem(
     val category: String = "shared",
     val assignedProfileIds: List<String> = emptyList(),
     val profileWeights: Map<String, Double> = emptyMap(),
+    val paidByProfileId: String = "",
 )
 
 data class EventInvitation(

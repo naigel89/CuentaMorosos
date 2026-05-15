@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -44,89 +45,91 @@ fun SettlementPanel(
     val profileById = profiles.associateBy { it.id }
     val pendingDebts = debts.filter { !it.paid }
     val paidDebts = debts.filter { it.paid }
+    val colors = NeoFintechColors.light()
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Total cost card
+        // Settlement card
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .cardShadow(),
+            colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
+            shape = NeoFintechShapes.lg,
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "Costo total del evento",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = "Liquidación",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface,
                 )
+
+                // Calculate Totals button (full width, neon green, bold)
+                Button(
+                    onClick = onCalculateTotals,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.primaryContainer,
+                        contentColor = colors.onSurface,
+                    ),
+                    shape = NeoFintechShapes.lg,
+                ) {
+                    Text(
+                        text = "Calcular Totales",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+
+                HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.3f))
+
+                // Participants Status
                 Text(
-                    text = formatEuros(expenseTotal),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = NeoFintechColors.dark().primaryContainer,
+                    text = "Estado de participantes",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium,
                 )
-                Text(
-                    text = "Pendiente: ${formatEuros(pendingTotal)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (pendingTotal > 0) Color(0xFFFFB4AB) else NeoFintechColors.dark().primaryContainer,
-                )
-            }
-        }
 
-        // Calculate button
-        Button(
-            onClick = onCalculateTotals,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Calcular totales")
-        }
+                // Pending
+                if (pendingDebts.isNotEmpty()) {
+                    pendingDebts.forEach { debt ->
+                        val profile = profileById[debt.profileId]
+                        DebtRow(
+                            profile = profile,
+                            debt = debt,
+                            onTogglePaid = onTogglePaid,
+                            isPaid = false,
+                        )
+                    }
+                }
 
-        // Participants section
-        Text(
-            text = "Participantes (${debts.size})",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
+                // Paid
+                if (paidDebts.isNotEmpty()) {
+                    paidDebts.forEach { debt ->
+                        val profile = profileById[debt.profileId]
+                        DebtRow(
+                            profile = profile,
+                            debt = debt,
+                            onTogglePaid = onTogglePaid,
+                            isPaid = true,
+                        )
+                    }
+                }
 
-        // Pending
-        if (pendingDebts.isNotEmpty()) {
-            Text(
-                text = "Pendientes",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFFFFB4AB),
-                fontWeight = FontWeight.Medium,
-            )
-            pendingDebts.forEach { debt ->
-                val profile = profileById[debt.profileId]
-                DebtRow(
-                    profile = profile,
-                    debt = debt,
-                    onTogglePaid = onTogglePaid,
-                )
-            }
-        }
-
-        // Paid
-        if (paidDebts.isNotEmpty()) {
-            Text(
-                text = "Han pagado",
-                style = MaterialTheme.typography.bodyMedium,
-                color = NeoFintechColors.dark().primaryContainer,
-                fontWeight = FontWeight.Medium,
-            )
-            paidDebts.forEach { debt ->
-                val profile = profileById[debt.profileId]
-                DebtRow(
-                    profile = profile,
-                    debt = debt,
-                    onTogglePaid = onTogglePaid,
-                )
+                if (debts.isEmpty()) {
+                    Text(
+                        text = "Sin participantes aún",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
             }
         }
 
@@ -138,12 +141,14 @@ fun SettlementPanel(
             Button(
                 onClick = onAddProfile,
                 modifier = Modifier.weight(1f),
+                shape = NeoFintechShapes.md,
             ) {
                 Text("Añadir perfil")
             }
             Button(
                 onClick = onInviteMember,
                 modifier = Modifier.weight(1f),
+                shape = NeoFintechShapes.md,
             ) {
                 Text("Invitar")
             }
@@ -156,9 +161,10 @@ private fun DebtRow(
     profile: ProfileItem?,
     debt: EventDebtItem,
     onTogglePaid: (EventDebtItem) -> Unit,
+    isPaid: Boolean,
 ) {
-    val isHighDebt = debt.amountEuros > 50.0
-    val debtColor = if (isHighDebt) Color(0xFFFFB4AB) else NeoFintechColors.dark().primaryContainer
+    val colors = NeoFintechColors.light()
+    val initials = profile?.name?.take(2)?.uppercase() ?: "?"
 
     Row(
         modifier = Modifier
@@ -176,24 +182,28 @@ private fun DebtRow(
                 checked = debt.paid,
                 onCheckedChange = { onTogglePaid(debt) },
             )
-            // Avatar
+            // Avatar with initials
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(32.dp)
                     .clip(NeoFintechShapes.full)
-                    .background(NeoFintechColors.dark().secondary.copy(alpha = 0.3f)),
+                    .background(
+                        if (isPaid) colors.secondary.copy(alpha = 0.3f)
+                        else colors.primaryContainer.copy(alpha = 0.2f)
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = profile?.name?.take(1)?.uppercase() ?: "?",
+                    text = initials,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = colors.onSurface,
                 )
             }
             Text(
                 text = profile?.name ?: "Desconocido",
                 style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurface,
             )
         }
         Text(
@@ -201,8 +211,8 @@ private fun DebtRow(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
             fontFamily = JetBrainsMonoFontFamily(),
-            color = debtColor,
+            color = if (isPaid) colors.onSurfaceVariant else colors.error,
         )
     }
-    HorizontalDivider()
+    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.2f))
 }
