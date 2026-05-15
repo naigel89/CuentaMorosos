@@ -18,6 +18,8 @@ data class NeoFintechColorSet(
     val outlineVariant: Color,
     val tertiaryContainer: Color,
     val secondary: Color,
+    val buttonContainer: Color,
+    val onButton: Color,
 )
 
 object NeoFintechColors {
@@ -37,6 +39,8 @@ object NeoFintechColors {
         outlineVariant = Color(0xFFBACCB0),
         tertiaryContainer = Color(0xFFD6DDED),
         secondary = Color(0xFF5E5E5E),
+        buttonContainer = Color(0xFF191C1D),
+        onButton = Color(0xFFFFFFFF),
     )
 
     fun dark() = NeoFintechColorSet(
@@ -55,6 +59,8 @@ object NeoFintechColors {
         outlineVariant = Color(0xFF3C4B35),
         tertiaryContainer = Color(0xFFDFDCE1),
         secondary = Color(0xFFC8C5CB),
+        buttonContainer = Color(0xFFE5E2E1),
+        onButton = Color(0xFF191C1D),
     )
 }
 

@@ -1,5 +1,6 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,12 +19,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.data.ReminderMessage
-import com.cuentamorosos.model.UserPreferences
-import com.cuentamorosos.model.formatEuros
 
 // ── StatusCard ────────────────────────────────────────────────────────────────
 
@@ -34,9 +32,17 @@ fun StatusCard(
     title: String,
     message: String,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val colors = MaterialTheme.colorScheme
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
+            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        shape = NeoFintechShapes.lg,
+    ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
@@ -56,10 +62,18 @@ fun StatusCard(
 
 @Composable
 fun SuggestionCard(message: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val colors = MaterialTheme.colorScheme
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
+            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        shape = NeoFintechShapes.lg,
+    ) {
         Text(
             text = message,
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(24.dp),
             style = MaterialTheme.typography.bodyMedium
         )
     }
@@ -73,12 +87,13 @@ fun EmptyState(
     title: String,
     message: String,
 ) {
+    val colors = MaterialTheme.colorScheme
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
+            modifier = Modifier.padding(vertical = 48.dp, horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -86,11 +101,13 @@ fun EmptyState(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
+                color = colors.onSurface,
                 textAlign = TextAlign.Center
             )
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
@@ -104,14 +121,19 @@ fun ReminderSummaryCard(reminders: List<ReminderMessage>) {
     var isVisible by remember { mutableStateOf(true) }
     if (!isVisible) return
 
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-        )
+    val colors = MaterialTheme.colorScheme
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
+            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
+        colors = CardDefaults.cardColors(
+            containerColor = colors.primaryContainer.copy(alpha = 0.7f)
+        ),
+        shape = NeoFintechShapes.lg,
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
@@ -124,7 +146,7 @@ fun ReminderSummaryCard(reminders: List<ReminderMessage>) {
                         text = "🔔 Recordatorios activos",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = colors.onSurface
                     )
                 }
                 TextButton(onClick = { isVisible = false }) {
@@ -135,7 +157,7 @@ fun ReminderSummaryCard(reminders: List<ReminderMessage>) {
                 Text(
                     text = "• ${reminder.title}: ${reminder.body}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = colors.onSurface
                 )
             }
         }
