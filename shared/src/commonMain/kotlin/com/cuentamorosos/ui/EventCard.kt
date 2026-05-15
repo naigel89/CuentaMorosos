@@ -3,6 +3,9 @@ package com.cuentamorosos.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,22 +13,29 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.ExpenseCategory
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
@@ -35,127 +45,176 @@ fun EventCard(
     event: EventItem,
     participantCount: Int,
     pendingTotal: Double,
+    totalExpense: Double = 0.0,
+    yourShare: Double = 0.0,
+    youAreOwed: Double = 0.0,
     profiles: List<ProfileItem>,
+    category: ExpenseCategory = ExpenseCategory.SHARED,
+    statusLabel: String = if (pendingTotal > 0.0) "Active" else "Settled",
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val isActive = pendingTotal > 0.0
-    val statusLabel = if (isActive) "Activo" else "Saldado"
-    val statusColor = if (isActive) NeoFintechColors.dark().primaryContainer else NeoFintechColors.dark().secondary
+    val colors = MaterialTheme.colorScheme
+    val neoColors = NeoFintechColors.dark()
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = if (isHovered == true) NeoFintechElevation.cardShadowHoverElevation
+                else NeoFintechElevation.cardShadowElevation,
+                shape = NeoFintechElevation.cardShadowShape,
+                clip = false,
+            )
+            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg)
+            .clip(NeoFintechShapes.lg)
+            .hoverable(interactionSource)
             .clickable(onClick = onTap),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        shape = NeoFintechShapes.lg,
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(NeoFintechSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
         ) {
-            // Header row: icon + title + status badge
+            // Header: icon + status badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                // Icon square with category background
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(NeoFintechShapes.lg)
+                        .background(category.iconBgColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    // Event icon (first letter)
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(NeoFintechShapes.md)
-                            .background(statusColor.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = event.name.take(1).uppercase(),
-                            color = statusColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                        )
-                    }
                     Text(
-                        text = event.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        text = category.iconEmoji,
+                        fontSize = 24.sp,
                     )
                 }
-                // Status badge
+                // Status badge (pill shape)
                 Surface(
-                    color = statusColor.copy(alpha = 0.15f),
+                    color = neoColors.primaryContainer.copy(alpha = 0.1f),
                     shape = NeoFintechShapes.full,
                 ) {
                     Text(
                         text = statusLabel,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                        color = neoColors.primaryContainer,
                         fontWeight = FontWeight.Medium,
                     )
                 }
             }
 
-            // Date + participants
+            // Event name + date
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.xs),
+            ) {
+                Text(
+                    text = event.name,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 20.sp,
+                        fontWeight = if (isHovered == true) FontWeight.Bold else FontWeight.SemiBold,
+                    ),
+                    color = if (isHovered == true) neoColors.primaryContainer else colors.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = colors.onSurfaceVariant,
+                    )
+                    Text(
+                        text = event.formattedDate(),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                        color = colors.onSurfaceVariant,
+                    )
+                }
+            }
+
+            // Divider + Your Share row
+            Divider(color = colors.outlineVariant.copy(alpha = 0.5f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Text(
+                        text = "Total Expense",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                        color = colors.onSurfaceVariant,
+                    )
+                    Text(
+                        text = formatEuros(totalExpense),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 18.sp),
+                        color = colors.onSurface,
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Your Share",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                        color = colors.onSurfaceVariant,
+                    )
+                    Text(
+                        text = formatEuros(yourShare),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 18.sp),
+                        color = if (yourShare > 0.0) neoColors.primaryContainer else neoColors.error,
+                    )
+                }
+            }
+
+            // Stacked avatars + "You are owed" text
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "\uD83D\uDCC5 ${event.formattedDate()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = "\uD83D\uDC65 $participantCount",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            // Financial row: total spend
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = "Total: ${formatEuros(pendingTotal)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isActive) NeoFintechColors.dark().primaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            // Stacked avatars
-            if (profiles.isNotEmpty()) {
                 StackedAvatars(profiles = profiles, maxVisible = 3)
+                Text(
+                    text = "You are owed ${formatEuros(youAreOwed)}",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                    color = neoColors.primaryContainer,
+                    fontWeight = FontWeight.Medium,
+                )
             }
 
-            // Action buttons
+            // Action buttons (OutlinedButton)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
             ) {
-                TextButton(
+                OutlinedButton(
                     onClick = onEdit,
                     modifier = Modifier.weight(1f),
+                    shape = NeoFintechShapes.md,
                 ) {
-                    Text("Editar")
+                    Text("Editar", style = MaterialTheme.typography.labelSmall)
                 }
-                TextButton(
+                OutlinedButton(
                     onClick = onDelete,
                     modifier = Modifier.weight(1f),
+                    shape = NeoFintechShapes.md,
                 ) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                    Text("Eliminar", style = MaterialTheme.typography.labelSmall, color = colors.error)
                 }
             }
         }

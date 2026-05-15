@@ -2,20 +2,21 @@ package com.cuentamorosos.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,7 +39,9 @@ import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.currentDateText
 import com.cuentamorosos.data.ReminderMessage
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.ExpenseCategory
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEventDate
 
@@ -52,6 +55,9 @@ fun EventsScreen(
     participantCountByEvent: Map<String, Int>,
     pendingTotalsByEvent: Map<String, Double>,
     totalSpent: Double,
+    totalExpensesByEvent: Map<String, Double> = emptyMap(),
+    yourShareByEvent: Map<String, Double> = emptyMap(),
+    youAreOwedByEvent: Map<String, Double> = emptyMap(),
     reminders: List<ReminderMessage>,
     currentUserUid: String?,
     onOpenEvent: (EventItem) -> Unit,
@@ -70,6 +76,9 @@ fun EventsScreen(
     }
     val activeEventCount by remember(pendingTotalsByEvent) {
         derivedStateOf { pendingTotalsByEvent.count { it.value > 0.0 } }
+    }
+    val owedEventCount by remember(youAreOwedByEvent) {
+        derivedStateOf { youAreOwedByEvent.count { it.value > 0.0 } }
     }
 
     val filteredEvents by remember(events, searchQuery, activeFilter, pendingTotalsByEvent) {
@@ -95,61 +104,91 @@ fun EventsScreen(
         else -> ""
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            item { BalanceSummaryCard(totalPending, activeEventCount, totalSpent) }
-            item { CreateEventCard(onCreate = {
-                editableEvent = EventItem(
-                    name = "",
-                    dateMillis = currentTimeMillis(),
-                    ownerId = currentUserUid ?: "",
-                    memberIds = listOfNotNull(currentUserUid?.takeIf { it.isNotBlank() })
-                )
-            }) }
-            item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Buscar evento") },
-                    singleLine = true,
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Limpiar búsqueda")
-                            }
-                        }
-                    },
-                )
-            }
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Todos", "Con deuda", "Sin deuda").forEachIndexed { index, label ->
-                        FilterChip(
-                            selected = activeFilter == index,
-                            onClick = { activeFilter = index },
-                            label = { Text(label) },
-                        )
-                    }
-                }
-            }
-            if (reminders.isNotEmpty()) {
-                item { ReminderSummaryCard(reminders = reminders) }
-            }
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isWide = maxWidth >= 600.dp
+        val gridColumns = if (isWide) GridCells.Fixed(2) else GridCells.Fixed(1)
 
-            if (events.isEmpty()) {
-                item {
-                    EmptyStateMessage(
-                        title = "No tenés eventos aún",
-                        message = "Pulsa en \"Crear nuevo evento\" para registrar el primero con nombre y fecha.",
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(NeoFintechSpacing.md),
+        ) {
+            // Balance Summary Bento Grid
+            BalanceSummaryCard(
+                totalPending = totalPending,
+                activeEventCount = activeEventCount,
+                totalSpent = totalSpent,
+                owedEventCount = owedEventCount,
+            )
+
+            // Header row: "Recent Events" + Create Event button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = NeoFintechSpacing.lg, bottom = NeoFintechSpacing.sm),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        text = "Recent Events",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Manage your shared expenses.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            } else if (filteredEvents.isEmpty()) {
-                item {
+                CreateEventCard(onCreate = {
+                    editableEvent = EventItem(
+                        name = "",
+                        dateMillis = currentTimeMillis(),
+                        ownerId = currentUserUid ?: "",
+                        memberIds = listOfNotNull(currentUserUid?.takeIf { it.isNotBlank() })
+                    )
+                })
+            }
+
+            // Search + filter row
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Buscar evento") },
+                singleLine = true,
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Limpiar búsqueda")
+                        }
+                    }
+                },
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = NeoFintechSpacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
+            ) {
+                listOf("Todos", "Con deuda", "Sin deuda").forEachIndexed { index, label ->
+                    FilterChip(
+                        selected = activeFilter == index,
+                        onClick = { activeFilter = index },
+                        label = { Text(label) },
+                    )
+                }
+            }
+
+            // Events grid
+            Box(modifier = Modifier.weight(1f)) {
+                if (events.isEmpty()) {
+                    EmptyStateMessage(
+                        title = "No tenés eventos aún",
+                        message = "Pulsa en \"Create Event\" para registrar el primero con nombre y fecha.",
+                    )
+                } else if (filteredEvents.isEmpty()) {
                     EmptyStateMessage(
                         title = "Sin resultados",
                         message = if (searchQuery.isNotBlank())
@@ -162,41 +201,36 @@ fun EventsScreen(
                         },
                         clearLabel = if (searchQuery.isNotBlank()) "Limpiar búsqueda" else "Resetear filtro",
                     )
-                }
-            } else {
-                items(filteredEvents, key = { it.id }) { event ->
-                    val eventProfiles = event.memberIds.mapNotNull { memberId ->
-                        profiles.find { it.id == memberId }
+                } else {
+                    LazyVerticalGrid(
+                        columns = gridColumns,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = NeoFintechSpacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.md),
+                        verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.md),
+                    ) {
+                        items(filteredEvents, key = { it.id }) { event ->
+                            val eventProfiles = event.memberIds.mapNotNull { memberId ->
+                                profiles.find { it.id == memberId }
+                            }
+                            EventCard(
+                                event = event,
+                                participantCount = participantCountByEvent[event.id] ?: 0,
+                                pendingTotal = pendingTotalsByEvent[event.id] ?: 0.0,
+                                totalExpense = totalExpensesByEvent[event.id] ?: 0.0,
+                                yourShare = yourShareByEvent[event.id] ?: 0.0,
+                                youAreOwed = youAreOwedByEvent[event.id] ?: 0.0,
+                                profiles = eventProfiles,
+                                category = ExpenseCategory.fromId("shared"),
+                                statusLabel = if ((pendingTotalsByEvent[event.id] ?: 0.0) > 0.0) "Active" else "Settled",
+                                onTap = { onOpenEvent(event) },
+                                onEdit = { editableEvent = event },
+                                onDelete = { eventToDelete = event },
+                            )
+                        }
                     }
-                    EventCard(
-                        event = event,
-                        participantCount = participantCountByEvent[event.id] ?: 0,
-                        pendingTotal = pendingTotalsByEvent[event.id] ?: 0.0,
-                        profiles = eventProfiles,
-                        onTap = { onOpenEvent(event) },
-                        onEdit = { editableEvent = event },
-                        onDelete = { eventToDelete = event },
-                    )
                 }
             }
-        }
-
-        // FAB for quick event creation
-        FloatingActionButton(
-            onClick = {
-                editableEvent = EventItem(
-                    name = "",
-                    dateMillis = currentTimeMillis(),
-                    ownerId = currentUserUid ?: "",
-                    memberIds = listOfNotNull(currentUserUid?.takeIf { it.isNotBlank() })
-                )
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            containerColor = NeoFintechColors.dark().primaryContainer,
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Crear evento")
         }
     }
 
