@@ -45,7 +45,8 @@ fun SettlementPanel(
     val profileById = profiles.associateBy { it.id }
     val pendingDebts = debts.filter { !it.paid }
     val paidDebts = debts.filter { it.paid }
-    val colors = NeoFintechColors.light()
+    val colors = NeoFintechColors.dark()
+    val themeColors = MaterialTheme.colorScheme
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -56,7 +57,7 @@ fun SettlementPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .cardShadow(),
-            colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
+            colors = CardDefaults.cardColors(containerColor = themeColors.surfaceContainerLowest),
             shape = NeoFintechShapes.lg,
         ) {
             Column(
@@ -67,7 +68,7 @@ fun SettlementPanel(
                     text = "Liquidación",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = colors.onSurface,
+                    color = themeColors.onSurface,
                 )
 
                 // Calculate Totals button (full width, neon green, bold)
@@ -87,13 +88,13 @@ fun SettlementPanel(
                     )
                 }
 
-                HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.3f))
+                HorizontalDivider(color = themeColors.outlineVariant.copy(alpha = 0.3f))
 
                 // Participants Status
                 Text(
                     text = "Estado de participantes",
                     style = MaterialTheme.typography.labelSmall,
-                    color = colors.onSurfaceVariant,
+                    color = themeColors.onSurfaceVariant,
                     fontWeight = FontWeight.Medium,
                 )
 
@@ -127,7 +128,7 @@ fun SettlementPanel(
                     Text(
                         text = "Sin participantes aún",
                         style = MaterialTheme.typography.bodySmall,
-                        color = colors.onSurfaceVariant,
+                        color = themeColors.onSurfaceVariant,
                     )
                 }
             }
@@ -163,7 +164,8 @@ private fun DebtRow(
     onTogglePaid: (EventDebtItem) -> Unit,
     isPaid: Boolean,
 ) {
-    val colors = NeoFintechColors.light()
+    val colors = NeoFintechColors.dark()
+    val themeColors = MaterialTheme.colorScheme
     val initials = profile?.name?.take(2)?.uppercase() ?: "?"
 
     Row(
@@ -188,7 +190,7 @@ private fun DebtRow(
                     .size(32.dp)
                     .clip(NeoFintechShapes.full)
                     .background(
-                        if (isPaid) colors.secondary.copy(alpha = 0.3f)
+                        if (isPaid) themeColors.secondary.copy(alpha = 0.3f)
                         else colors.primaryContainer.copy(alpha = 0.2f)
                     ),
                 contentAlignment = Alignment.Center,
@@ -197,13 +199,13 @@ private fun DebtRow(
                     text = initials,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = colors.onSurface,
+                    color = themeColors.onSurface,
                 )
             }
             Text(
                 text = profile?.name ?: "Desconocido",
                 style = MaterialTheme.typography.bodyMedium,
-                color = colors.onSurface,
+                color = themeColors.onSurface,
             )
         }
         Text(
@@ -211,8 +213,8 @@ private fun DebtRow(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
             fontFamily = JetBrainsMonoFontFamily(),
-            color = if (isPaid) colors.onSurfaceVariant else colors.error,
+            color = if (isPaid) themeColors.onSurfaceVariant else colors.error,
         )
     }
-    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.2f))
+    HorizontalDivider(color = themeColors.outlineVariant.copy(alpha = 0.2f))
 }

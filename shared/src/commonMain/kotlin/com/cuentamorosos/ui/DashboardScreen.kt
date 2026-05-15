@@ -70,13 +70,49 @@ fun DashboardScreen(
                     borderColor = colors.primaryContainer,
                     icon = "\uD83D\uDCC8",
                 )
-                // FIX D2: Second indicator with "Saldar deudas" button
-                IndicatorCardWithSettleButton(
+                IndicatorCard(
                     modifier = Modifier.weight(1f),
                     title = "Debés",
                     amount = state.totalYouOwe,
                     borderColor = colors.error,
                     icon = "\uD83D\uDCC9",
+                )
+            }
+        }
+
+        // Historial de eventos
+        item {
+            Text(
+                text = "HISTORIAL DE EVENTOS",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.primaryContainer,
+            )
+        }
+
+        if (state.eventHistory.isEmpty()) {
+            item {
+                Text(
+                    text = "No hay eventos activos",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            items(state.eventHistory) { historyItem ->
+                EventHistoryRow(
+                    historyItem = historyItem,
+                    onTap = {
+                        // Build a SmartAlert to reuse onAlertTap for navigation
+                        onAlertTap(
+                            SmartAlert(
+                                type = AlertType.NO_EXPENSES,
+                                message = historyItem.eventName,
+                                icon = "\uD83D\uDCCB",
+                                eventId = historyItem.eventId,
+                            ),
+                        )
+                    },
                 )
             }
         }
@@ -209,68 +245,60 @@ private fun IndicatorCard(
     }
 }
 
-// ── IndicatorCard with Settle Balances button (FIX D2) ────────────────────────
+// ── EventHistoryRow ───────────────────────────────────────────────────────────
 
 @Composable
-private fun IndicatorCardWithSettleButton(
-    modifier: Modifier = Modifier,
-    title: String,
-    amount: Double,
-    borderColor: androidx.compose.ui.graphics.Color,
-    icon: String,
+private fun EventHistoryRow(
+    historyItem: EventHistoryItem,
+    onTap: () -> Unit,
 ) {
     val colors = NeoFintechColors.dark()
+    val amountColor = if (historyItem.amount >= 0) colors.primaryContainer else colors.error
+    val participantLabel = when {
+        historyItem.participantCount == 0 -> "Sin participantes"
+        historyItem.participantCount == 1 -> "1 participante"
+        else -> "${historyItem.participantCount} participantes"
+    }
+    val statusLabel = when (historyItem.status) {
+        EventStatus.ACTIVE -> "Activo"
+        EventStatus.SETTLING -> "Calculando"
+        EventStatus.CLOSED -> "Cerrado"
+    }
 
     Card(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
-            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
+            .clickable(onClick = onTap),
         colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
-        shape = NeoFintechShapes.lg,
+        shape = NeoFintechShapes.md,
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Top accent bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .background(borderColor),
-            )
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.onSurfaceVariant,
-                    )
-                    Text(text = icon, style = MaterialTheme.typography.headlineMedium)
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                // FIX D4: JetBrains Mono for amounts
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = formatEuros(amount),
-                    style = MaterialTheme.typography.displayLarge,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = JetBrainsMonoFontFamily(),
+                    text = historyItem.eventName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
                     color = colors.onSurface,
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                // FIX D2: Settle Balances button
-                OutlinedButton(
-                    onClick = { /* TODO: future settlement feature */ },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Saldar deudas")
-                }
+                Text(
+                    text = "$participantLabel · $statusLabel",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
             }
+            Text(
+                text = formatEuros(historyItem.amount),
+                style = MaterialTheme.typography.labelLarge,
+                fontFamily = JetBrainsMonoFontFamily(),
+                fontWeight = FontWeight.SemiBold,
+                color = amountColor,
+            )
         }
     }
 }

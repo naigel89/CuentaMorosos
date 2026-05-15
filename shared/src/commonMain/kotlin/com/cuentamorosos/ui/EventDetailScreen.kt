@@ -64,7 +64,8 @@ fun EventDetailScreen(
     onInviteMember: (String) -> Unit,
     onRemoveMember: (String) -> Unit,
 ) {
-    val colors = NeoFintechColors.light()
+    val colors = NeoFintechColors.dark()
+    val themeColors = MaterialTheme.colorScheme
     val profileById = profiles.associateBy { it.id }
     val eventParticipants = eventDebts.mapNotNull { debt ->
         profileById[debt.profileId]?.let { profile -> debt to profile }
@@ -313,7 +314,8 @@ private fun HeaderSection(
     onBack: () -> Unit,
     isWide: Boolean,
 ) {
-    val colors = NeoFintechColors.light()
+    val colors = NeoFintechColors.dark()
+    val themeColors = MaterialTheme.colorScheme
 
     Column(
         modifier = Modifier
@@ -338,18 +340,18 @@ private fun HeaderSection(
                         text = event.name,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = colors.onSurface,
+                        color = themeColors.onSurface,
                     )
                     Text(
                         text = "📅 ${event.formattedDate()}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = colors.onSurfaceVariant,
+                        color = themeColors.onSurfaceVariant,
                     )
                 }
                 // Compact total cost for wide header
                 Card(
                     modifier = Modifier.cardShadow(),
-                    colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLow),
+                    colors = CardDefaults.cardColors(containerColor = themeColors.surfaceContainerLow),
                     shape = NeoFintechShapes.lg,
                 ) {
                     Column(
@@ -359,7 +361,7 @@ private fun HeaderSection(
                         Text(
                             text = "TOTAL DEL EVENTO",
                             style = MaterialTheme.typography.labelSmall,
-                            color = colors.onSurfaceVariant,
+                            color = themeColors.onSurfaceVariant,
                         )
                         Text(
                             text = formatEuros(totalExpenses),
@@ -376,12 +378,12 @@ private fun HeaderSection(
                 text = event.name,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = colors.onSurface,
+                color = themeColors.onSurface,
             )
             Text(
                 text = "📅 ${event.formattedDate()}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = colors.onSurfaceVariant,
+                color = themeColors.onSurfaceVariant,
             )
         }
     }
@@ -399,7 +401,8 @@ private fun ExpensesList(
     onEditExpense: (EventExpenseItem) -> Unit,
     onRemoveExpense: (String) -> Unit,
 ) {
-    val colors = NeoFintechColors.light()
+    val colors = NeoFintechColors.dark()
+    val themeColors = MaterialTheme.colorScheme
 
     // Title + Add button row
     Row(
@@ -411,7 +414,7 @@ private fun ExpensesList(
             text = "Gastos",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            color = colors.onSurface,
+            color = themeColors.onSurface,
         )
         Button(
             onClick = onAddExpense,

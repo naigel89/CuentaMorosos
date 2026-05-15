@@ -59,12 +59,14 @@ class DashboardViewModel(
 
         val smartAlerts = computeSmartAlerts(events, expenses)
         val recentActivity = buildRecentActivity(events, expenses)
+        val eventHistory = buildEventHistory(events, debts, expenses)
 
         return DashboardState(
             totalOwedToYou = totalOwedToYou,
             totalYouOwe = totalYouOwe,
             smartAlerts = smartAlerts,
             recentActivity = recentActivity,
+            eventHistory = eventHistory,
         )
     }
 
@@ -145,5 +147,33 @@ class DashboardViewModel(
                     status = status,
                 )
             }
+    }
+
+    private fun buildEventHistory(
+        events: List<EventItem>,
+        debts: List<EventDebtItem>,
+        expenses: List<EventExpenseItem>,
+    ): List<EventHistoryItem> {
+        return events.map { event ->
+            val eventDebts = debts.filter { it.eventId == event.id }
+            val eventExpenses = expenses.filter { it.eventId == event.id }
+            val totalExpenses = eventExpenses.sumOf { it.amountEuros }
+            val totalDebts = eventDebts.sumOf { it.amountEuros }
+            // Positive = total expenses (money spent in event), negative perspective = debts owed
+            val netAmount = if (totalExpenses > 0) totalExpenses else totalDebts
+            val status = if (event.lastCalculationMode != null) {
+                EventStatus.SETTLING
+            } else {
+                EventStatus.ACTIVE
+            }
+
+            EventHistoryItem(
+                eventId = event.id,
+                eventName = event.name,
+                amount = netAmount,
+                participantCount = event.memberIds.size,
+                status = status,
+            )
+        }.sortedByDescending { it.amount }
     }
 }

@@ -38,7 +38,8 @@ fun ExpenseItemCard(
     onDelete: () -> Unit,
 ) {
     val category = ExpenseCategory.fromId(expense.category)
-    val colors = NeoFintechColors.light()
+    val colors = NeoFintechColors.dark()
+    val themeColors = MaterialTheme.colorScheme
 
     val splitBadge = when {
         expense.assignedProfileIds.isEmpty() -> "Sin asignar"
@@ -57,7 +58,7 @@ fun ExpenseItemCard(
             .fillMaxWidth()
             .clickable(onClick = onTap)
             .cardShadow(),
-        colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
+        colors = CardDefaults.cardColors(containerColor = themeColors.surfaceContainerLowest),
         shape = NeoFintechShapes.lg,
     ) {
         Row(
@@ -92,23 +93,23 @@ fun ExpenseItemCard(
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = colors.onSurface,
+                    color = themeColors.onSurface,
                 )
                 Text(
                     text = paidByText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
+                    color = themeColors.onSurfaceVariant,
                 )
                 // Split badge (pill)
                 Surface(
-                    color = colors.surfaceContainer.copy(alpha = 0.5f),
+                    color = themeColors.surfaceContainer.copy(alpha = 0.5f),
                     shape = NeoFintechShapes.full,
                 ) {
                     Text(
                         text = splitBadge,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         style = MaterialTheme.typography.labelSmall,
-                        color = colors.onSurfaceVariant,
+                        color = themeColors.onSurfaceVariant,
                         fontFamily = JetBrainsMonoFontFamily(),
                     )
                 }
@@ -124,7 +125,7 @@ fun ExpenseItemCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = JetBrainsMonoFontFamily(),
-                    color = colors.onSurface,
+                    color = themeColors.onSurface,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     TextButton(onClick = onEdit) {

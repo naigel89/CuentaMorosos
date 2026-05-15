@@ -9,18 +9,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -113,7 +116,7 @@ fun EventsScreen(
                 .fillMaxSize()
                 .padding(NeoFintechSpacing.md),
         ) {
-            // Balance Summary Bento Grid
+            // Compact Balance Summary
             BalanceSummaryCard(
                 totalPending = totalPending,
                 activeEventCount = activeEventCount,
@@ -121,57 +124,54 @@ fun EventsScreen(
                 owedEventCount = owedEventCount,
             )
 
-            // Header row: "Recent Events" + Create Event button
+            // Header row: title + create button
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = NeoFintechSpacing.lg, bottom = NeoFintechSpacing.sm),
+                    .padding(top = NeoFintechSpacing.sm, bottom = NeoFintechSpacing.xs),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
                     Text(
-                        text = "Recent Events",
+                        text = "Eventos",
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Text(
-                        text = "Manage your shared expenses.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
-                CreateEventCard(onCreate = {
+                OutlinedButton(onClick = {
                     editableEvent = EventItem(
                         name = "",
                         dateMillis = currentTimeMillis(),
                         ownerId = currentUserUid ?: "",
                         memberIds = listOfNotNull(currentUserUid?.takeIf { it.isNotBlank() })
                     )
-                })
+                }) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Crear nuevo evento")
+                }
             }
 
             // Search + filter row
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Buscar evento") },
-                singleLine = true,
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Close, contentDescription = "Limpiar búsqueda")
-                        }
-                    }
-                },
-            )
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = NeoFintechSpacing.xs),
-                horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Buscar") },
+                    singleLine = true,
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Limpiar búsqueda")
+                            }
+                        }
+                    },
+                )
                 listOf("Todos", "Con deuda", "Sin deuda").forEachIndexed { index, label ->
                     FilterChip(
                         selected = activeFilter == index,
@@ -205,7 +205,7 @@ fun EventsScreen(
                     LazyVerticalGrid(
                         columns = gridColumns,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = NeoFintechSpacing.sm),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.md),
                         verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.md),
                     ) {

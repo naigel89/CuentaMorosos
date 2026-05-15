@@ -27,13 +27,14 @@ fun TotalCostCard(
     totalPending: Double,
     expenseCount: Int,
 ) {
-    val colors = NeoFintechColors.light()
+    val colors = NeoFintechColors.dark()
+    val themeColors = MaterialTheme.colorScheme
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .cardShadow(),
-        colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = themeColors.surfaceContainerLow),
         shape = NeoFintechShapes.xl,
     ) {
         Column(
@@ -44,7 +45,7 @@ fun TotalCostCard(
             Text(
                 text = "TOTAL DEL EVENTO",
                 style = MaterialTheme.typography.labelSmall,
-                color = colors.onSurfaceVariant,
+                color = themeColors.onSurfaceVariant,
                 fontWeight = FontWeight.Medium,
             )
             Text(
@@ -53,7 +54,7 @@ fun TotalCostCard(
                 fontWeight = FontWeight.Bold,
                 color = colors.primaryContainer,
             )
-            HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.3f))
+            HorizontalDivider(color = themeColors.outlineVariant.copy(alpha = 0.3f))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
