@@ -10,10 +10,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -110,17 +113,18 @@ fun CalculatorSheet(
     val colors = NeoFintechColors.light()
     val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
+    val monoFont = JetBrainsMonoFontFamily()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = colors.surface,
+        containerColor = colors.background,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Title
@@ -147,6 +151,10 @@ fun CalculatorSheet(
                 },
                 singleLine = true,
                 shape = shapes.md,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = colors.primaryContainer,
+                    unfocusedBorderColor = colors.outlineVariant,
+                ),
             )
 
             // Mode selector chip
@@ -191,10 +199,22 @@ fun CalculatorSheet(
                 )
                 eventExpenses.forEach { expense ->
                     val category = com.cuentamorosos.model.ExpenseCategory.fromId(expense.category)
-                    Text(
-                        text = "• ${expense.name}: ${formatEuros(expense.amountEuros)} · ${category.label}",
-                        style = typography.bodySmall.copy(color = colors.onSurfaceVariant),
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "• ${expense.name} · ${category.label}",
+                            style = typography.bodySmall.copy(color = colors.onSurfaceVariant),
+                        )
+                        Text(
+                            text = formatEuros(expense.amountEuros),
+                            style = typography.labelSmall.copy(
+                                fontFamily = monoFont,
+                                color = colors.primaryContainer,
+                            ),
+                        )
+                    }
                 }
             }
 
@@ -208,7 +228,10 @@ fun CalculatorSheet(
 
             // Preview breakdown (when valid)
             if (selectedPreview != null && selectedPreview.validationMessage == null) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = colors.outlineVariant,
+                )
 
                 PreviewBreakdown(
                     profiles = profiles,
@@ -265,10 +288,16 @@ fun CalculatorSheet(
                     enabled = canApply,
                     modifier = Modifier.weight(1f),
                     shape = shapes.md,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.buttonContainer,
+                        contentColor = colors.onButton,
+                        disabledContainerColor = colors.surfaceContainerHigh,
+                        disabledContentColor = colors.onSurfaceVariant,
+                    ),
                 ) {
                     Text("Aplicar cálculo")
                 }
-                androidx.compose.material3.OutlinedButton(
+                OutlinedButton(
                     onClick = {
                         scope.launch { sheetState.hide() }.invokeOnCompletion {
                             if (!sheetState.isVisible) {
@@ -278,6 +307,10 @@ fun CalculatorSheet(
                     },
                     modifier = Modifier.weight(1f),
                     shape = shapes.md,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = colors.onSurface,
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant),
                 ) {
                     Text("Cancelar")
                 }
@@ -295,6 +328,7 @@ fun ParameterInputRow(
     value: String,
     onValueChange: (String) -> Unit,
 ) {
+    val colors = NeoFintechColors.light()
     val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
 
@@ -308,13 +342,17 @@ fun ParameterInputRow(
             modifier = Modifier.weight(1f),
             style = typography.bodyMedium,
         )
-        androidx.compose.material3.OutlinedTextField(
+        OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.weight(1f),
             label = { Text(label) },
             singleLine = true,
             shape = shapes.md,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = colors.primaryContainer,
+                unfocusedBorderColor = colors.outlineVariant,
+            ),
         )
     }
 }

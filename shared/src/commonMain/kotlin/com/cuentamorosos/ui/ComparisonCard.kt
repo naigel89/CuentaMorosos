@@ -13,15 +13,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
 import com.cuentamorosos.model.CalculationPreview
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.SplitMode
 import com.cuentamorosos.model.buildCalculationPreview
 import com.cuentamorosos.model.formatEuros
-import com.cuentamorosos.model.parseEuroAmount
 
 /**
  * Collapsible card showing all 4 split modes with their per-profile amounts.
@@ -65,15 +66,19 @@ fun ComparisonCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = NeoFintechElevation.cardShadowElevation,
+                shape = NeoFintechElevation.cardShadowShape,
+                clip = false,
+            )
             .clickable { onToggleExpanded() },
-        colors = CardDefaults.cardColors(
-            containerColor = colors.surfaceContainer,
-        ),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
         shape = shapes.lg,
+        border = BorderStroke(1.dp, colors.outlineVariant),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

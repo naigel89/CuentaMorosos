@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -17,13 +18,14 @@ import com.cuentamorosos.model.SplitMode
 /**
  * Horizontal segmented control for selecting split modes.
  * Uses FilterChip with Neo-Fintech styling: neon green container when selected,
- * outline variant when unselected.
+ * outline variant when unselected. Each mode has a contextual icon.
  */
 @Composable
 fun ModeSelectorChip(
     selectedMode: SplitMode,
     onModeSelected: (SplitMode) -> Unit,
 ) {
+    val colors = NeoFintechColors.light()
     val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
 
@@ -35,10 +37,10 @@ fun ModeSelectorChip(
     )
 
     val modeIcons = mapOf(
-        SplitMode.REAL_CONSUMPTION to "\uD83D\uDC65",    // 👥 shared
-        SplitMode.SIMPLE_AVG to "\u2797",               // ➗ avg
-        SplitMode.BY_CATEGORY to "\uD83D\uDCC2",        // 📂 category
-        SplitMode.CUSTOM_PERCENTAGE to "\uD83D\uDCCA",  // 📊 percentage
+        SplitMode.REAL_CONSUMPTION to "\uD83D\uDCCB",    // 📋 clipboard
+        SplitMode.SIMPLE_AVG to "\u2797",               // ➗ divide
+        SplitMode.BY_CATEGORY to "\uD83D\uDCC2",        // 📂 folder
+        SplitMode.CUSTOM_PERCENTAGE to "\uD83D\uDCCA",  // 📊 chart
     )
 
     Row(
@@ -63,6 +65,10 @@ fun ModeSelectorChip(
                 },
                 shape = shapes.md,
                 modifier = Modifier.padding(vertical = 2.dp),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = colors.primaryContainer,
+                    selectedLabelColor = colors.onSurface,
+                ),
             )
         }
     }

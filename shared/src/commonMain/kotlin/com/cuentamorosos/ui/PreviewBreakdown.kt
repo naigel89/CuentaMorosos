@@ -16,16 +16,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.BorderStroke
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
 
 /**
- * Per-profile breakdown display with monospace amounts.
- * Shows avatar emoji + name + amount (JetBrains Mono, neon green).
- * Total row at bottom with separator above.
+ * Per-profile breakdown display with monospace amounts in a table layout.
+ * Each row has: profile avatar (initials on colored circle, 32dp) + name + amount.
+ * Dividers between rows. Total row at bottom with bold label + separator above.
  */
 @Composable
 fun PreviewBreakdown(
@@ -39,22 +41,35 @@ fun PreviewBreakdown(
     val monoFont = JetBrainsMonoFontFamily()
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = colors.surfaceContainerLow,
-        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = NeoFintechElevation.cardShadowElevation,
+                shape = NeoFintechElevation.cardShadowShape,
+                clip = false,
+            ),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
         shape = shapes.lg,
+        border = BorderStroke(1.dp, colors.outlineVariant),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 text = "Vista previa por perfil",
                 style = typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
             )
 
-            profiles.zip(amounts).forEach { (profile, amount) ->
+            profiles.zip(amounts).forEachIndexed { index, (profile, amount) ->
+                // Divider between rows (not before first)
+                if (index > 0) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        color = colors.outlineVariant,
+                    )
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -62,19 +77,29 @@ fun PreviewBreakdown(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        // Avatar circle
+                        // Avatar circle with initials (32dp)
+                        val initials = profile.name
+                            .split(" ")
+                            .filter { it.isNotBlank() }
+                            .take(2)
+                            .map { it.firstOrNull()?.uppercaseChar() ?: "" }
+                            .joinToString("")
+
                         Box(
                             modifier = Modifier
-                                .size(28.dp)
+                                .size(32.dp)
                                 .clip(NeoFintechShapes.full)
-                                .background(colors.secondary.copy(alpha = 0.2f)),
+                                .background(colors.tertiaryContainer),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = profile.icon,
-                                fontSize = 14.sp,
+                                text = initials,
+                                style = typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colors.onTertiaryContainer,
+                                ),
                             )
                         }
                         Text(
@@ -84,7 +109,7 @@ fun PreviewBreakdown(
                     }
                     Text(
                         text = formatEuros(amount),
-                        style = typography.labelSmall.copy(
+                        style = typography.headlineMedium.copy(
                             fontFamily = monoFont,
                             color = colors.primaryContainer,
                             fontWeight = FontWeight.Medium,
@@ -93,15 +118,19 @@ fun PreviewBreakdown(
                 }
             }
 
+            // Total separator + summary row
             HorizontalDivider(
-                modifier = Modifier.padding(vertical = 4.dp),
-                color = colors.outlineVariant,
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = colors.onSurfaceVariant,
+                thickness = 2.dp,
             )
 
-            // Summary row
             Text(
-                text = summary,
-                style = typography.bodySmall.copy(color = colors.onSurfaceVariant),
+                text = "Total: $summary",
+                style = typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = colors.onSurface,
+                ),
             )
         }
     }

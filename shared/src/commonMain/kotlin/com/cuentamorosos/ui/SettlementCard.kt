@@ -11,8 +11,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
 import com.cuentamorosos.model.SettlementTransfer
 import com.cuentamorosos.model.formatEuros
 
@@ -33,14 +35,19 @@ fun SettlementCard(
     if (transfers.isEmpty()) return
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = colors.surfaceContainerHigh,
-        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = NeoFintechElevation.cardShadowElevation,
+                shape = NeoFintechElevation.cardShadowShape,
+                clip = false,
+            ),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
         shape = shapes.lg,
+        border = BorderStroke(1.dp, colors.outlineVariant),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
