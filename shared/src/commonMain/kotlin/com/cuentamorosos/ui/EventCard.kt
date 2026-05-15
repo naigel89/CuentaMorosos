@@ -50,7 +50,7 @@ fun EventCard(
     youAreOwed: Double = 0.0,
     profiles: List<ProfileItem>,
     category: ExpenseCategory = ExpenseCategory.SHARED,
-    statusLabel: String = if (pendingTotal > 0.0) "Active" else "Settled",
+    statusLabel: String = if (pendingTotal > 0.0) "Activo" else "Saldado",
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -158,7 +158,7 @@ fun EventCard(
             ) {
                 Column {
                     Text(
-                        text = "Total Expense",
+                        text = "Total gastado",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                         color = colors.onSurfaceVariant,
                     )
@@ -170,7 +170,7 @@ fun EventCard(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Your Share",
+                        text = "Tu parte",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                         color = colors.onSurfaceVariant,
                     )
@@ -190,7 +190,7 @@ fun EventCard(
             ) {
                 StackedAvatars(profiles = profiles, maxVisible = 3)
                 Text(
-                    text = "You are owed ${formatEuros(youAreOwed)}",
+                    text = "Te deben ${formatEuros(youAreOwed)}",
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                     color = neoColors.primaryContainer,
                     fontWeight = FontWeight.Medium,

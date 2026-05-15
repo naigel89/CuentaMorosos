@@ -42,7 +42,7 @@ fun CreateEventCard(
                 modifier = Modifier.size(20.dp),
             )
             Text(
-                text = "Create Event",
+                text = "Crear evento",
                 style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,

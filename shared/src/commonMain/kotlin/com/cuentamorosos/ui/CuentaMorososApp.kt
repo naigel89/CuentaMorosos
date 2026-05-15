@@ -1,5 +1,12 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -226,22 +233,35 @@ fun CuentaMorososApp(
                     }
                 ) { innerPadding ->
                     val event = selectedEvent
-                    if (event != null) {
-                        EventDetailScreen(
+                    AnimatedContent(
+                        targetState = event,
+                        transitionSpec = {
+                            if (targetState != null) {
+                                slideInHorizontally { it } + fadeIn(animationSpec = tween(200)) togetherWith
+                                slideOutHorizontally { -it } + fadeOut(animationSpec = tween(200))
+                            } else {
+                                slideInHorizontally { -it } + fadeIn(animationSpec = tween(200)) togetherWith
+                                slideOutHorizontally { it } + fadeOut(animationSpec = tween(200))
+                            }
+                        },
+                        label = "event-detail-transition"
+                    ) { currentEvent ->
+                        if (currentEvent != null) {
+                            EventDetailScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(innerPadding),
-                            event = event,
+                            event = currentEvent,
                             profiles = profiles.toList(),
-                            eventDebts = debts.filter { it.eventId == event.id },
-                            eventExpenses = expenses.filter { it.eventId == event.id },
+                            eventDebts = debts.filter { it.eventId == currentEvent.id },
+                            eventExpenses = expenses.filter { it.eventId == currentEvent.id },
                             currentUserUid = currentUserUid,
                             onBack = { eventDetailViewModel.setEventId(null) },
                             onAddProfileToEvent = { profile ->
-                                if (debts.none { it.eventId == event.id && it.profileId == profile.id }) {
+                                if (debts.none { it.eventId == currentEvent.id && it.profileId == profile.id }) {
                                     eventDetailViewModel.saveDebt(
                                         EventDebtItem(
-                                            eventId = event.id,
+                                            eventId = currentEvent.id,
                                             profileId = profile.id
                                         )
                                     )
@@ -263,7 +283,7 @@ fun CuentaMorososApp(
                                 }
                             },
                             onRemoveDebt = { debtId ->
-                                eventDetailViewModel.deleteDebt(event.id, debtId)
+                                eventDetailViewModel.deleteDebt(currentEvent.id, debtId)
                                 feedbackMessage = "Perfil eliminado del evento."
                             },
                             onSaveExpense = { expense ->
@@ -271,11 +291,11 @@ fun CuentaMorososApp(
                                 feedbackMessage = "Ítem del evento guardado."
                             },
                             onRemoveExpense = { expenseId ->
-                                eventDetailViewModel.deleteExpense(event.id, expenseId)
+                                eventDetailViewModel.deleteExpense(currentEvent.id, expenseId)
                                 feedbackMessage = "Ítem eliminado del evento."
                             },
                             onApplyCalculation = { calculation ->
-                                val eventEntries = debts.filter { it.eventId == event.id }
+                                val eventEntries = debts.filter { it.eventId == currentEvent.id }
 
                                 eventEntries.forEachIndexed { index, debt ->
                                     eventDetailViewModel.saveDebt(
@@ -287,7 +307,7 @@ fun CuentaMorososApp(
                                 }
 
                                 eventsViewModel.saveEvent(
-                                    event.copy(
+                                    currentEvent.copy(
                                         lastCalculationMode = calculation.mode.id,
                                         lastCalculationTotal = calculation.total,
                                         lastCalculationTimestamp = currentTimeMillis(),
@@ -300,8 +320,8 @@ fun CuentaMorososApp(
                                 if (currentUserUid != null) {
                                     invitationsViewModel.sendInvitation(
                                         EventInvitation(
-                                            eventId = event.id,
-                                            eventName = event.name,
+                                            eventId = currentEvent.id,
+                                            eventName = currentEvent.name,
                                             invitedByUid = currentUserUid,
                                             invitedByEmail = "",
                                             invitedEmail = email,
@@ -311,13 +331,21 @@ fun CuentaMorososApp(
                                 }
                             },
                             onRemoveMember = { uid ->
-                                eventsViewModel.removeMember(event.id, uid)
+                                eventsViewModel.removeMember(currentEvent.id, uid)
                                 feedbackMessage = "Miembro eliminado del evento."
                             }
                         )
-                    } else {
-                        when (MainSection.valueOf(currentSection)) {
-                            MainSection.DASHBOARD -> DashboardScreen(
+                        } else {
+                            AnimatedContent(
+                                targetState = MainSection.valueOf(currentSection),
+                                transitionSpec = {
+                                    fadeIn(animationSpec = tween(200)) togetherWith
+                                    fadeOut(animationSpec = tween(200))
+                                },
+                                label = "screen-transition"
+                            ) { section ->
+                                when (section) {
+                                    MainSection.DASHBOARD -> DashboardScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(innerPadding),
@@ -392,6 +420,8 @@ fun CuentaMorososApp(
                                 onPostReminders = onPostReminders,
                                 onSignOut = onSignOut
                             )
+                                }
+                            }
                         }
                     }
                 }

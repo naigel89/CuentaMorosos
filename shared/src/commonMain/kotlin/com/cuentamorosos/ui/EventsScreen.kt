@@ -152,26 +152,30 @@ fun EventsScreen(
                 }
             }
 
-            // Search + filter row
+            // Search row (full width)
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = NeoFintechSpacing.sm, bottom = NeoFintechSpacing.md),
+                label = { Text("Buscar evento") },
+                singleLine = true,
+                shape = NeoFintechShapes.md,
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Limpiar búsqueda")
+                        }
+                    }
+                },
+            )
+
+            // Filter chips row (separate row below search)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Buscar") },
-                    singleLine = true,
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Limpiar búsqueda")
-                            }
-                        }
-                    },
-                )
                 listOf("Todos", "Con deuda", "Sin deuda").forEachIndexed { index, label ->
                     FilterChip(
                         selected = activeFilter == index,
@@ -186,7 +190,7 @@ fun EventsScreen(
                 if (events.isEmpty()) {
                     EmptyStateMessage(
                         title = "No tenés eventos aún",
-                        message = "Pulsa en \"Create Event\" para registrar el primero con nombre y fecha.",
+                        message = "Pulsa en \"+ Nuevo perfil\" para registrar el primero con nombre y fecha.",
                     )
                 } else if (filteredEvents.isEmpty()) {
                     EmptyStateMessage(
@@ -222,7 +226,7 @@ fun EventsScreen(
                                 youAreOwed = youAreOwedByEvent[event.id] ?: 0.0,
                                 profiles = eventProfiles,
                                 category = ExpenseCategory.fromId("shared"),
-                                statusLabel = if ((pendingTotalsByEvent[event.id] ?: 0.0) > 0.0) "Active" else "Settled",
+                                statusLabel = if ((pendingTotalsByEvent[event.id] ?: 0.0) > 0.0) "Activo" else "Saldado",
                                 onTap = { onOpenEvent(event) },
                                 onEdit = { editableEvent = event },
                                 onDelete = { eventToDelete = event },
