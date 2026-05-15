@@ -1,10 +1,11 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -12,11 +13,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -35,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.isValidEmail
 import com.cuentamorosos.model.ProfileItem
@@ -52,6 +54,7 @@ fun ProfilesScreen(
     onSaveProfile: (ProfileItem) -> Unit,
     onDeleteProfile: (ProfileItem) -> Unit,
 ) {
+    val colors = NeoFintechColors.dark()
     var selectedProfile by remember { mutableStateOf<ProfileItem?>(null) }
     var editableProfile by remember { mutableStateOf<ProfileItem?>(null) }
     var profileToDelete by remember { mutableStateOf<ProfileItem?>(null) }
@@ -63,113 +66,75 @@ fun ProfilesScreen(
         own + others
     }
 
-    Column(
-        modifier = modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            text = "Perfiles",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "La deuda activa ya se recalcula por evento y excluye lo marcado como pagado.",
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        Button(
-            onClick = {
-                editableProfile = ProfileItem(
-                    name = "",
-                    icon = "🙂"
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Perfiles",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.onSurface,
                 )
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Nuevo perfil")
+                Text(
+                    text = "Gestioná las personas que participan en tus eventos.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                )
+            }
         }
 
-        StatusCard(
-            title = "Resumen global",
-            message = "$eventCount eventos creados · totales pendientes listos para seguimiento."
-        )
+        item {
+            ProfileBalanceSummary(
+                profiles = profiles,
+                currentUid = currentUid,
+            )
+        }
+
+        item {
+            Button(
+                onClick = {
+                    editableProfile = ProfileItem(
+                        name = "",
+                        icon = "🙂",
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = colors.primaryContainer),
+                shape = NeoFintechShapes.lg,
+            ) {
+                Text(
+                    text = "+ Nuevo perfil",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.surface,
+                )
+            }
+        }
 
         if (profiles.isEmpty()) {
-            EmptyState(
-                modifier = Modifier.weight(1f),
-                title = "Todavía no hay perfiles",
-                message = "Añade personas con nombre e icono para reutilizarlas en distintos eventos."
-            )
+            item {
+                EmptyState(
+                    title = "Todavía no hay perfiles",
+                    message = "Añade personas con nombre e icono para reutilizarlas en distintos eventos.",
+                )
+            }
         } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(sortedProfiles, key = { it.id }) { profile ->
-                    val isOwnProfile = profile.id == currentUid
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { selectedProfile = profile },
-                        colors = if (isOwnProfile) CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        ) else CardDefaults.cardColors()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "${profile.icon} ${profile.name}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (isOwnProfile) MaterialTheme.colorScheme.onPrimaryContainer
-                                            else MaterialTheme.colorScheme.onSurface
-                                )
-                                if (isOwnProfile) {
-                                    Surface(
-                                        shape = MaterialTheme.shapes.small,
-                                        color = MaterialTheme.colorScheme.primary
-                                    ) {
-                                        Text(
-                                            text = "Tú",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onPrimary,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            Text(
-                                text = "Pendiente activo: ${formatEuros(profile.totalPendingEuros)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (isOwnProfile) MaterialTheme.colorScheme.onPrimaryContainer
-                                        else MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Eventos abiertos: ${pendingEventsByProfile[profile.id]?.size ?: 0}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isOwnProfile) MaterialTheme.colorScheme.onPrimaryContainer
-                                        else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (profile.isGhost) {
-                                Text(
-                                    text = "Perfil local (fantasma)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                            }
-                        }
-                    }
-                }
+            items(sortedProfiles, key = { it.id }) { profile ->
+                val isOwnProfile = profile.id == currentUid
+                ProfileCard(
+                    profile = profile,
+                    isOwnProfile = isOwnProfile,
+                    onClick = { selectedProfile = profile },
+                )
             }
         }
     }
+
+    // ── Dialogs ───────────────────────────────────────────────────────────
 
     selectedProfile?.let { profile ->
         ProfileDetailDialog(
@@ -183,7 +148,7 @@ fun ProfilesScreen(
             onDelete = {
                 selectedProfile = null
                 profileToDelete = profile
-            }
+            },
         )
     }
 
@@ -194,32 +159,65 @@ fun ProfilesScreen(
             onSave = { savedProfile ->
                 editableProfile = null
                 onSaveProfile(savedProfile)
-            }
+            },
         )
     }
 
     profileToDelete?.let { profile ->
-        AlertDialog(
+        NeoAlertDialog(
             onDismissRequest = { profileToDelete = null },
-            title = { Text("Eliminar perfil") },
-            text = {
-                Text("¿Seguro que quieres eliminar \"${profile.icon} ${profile.name}\"? Se eliminarán también todas sus deudas en todos los eventos. Esta acción no se puede deshacer.")
+            title = "Eliminar perfil",
+            message = "¿Seguro que quieres eliminar \"${profile.icon} ${profile.name}\"? Se eliminarán también todas sus deudas en todos los eventos. Esta acción no se puede deshacer.",
+            confirmText = "Eliminar",
+            onConfirm = {
+                profileToDelete = null
+                onDeleteProfile(profile)
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    profileToDelete = null
-                    onDeleteProfile(profile)
-                }) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { profileToDelete = null }) {
-                    Text("Cancelar")
-                }
-            }
         )
     }
+}
+
+// ── NeoAlertDialog ────────────────────────────────────────────────────────────
+
+@Composable
+private fun NeoAlertDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    message: String,
+    confirmText: String,
+    onConfirm: () -> Unit,
+) {
+    val colors = NeoFintechColors.dark()
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        containerColor = colors.surface,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.onSurface,
+            )
+        },
+        text = {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(confirmText, color = colors.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text("Cancelar", color = colors.onSurfaceVariant)
+            }
+        },
+        shape = NeoFintechShapes.xl,
+    )
 }
 
 // ── ProfileEditorDialog ───────────────────────────────────────────────────────
@@ -230,6 +228,7 @@ private fun ProfileEditorDialog(
     onDismiss: () -> Unit,
     onSave: (ProfileItem) -> Unit,
 ) {
+    val colors = NeoFintechColors.dark()
     val iconOptions = listOf(
         "🙂", "😄", "😎", "🤩", "🥳", "😇",
         "🧑", "👩", "👨", "👴", "👵", "🧒",
@@ -243,15 +242,23 @@ private fun ProfileEditorDialog(
     var linkedEmail by remember(initialProfile.id) { mutableStateOf(initialProfile.linkedEmail.orEmpty()) }
     var validationMessage by remember(initialProfile.id) { mutableStateOf<String?>(null) }
 
+    val isNewProfile = initialProfile.name.isBlank()
+
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = colors.surface,
         title = {
-            Text(if (initialProfile.name.isBlank()) "Nuevo perfil" else "Editar perfil")
+            Text(
+                text = if (isNewProfile) "Nuevo perfil" else "Editar perfil",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.onSurface,
+            )
         },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedTextField(
                     value = name,
@@ -260,8 +267,9 @@ private fun ProfileEditorDialog(
                         validationMessage = null
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Nombre del perfil") },
-                    singleLine = true
+                    label = { Text("Nombre del perfil", color = colors.onSurfaceVariant) },
+                    singleLine = true,
+                    shape = NeoFintechShapes.md,
                 )
                 Row(
                     modifier = Modifier
@@ -273,7 +281,7 @@ private fun ProfileEditorDialog(
                             }
                             validationMessage = null
                         },
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(
                         checked = isGhost,
@@ -283,30 +291,37 @@ private fun ProfileEditorDialog(
                                 linkedEmail = ""
                             }
                             validationMessage = null
-                        }
+                        },
                     )
-                    Text("Perfil local (sin cuenta Firebase)")
+                    Text(
+                        text = "Perfil local (sin cuenta Firebase)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurface,
+                    )
                 }
                 if (isGhost) {
-                OutlinedTextField(
+                    OutlinedTextField(
                         value = linkedEmail,
                         onValueChange = {
                             linkedEmail = it.trim()
                             validationMessage = null
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Email para vincular (opcional)") },
-                        singleLine = true
+                        label = { Text("Email para vincular (opcional)", color = colors.onSurfaceVariant) },
+                        singleLine = true,
+                        shape = NeoFintechShapes.md,
                     )
                     Text(
                         text = "Si este email se registra después, el perfil local se vinculará automáticamente.",
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
                     )
                 }
                 Text(
                     text = "Selecciona un icono",
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    color = colors.onSurface,
                 )
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(6),
@@ -314,7 +329,7 @@ private fun ProfileEditorDialog(
                         .fillMaxWidth()
                         .height(160.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     items(count = iconOptions.size) { index ->
                         val icon = iconOptions[index]
@@ -323,7 +338,11 @@ private fun ProfileEditorDialog(
                             Button(
                                 onClick = { selectedIcon = icon; validationMessage = null },
                                 contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier.aspectRatio(1f)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(32.dp),
+                                shape = NeoFintechShapes.md,
+                                colors = ButtonDefaults.buttonColors(containerColor = colors.primaryContainer),
                             ) {
                                 Text(icon)
                             }
@@ -331,7 +350,10 @@ private fun ProfileEditorDialog(
                             OutlinedButton(
                                 onClick = { selectedIcon = icon; validationMessage = null },
                                 contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier.aspectRatio(1f)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(32.dp),
+                                shape = NeoFintechShapes.md,
                             ) {
                                 Text(icon)
                             }
@@ -340,13 +362,14 @@ private fun ProfileEditorDialog(
                 }
                 Text(
                     text = "Icono seleccionado: $selectedIcon",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
                 )
                 validationMessage?.let { message ->
                     Text(
                         text = message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
+                        color = colors.error,
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
@@ -374,19 +397,20 @@ private fun ProfileEditorDialog(
                             name = name.trim(),
                             icon = selectedIcon,
                             isGhost = isGhost,
-                            linkedEmail = normalizedLinkedEmail.takeIf { isGhost && it.isNotBlank() }
-                        )
+                            linkedEmail = normalizedLinkedEmail.takeIf { isGhost && it.isNotBlank() },
+                        ),
                     )
-                }
+                },
             ) {
-                Text("Guardar")
+                Text("Guardar", color = colors.primaryContainer)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancelar")
+                Text("Cancelar", color = colors.onSurfaceVariant)
             }
-        }
+        },
+        shape = NeoFintechShapes.xl,
     )
 }
 
@@ -400,44 +424,85 @@ private fun ProfileDetailDialog(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val colors = NeoFintechColors.dark()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${profile.icon} ${profile.name}") },
+        containerColor = colors.surface,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ProfileAvatar(emoji = profile.icon, size = 32.dp)
+                Text(
+                    text = profile.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface,
+                )
+            }
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Total pendiente actual: ${formatEuros(profile.totalPendingEuros)}")
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "Total pendiente:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                    )
+                    Text(
+                        text = formatEuros(profile.totalPendingEuros),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontFamily = JetBrainsMonoFontFamily(),
+                        fontWeight = FontWeight.Bold,
+                        color = if (profile.totalPendingEuros >= 0) colors.primaryContainer else colors.error,
+                    )
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    color = colors.outlineVariant,
+                )
                 if (pendingEvents.isEmpty()) {
                     Text(
                         text = "No tiene deudas activas ahora mismo.",
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
                     )
                 } else {
                     Text(
                         text = "Eventos pendientes:",
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.onSurface,
                     )
                     pendingEvents.forEach { summary ->
-                        Text(summary, style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = "• $summary",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                        )
                     }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onEdit) {
-                Text("Editar")
+                Text("Editar", color = colors.primaryContainer)
             }
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onDelete) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                    Text("Eliminar", color = colors.error)
                 }
                 TextButton(onClick = onDismiss) {
-                    Text("Cerrar")
+                    Text("Cerrar", color = colors.onSurfaceVariant)
                 }
             }
-        }
+        },
+        shape = NeoFintechShapes.xl,
     )
 }
