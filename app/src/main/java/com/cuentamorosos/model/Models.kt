@@ -48,6 +48,8 @@ data class EventExpenseItem(
     val amountEuros: Double,
     val category: String = "shared",
     val assignedProfileIds: List<String> = emptyList(),
+    val profileWeights: Map<String, Double> = emptyMap(),
+    val paidByProfileId: String = "",
 )
 
 private val eventDateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
