@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,15 +16,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
 
 /**
- * Global balance summary showing total pending, total to collect, and total to pay.
+ * Global balance summary showing total owed to you and total you owe.
  *
- * Displays three indicator cards in a row, each with an icon, label, and computed amount.
+ * Displays two indicator cards side by side:
+ * - "Total a cobrar" (green) — positive balances owed to the current user
+ * - "Total a pagar" (red) — negative balances the current user owes
  *
  * @param profiles The list of all profiles to aggregate balances from.
  * @param currentUid The ID of the current user's profile (used to determine owed vs owing).
@@ -36,12 +40,6 @@ fun ProfileBalanceSummary(
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoFintechColors.dark()
-
-    val totalPending by remember(profiles) {
-        derivedStateOf {
-            profiles.sumOf { it.totalPendingEuros }
-        }
-    }
 
     val totalOwedToYou by remember(profiles, currentUid) {
         derivedStateOf {
@@ -59,30 +57,43 @@ fun ProfileBalanceSummary(
         }
     }
 
+    val owedCount by remember(profiles, currentUid) {
+        derivedStateOf {
+            profiles
+                .filter { it.id == currentUid }
+                .count { it.totalPendingEuros > 0 }
+        }
+    }
+
+    val oweCount by remember(profiles, currentUid) {
+        derivedStateOf {
+            profiles
+                .filter { it.id == currentUid }
+                .count { it.totalPendingEuros < 0 }
+        }
+    }
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         SummaryIndicator(
             modifier = Modifier.weight(1f),
-            icon = "\uD83D\uDCCB",
-            label = "Total pendiente",
-            amount = totalPending,
-            borderColor = colors.primaryContainer,
-        )
-        SummaryIndicator(
-            modifier = Modifier.weight(1f),
-            icon = "\uD83D\uDCC8",
+            icon = "\u2193",
             label = "Total a cobrar",
             amount = totalOwedToYou,
-            borderColor = colors.error,
+            count = owedCount,
+            amountColor = colors.primaryContainer,
+            iconColor = colors.primaryContainer,
         )
         SummaryIndicator(
             modifier = Modifier.weight(1f),
-            icon = "\uD83D\uDCC9",
+            icon = "\u2191",
             label = "Total a pagar",
             amount = totalYouOwe,
-            borderColor = colors.secondary,
+            count = oweCount,
+            amountColor = colors.error,
+            iconColor = colors.error,
         )
     }
 }
@@ -96,32 +107,47 @@ private fun SummaryIndicator(
     icon: String,
     label: String,
     amount: Double,
-    borderColor: androidx.compose.ui.graphics.Color,
+    count: Int,
+    amountColor: androidx.compose.ui.graphics.Color,
+    iconColor: androidx.compose.ui.graphics.Color,
 ) {
+    val colors = NeoFintechColors.dark()
     Card(
         modifier = modifier
-            .border(
-                width = 4.dp,
-                color = borderColor,
-                shape = NeoFintechShapes.lg,
-            ),
+            .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
+            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
+        shape = NeoFintechShapes.lg,
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(16.dp),
         ) {
-            Text(text = icon, style = MaterialTheme.typography.headlineMedium)
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = icon,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = iconColor,
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
             Text(
                 text = formatEuros(amount),
                 style = MaterialTheme.typography.headlineMedium,
                 fontFamily = JetBrainsMonoFontFamily(),
                 fontWeight = FontWeight.Bold,
-                color = borderColor,
+                color = amountColor,
+            )
+            Text(
+                text = "$count perfiles activos",
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.onSurfaceVariant,
             )
         }
     }

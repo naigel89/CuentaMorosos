@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -95,23 +96,40 @@ fun ProfilesScreen(
         }
 
         item {
-            Button(
-                onClick = {
-                    editableProfile = ProfileItem(
-                        name = "",
-                        icon = "🙂",
-                    )
-                },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = colors.primaryContainer),
-                shape = NeoFintechShapes.lg,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(
-                    text = "+ Nuevo perfil",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.surface,
-                )
+                Button(
+                    onClick = {
+                        editableProfile = ProfileItem(
+                            name = "",
+                            icon = "🙂",
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.primaryContainer),
+                    shape = NeoFintechShapes.lg,
+                ) {
+                    Text(
+                        text = "+ Nuevo perfil",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.surface,
+                    )
+                }
+                OutlinedButton(
+                    onClick = { /* TODO: implement filter */ },
+                    modifier = Modifier.weight(1f),
+                    shape = NeoFintechShapes.lg,
+                ) {
+                    Text(
+                        text = "Filtrar",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.onSurface,
+                    )
+                }
             }
         }
 
@@ -125,10 +143,12 @@ fun ProfilesScreen(
         } else {
             items(sortedProfiles, key = { it.id }) { profile ->
                 val isOwnProfile = profile.id == currentUid
+                val isSettled = profile.totalPendingEuros == 0.0
                 ProfileCard(
                     profile = profile,
                     isOwnProfile = isOwnProfile,
                     onClick = { selectedProfile = profile },
+                    modifier = Modifier.then(if (isSettled) Modifier.alpha(0.75f) else Modifier),
                 )
             }
         }
@@ -433,7 +453,7 @@ private fun ProfileDetailDialog(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ProfileAvatar(emoji = profile.icon, size = 32.dp)
+                ProfileAvatar(name = profile.name, emoji = profile.icon, size = 32.dp)
                 Text(
                     text = profile.name,
                     style = MaterialTheme.typography.titleMedium,

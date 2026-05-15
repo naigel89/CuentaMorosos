@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,7 +26,7 @@ import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
 
 /**
- * Profile card with avatar, name, balance, and state badges.
+ * Profile card with avatar, name, balance, and balance-based badges.
  *
  * @param profile The profile data to display.
  * @param isOwnProfile Whether this profile belongs to the current user.
@@ -49,11 +50,13 @@ fun ProfileCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
+            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg)
             .clickable(onClick = onClick)
             .then(
                 if (isOwnProfile) {
                     Modifier.border(
-                        width = 4.dp,
+                        width = 2.dp,
                         color = colors.primaryContainer,
                         shape = NeoFintechShapes.lg,
                     )
@@ -62,13 +65,14 @@ fun ProfileCard(
                 }
             ),
         colors = CardDefaults.cardColors(containerColor = colors.surface),
+        shape = NeoFintechShapes.lg,
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ProfileAvatar(emoji = profile.icon)
+            ProfileAvatar(name = profile.name, emoji = profile.icon)
 
             Column(
                 modifier = Modifier.weight(1f),
@@ -85,10 +89,9 @@ fun ProfileCard(
                         fontWeight = FontWeight.SemiBold,
                         color = colors.onSurface,
                     )
-                    ProfileBadges(
+                    BalanceBadges(
+                        balance = profile.totalPendingEuros,
                         isOwnProfile = isOwnProfile,
-                        isGhost = profile.isGhost,
-                        hasLinkedEmail = profile.linkedEmail != null,
                     )
                 }
 
@@ -105,42 +108,43 @@ fun ProfileCard(
 }
 
 /**
- * Row of state badges for a profile card.
+ * Balance-based badges: "Te debe" / "Debés" / "Saldado".
+ * Plus an optional "Tú" marker for own profiles.
  */
 @Composable
-private fun ProfileBadges(
+private fun BalanceBadges(
+    balance: Double,
     isOwnProfile: Boolean,
-    isGhost: Boolean,
-    hasLinkedEmail: Boolean,
 ) {
     val colors = NeoFintechColors.dark()
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         if (isOwnProfile) {
-            ProfileBadge(text = "Tú", color = colors.primaryContainer)
+            BalanceBadge(text = "Tú", bgColor = colors.onSurfaceVariant.copy(alpha = 0.15f), textColor = colors.onSurfaceVariant)
         }
-        if (isGhost) {
-            ProfileBadge(text = "Local", color = colors.secondary)
-        }
-        if (hasLinkedEmail) {
-            ProfileBadge(text = "Vinculado", color = colors.tertiaryContainer)
+        if (balance > 0) {
+            BalanceBadge(text = "Te debe", bgColor = colors.primaryContainer.copy(alpha = 0.15f), textColor = colors.primaryContainer)
+        } else if (balance < 0) {
+            BalanceBadge(text = "Debés", bgColor = colors.error.copy(alpha = 0.15f), textColor = colors.error)
+        } else {
+            BalanceBadge(text = "Saldado", bgColor = colors.onSurfaceVariant.copy(alpha = 0.15f), textColor = colors.onSurfaceVariant)
         }
     }
 }
 
 /**
- * Individual badge chip.
+ * Individual badge chip with small rounded corners (not pill).
  */
 @Composable
-private fun ProfileBadge(text: String, color: androidx.compose.ui.graphics.Color) {
+private fun BalanceBadge(text: String, bgColor: androidx.compose.ui.graphics.Color, textColor: androidx.compose.ui.graphics.Color) {
     Surface(
         shape = NeoFintechShapes.sm,
-        color = color.copy(alpha = 0.15f),
+        color = bgColor,
     ) {
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = color,
+            color = textColor,
             textAlign = TextAlign.Center,
         )
     }
