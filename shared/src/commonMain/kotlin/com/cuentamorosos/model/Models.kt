@@ -135,8 +135,17 @@ data class CalculationSnapshot(
 data class CalculationResult(
     val snapshot: CalculationSnapshot? = null,
     val errors: List<String> = emptyList(),
+    val status: CalculationStatus? = null,
 ) {
     val isSuccess: Boolean get() = snapshot != null && errors.isEmpty()
+}
+
+/** Status of a calculation run, including edge case detection. */
+sealed class CalculationStatus {
+    data class Success(val message: String = "Cálculo completado") : CalculationStatus()
+    data class ZeroBalance(val message: String = "Todo está saldado") : CalculationStatus()
+    data class EdgeCaseWarning(val message: String) : CalculationStatus()
+    data class Error(val message: String) : CalculationStatus()
 }
 
 data class EventExpenseItem(

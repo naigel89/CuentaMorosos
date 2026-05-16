@@ -46,6 +46,36 @@ object IntegrityGuard {
      * Adjustments are only meaningful for settled (paid) transfers.
      */
     fun canCreateAdjustment(debt: EventDebtItem): Boolean = debt.paid
+
+    /**
+     * Verifies that all participants from a prior calculation snapshot still exist
+     * before recalculating. New participants MAY be added (starting with zero balance).
+     *
+     * @param currentMemberIds Profile IDs currently in the event.
+     * @param priorSnapshot Optional previous calculation snapshot.
+     * @param profileNameResolver Function to resolve profile ID to display name.
+     * @return Result.success if consistent, Result.failure with Spanish message if
+     *   any prior participant is missing.
+     */
+    fun canRecalculate(
+        currentMemberIds: Set<String>,
+        priorSnapshot: CalculationSnapshot?,
+        profileNameResolver: (String) -> String = { it },
+    ): Result<Unit> {
+        if (priorSnapshot == null) return Result.success(Unit)
+
+        val priorParticipantIds = priorSnapshot.participantBalances.keys
+        val missing = priorParticipantIds - currentMemberIds
+
+        if (missing.isNotEmpty()) {
+            val names = missing.joinToString(", ") { profileNameResolver(it) }
+            return Result.failure(
+                IllegalStateException("No se puede recalcular: falta el participante $names. Agregalo o volvé al estado anterior.")
+            )
+        }
+
+        return Result.success(Unit)
+    }
 }
 
 /**
