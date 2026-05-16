@@ -336,12 +336,18 @@ private fun HeaderSection(
                 verticalAlignment = Alignment.Bottom,
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = event.name,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = themeColors.onSurface,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = event.name,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = themeColors.onSurface,
+                        )
+                        StateBadge(state = event.state)
+                    }
                     Text(
                         text = "📅 ${event.formattedDate()}",
                         style = MaterialTheme.typography.bodyMedium,
@@ -374,12 +380,18 @@ private fun HeaderSection(
             }
         } else {
             // Mobile: title + date (TotalCostCard is shown below in the scroll area)
-            Text(
-                text = event.name,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = themeColors.onSurface,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = event.name,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = themeColors.onSurface,
+                )
+                StateBadge(state = event.state)
+            }
             Text(
                 text = "📅 ${event.formattedDate()}",
                 style = MaterialTheme.typography.bodyMedium,

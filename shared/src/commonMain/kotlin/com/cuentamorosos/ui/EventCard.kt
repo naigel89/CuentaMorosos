@@ -59,6 +59,8 @@ fun EventCard(
     val neoColors = NeoFintechColors.dark()
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val stateBadgeColor = event.state.stateBadgeColor(neoColors)
+    val stateLabelText = event.state.stateBadgeLabel()
 
     Card(
         modifier = Modifier
@@ -101,16 +103,16 @@ fun EventCard(
                         fontSize = 24.sp,
                     )
                 }
-                // Status badge (pill shape)
+                // State badge (pill shape)
                 Surface(
-                    color = neoColors.primaryContainer.copy(alpha = 0.1f),
+                    color = stateBadgeColor,
                     shape = NeoFintechShapes.full,
                 ) {
                     Text(
-                        text = statusLabel,
+                        text = stateLabelText,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                        color = neoColors.primaryContainer,
+                        color = colors.onSurface,
                         fontWeight = FontWeight.Medium,
                     )
                 }
