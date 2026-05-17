@@ -41,12 +41,24 @@ import androidx.compose.ui.unit.dp
 import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.currentDateText
 import com.cuentamorosos.data.ReminderMessage
+import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.EventParticipant
+import com.cuentamorosos.model.EventRole
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ExpenseCategory
+import com.cuentamorosos.model.PermissionEngine
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.StateTransitionResult
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEventDate
+import com.cuentamorosos.model.validation.EventValidator
+import com.cuentamorosos.model.validation.ValidationError
+import com.cuentamorosos.model.validation.allErrors
+import com.cuentamorosos.model.validation.allWarnings
+import com.cuentamorosos.model.validation.hasErrors
+import com.cuentamorosos.model.validation.hasWarnings
 
 // ── EventsScreen ──────────────────────────────────────────────────────────────
 
@@ -61,11 +73,18 @@ fun EventsScreen(
     totalExpensesByEvent: Map<String, Double> = emptyMap(),
     yourShareByEvent: Map<String, Double> = emptyMap(),
     youAreOwedByEvent: Map<String, Double> = emptyMap(),
+    expenseCountByEvent: Map<String, Int> = emptyMap(),
     reminders: List<ReminderMessage>,
     currentUserUid: String?,
     onOpenEvent: (EventItem) -> Unit,
     onSaveEvent: (EventItem) -> Unit,
     onDeleteEvent: (EventItem) -> Unit,
+    transitionWarning: StateTransitionResult.AllowedWithWarning? = null,
+    onConfirmTransition: (() -> Unit)? = null,
+    onDismissWarning: (() -> Unit)? = null,
+    validationErrors: List<String> = emptyList(),
+    onClearValidationErrors: (() -> Unit)? = null,
+    currentProfileId: String? = null,
 ) {
     var editableEvent by remember { mutableStateOf<EventItem?>(null) }
     var eventToDelete by remember { mutableStateOf<EventItem?>(null) }
@@ -140,11 +159,18 @@ fun EventsScreen(
                     )
                 }
                 OutlinedButton(onClick = {
+                    val uid = currentUserUid ?: ""
                     editableEvent = EventItem(
                         name = "",
                         dateMillis = currentTimeMillis(),
-                        ownerId = currentUserUid ?: "",
-                        memberIds = listOfNotNull(currentUserUid?.takeIf { it.isNotBlank() })
+                        ownerId = uid,
+                        creatorId = uid,
+                        memberIds = listOfNotNull(uid.takeIf { it.isNotBlank() }),
+                        participants = listOfNotNull(
+                            uid.takeIf { it.isNotBlank() }?.let {
+                                EventParticipant(profileId = it, role = EventRole.OWNER, joinedAtMillis = currentTimeMillis())
+                            }
+                        )
                     )
                 }) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -214,9 +240,13 @@ fun EventsScreen(
                         verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.md),
                     ) {
                         items(filteredEvents, key = { it.id }) { event ->
-                            val eventProfiles = event.memberIds.mapNotNull { memberId ->
+                            val eventProfiles = event.effectiveMemberIds.mapNotNull { memberId ->
                                 profiles.find { it.id == memberId }
                             }
+                            val profileId = currentProfileId ?: ""
+                            val role = PermissionEngine.getRole(profileId, event)
+                            val canEdit = role == EventRole.OWNER
+                            val canDelete = PermissionEngine.hasPermission(role, EventAction.DeleteEvent)
                             EventCard(
                                 event = event,
                                 participantCount = participantCountByEvent[event.id] ?: 0,
@@ -230,6 +260,8 @@ fun EventsScreen(
                                 onTap = { onOpenEvent(event) },
                                 onEdit = { editableEvent = event },
                                 onDelete = { eventToDelete = event },
+                                canEdit = canEdit,
+                                canDelete = canDelete,
                             )
                         }
                     }
@@ -240,8 +272,10 @@ fun EventsScreen(
 
     // ── EventEditorDialog ─────────────────────────────────────────────────
     editableEvent?.let { event ->
+        val itemCount = expenseCountByEvent[event.id] ?: 0
         EventEditorDialog(
             initialEvent = event,
+            itemCount = itemCount,
             onDismiss = { editableEvent = null },
             onSave = { savedEvent ->
                 editableEvent = null
@@ -271,6 +305,50 @@ fun EventsScreen(
                     Text("Cancelar")
                 }
             }
+        )
+    }
+
+    // Transition warning confirmation
+    if (transitionWarning != null) {
+        AlertDialog(
+            onDismissRequest = { onDismissWarning?.invoke() },
+            title = { Text("Confirmar acción") },
+            text = {
+                Text(
+                    "⚠ ${transitionWarning.warning}\n\n¿Querés continuar?",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { onConfirmTransition?.invoke() }) {
+                    Text("Confirmar", color = NeoFintechColors.dark().warning)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { onDismissWarning?.invoke() }) {
+                    Text("Cancelar")
+                }
+            },
+        )
+    }
+
+    // Validation errors dialog
+    if (validationErrors.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { onClearValidationErrors?.invoke() },
+            title = { Text("No se puede abrir el evento") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    validationErrors.forEach { error ->
+                        Text("• $error", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onClearValidationErrors?.invoke() }) {
+                    Text("Entendido")
+                }
+            },
         )
     }
 }
@@ -315,12 +393,14 @@ private fun EmptyStateMessage(
 @Composable
 private fun EventEditorDialog(
     initialEvent: EventItem,
+    itemCount: Int = 0,
     onDismiss: () -> Unit,
     onSave: (EventItem) -> Unit,
 ) {
     var name by remember(initialEvent.id) { mutableStateOf(initialEvent.name) }
     var dateText by remember(initialEvent.id) { mutableStateOf(initialEvent.formattedDate().ifBlank { currentDateText() }) }
-    var validationMessage by remember(initialEvent.id) { mutableStateOf<String?>(null) }
+    var validationErrors by remember(initialEvent.id) { mutableStateOf<List<ValidationError>>(emptyList()) }
+    var validationWarnings by remember(initialEvent.id) { mutableStateOf<List<ValidationError>>(emptyList()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -336,7 +416,8 @@ private fun EventEditorDialog(
                     value = name,
                     onValueChange = {
                         name = it
-                        validationMessage = null
+                        validationErrors = emptyList()
+                        validationWarnings = emptyList()
                     },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Nombre del evento") },
@@ -346,19 +427,31 @@ private fun EventEditorDialog(
                     value = dateText,
                     onValueChange = {
                         dateText = it
-                        validationMessage = null
+                        validationErrors = emptyList()
+                        validationWarnings = emptyList()
                     },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Fecha") },
                     supportingText = { Text("Usa el formato dd/MM/yyyy") },
                     singleLine = true
                 )
-                validationMessage?.let { message ->
-                    Text(
-                        text = message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                if (validationErrors.isNotEmpty()) {
+                    validationErrors.forEach { error ->
+                        Text(
+                            text = "• ${error.message}",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                if (validationWarnings.isNotEmpty()) {
+                    validationWarnings.forEach { warning ->
+                        Text(
+                            text = "⚠ ${warning.message}",
+                            color = NeoFintechColors.dark().warning,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
         },
@@ -366,25 +459,27 @@ private fun EventEditorDialog(
             TextButton(
                 onClick = {
                     val parsedDate = parseEventDate(dateText)
-                    when {
-                        name.isBlank() -> {
-                            validationMessage = "El nombre no puede estar vacío"
-                            return@TextButton
-                        }
-                        parsedDate == null -> {
-                            validationMessage = "Selecciona una fecha válida"
-                            return@TextButton
-                        }
-                        else -> {
-                            validationMessage = null
-                            onSave(
-                                initialEvent.copy(
-                                    name = name.trim(),
-                                    dateMillis = parsedDate
-                                )
-                            )
-                        }
+                    if (parsedDate == null) {
+                        validationErrors = listOf(ValidationError("Selecciona una fecha válida", "date"))
+                        return@TextButton
                     }
+
+                    val draftEvent = initialEvent.copy(
+                        name = name.trim(),
+                        dateMillis = parsedDate
+                    )
+                    val result = EventValidator.validate(draftEvent, itemCount)
+
+                    if (result.hasErrors()) {
+                        validationErrors = result.allErrors()
+                        validationWarnings = result.allWarnings()
+                        return@TextButton
+                    }
+
+                    // Warnings are shown but save proceeds
+                    validationErrors = emptyList()
+                    validationWarnings = result.allWarnings()
+                    onSave(draftEvent)
                 }
             ) {
                 Text("Guardar")

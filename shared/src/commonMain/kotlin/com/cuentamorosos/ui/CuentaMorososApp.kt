@@ -82,24 +82,21 @@ import com.cuentamorosos.isValidEmail
 import com.cuentamorosos.nextMonth
 import com.cuentamorosos.previousMonth
 import com.cuentamorosos.shortWeekDayNames
-import com.cuentamorosos.model.CalculationApplication
-import com.cuentamorosos.model.CalculationPreview
+import com.cuentamorosos.model.CalculationResult
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.ExpenseCategory
 import com.cuentamorosos.model.ProfileItem
-import com.cuentamorosos.model.SettlementTransfer
-import com.cuentamorosos.model.SplitMode
 import com.cuentamorosos.model.UserPreferences
-import com.cuentamorosos.model.buildCalculationPreview
-import com.cuentamorosos.model.buildSettlementTransfers
 import com.cuentamorosos.currentDateText
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEventDate
 import com.cuentamorosos.model.parseEuroAmount
 import com.cuentamorosos.model.EventInvitation
+import com.cuentamorosos.model.EventAction
 
 private enum class MainSection(val title: String, val emoji: String) {
     DASHBOARD("Panel", "📊"),
@@ -134,6 +131,7 @@ fun CuentaMorososApp(
     val eventId by eventDetailViewModel.eventId.collectAsState()
     val debts by eventDetailViewModel.debts.collectAsState(initial = emptyList())
     val expenses by eventDetailViewModel.expenses.collectAsState(initial = emptyList())
+    val currentRole by eventDetailViewModel.currentRole.collectAsState(initial = EventRole.READER)
 
     val isOnline by networkMonitor.isOnline.collectAsState(initial = true)
 
@@ -294,27 +292,30 @@ fun CuentaMorososApp(
                                 eventDetailViewModel.deleteExpense(currentEvent.id, expenseId)
                                 feedbackMessage = "Ítem eliminado del evento."
                             },
-                            onApplyCalculation = { calculation ->
+                            onApplyCalculation = { result ->
                                 val eventEntries = debts.filter { it.eventId == currentEvent.id }
+                                val balances = result.snapshot?.participantBalances ?: emptyMap()
 
-                                eventEntries.forEachIndexed { index, debt ->
+                                eventEntries.forEach { debt ->
+                                    val balance = balances[debt.profileId] ?: 0.0
+                                    val amount = if (balance < 0) -balance else 0.0
                                     eventDetailViewModel.saveDebt(
                                         debt.copy(
-                                            amountEuros = calculation.amounts.getOrElse(index) { 0.0 },
-                                            calculationMode = calculation.mode.id
+                                            amountEuros = amount,
+                                            calculationMode = currentEvent.lastCalculationMode ?: "real_consumption"
                                         )
                                     )
                                 }
 
                                 eventsViewModel.saveEvent(
                                     currentEvent.copy(
-                                        lastCalculationMode = calculation.mode.id,
-                                        lastCalculationTotal = calculation.total,
+                                        lastCalculationMode = currentEvent.lastCalculationMode,
+                                        lastCalculationTotal = result.snapshot?.totalExpense,
                                         lastCalculationTimestamp = currentTimeMillis(),
-                                        lastCalculationSummary = calculation.summary
+                                        lastCalculationSummary = result.status?.message ?: "Cálculo aplicado"
                                     )
                                 )
-                                feedbackMessage = "Cálculo ${calculation.mode.label} aplicado al evento."
+                                feedbackMessage = "Cálculo aplicado al evento."
                             },
                             onInviteMember = { email ->
                                 if (currentUserUid != null) {
@@ -333,7 +334,9 @@ fun CuentaMorososApp(
                             onRemoveMember = { uid ->
                                 eventsViewModel.removeMember(currentEvent.id, uid)
                                 feedbackMessage = "Miembro eliminado del evento."
-                            }
+                            },
+                            currentRole = currentRole,
+                            canDo = { action -> eventDetailViewModel.canDo(action) },
                         )
                         } else {
                             AnimatedContent(
@@ -353,8 +356,8 @@ fun CuentaMorososApp(
                                 onAlertTap = { alert ->
                                     eventDetailViewModel.setEventId(alert.eventId)
                                 },
-                                onActivityTap = { activity ->
-                                    eventDetailViewModel.setEventId(activity.eventId)
+                                onEventTap = { eventRow ->
+                                    eventDetailViewModel.setEventId(eventRow.eventId)
                                 },
                             )
 

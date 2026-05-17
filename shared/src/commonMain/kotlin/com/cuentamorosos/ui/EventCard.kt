@@ -54,6 +54,8 @@ fun EventCard(
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    canEdit: Boolean = true,
+    canDelete: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
     val neoColors = NeoFintechColors.dark()
@@ -204,19 +206,23 @@ fun EventCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
             ) {
-                OutlinedButton(
-                    onClick = onEdit,
-                    modifier = Modifier.weight(1f),
-                    shape = NeoFintechShapes.md,
-                ) {
-                    Text("Editar", style = MaterialTheme.typography.labelSmall)
+                if (canEdit) {
+                    OutlinedButton(
+                        onClick = onEdit,
+                        modifier = Modifier.weight(1f),
+                        shape = NeoFintechShapes.md,
+                    ) {
+                        Text("Editar", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
-                OutlinedButton(
-                    onClick = onDelete,
-                    modifier = Modifier.weight(1f),
-                    shape = NeoFintechShapes.md,
-                ) {
-                    Text("Eliminar", style = MaterialTheme.typography.labelSmall, color = colors.error)
+                if (canDelete) {
+                    OutlinedButton(
+                        onClick = onDelete,
+                        modifier = Modifier.weight(1f),
+                        shape = NeoFintechShapes.md,
+                    ) {
+                        Text("Eliminar", style = MaterialTheme.typography.labelSmall, color = colors.error)
+                    }
                 }
             }
         }

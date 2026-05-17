@@ -33,10 +33,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.isValidEmail
-import com.cuentamorosos.model.CalculationApplication
+import com.cuentamorosos.model.CalculationResult
+import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.ExpenseCategory
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
@@ -60,9 +62,11 @@ fun EventDetailScreen(
     onRemoveDebt: (String) -> Unit,
     onSaveExpense: (EventExpenseItem) -> Unit,
     onRemoveExpense: (String) -> Unit,
-    onApplyCalculation: (CalculationApplication) -> Unit,
+    onApplyCalculation: (CalculationResult) -> Unit,
     onInviteMember: (String) -> Unit,
     onRemoveMember: (String) -> Unit,
+    currentRole: EventRole = EventRole.OWNER,
+    canDo: (EventAction) -> Boolean = { true },
 ) {
     val colors = NeoFintechColors.dark()
     val themeColors = MaterialTheme.colorScheme
@@ -118,6 +122,8 @@ fun EventDetailScreen(
                             profiles = profiles,
                             currentUid = currentUid,
                             profileById = profileById,
+                            currentRole = currentRole,
+                            canDo = canDo,
                             onAddExpense = {
                                 editableExpense = EventExpenseItem(
                                     eventId = event.id,
@@ -147,6 +153,9 @@ fun EventDetailScreen(
                             onTogglePaid = onTogglePaid,
                             onAddProfile = { showAddProfileDialog = true },
                             onInviteMember = { showInviteMemberDialog = true },
+                            canCalculate = canDo(EventAction.Calculate),
+                            canManageParticipants = canDo(EventAction.ManageParticipants),
+                            canInvite = canDo(EventAction.ManageParticipants),
                         )
                     }
                 }
@@ -172,6 +181,8 @@ fun EventDetailScreen(
                         profiles = profiles,
                         currentUid = currentUid,
                         profileById = profileById,
+                        currentRole = currentRole,
+                        canDo = canDo,
                         onAddExpense = {
                             editableExpense = EventExpenseItem(
                                 eventId = event.id,
@@ -194,6 +205,9 @@ fun EventDetailScreen(
                         onTogglePaid = onTogglePaid,
                         onAddProfile = { showAddProfileDialog = true },
                         onInviteMember = { showInviteMemberDialog = true },
+                        canCalculate = canDo(EventAction.Calculate),
+                        canManageParticipants = canDo(EventAction.ManageParticipants),
+                        canInvite = canDo(EventAction.ManageParticipants),
                     )
                 }
             }
@@ -203,7 +217,7 @@ fun EventDetailScreen(
     // ── Dialogs (preserved — all 7) ─────────────────────────────────────────
 
     // Dialog 1: AddProfileDialog
-    if (showAddProfileDialog) {
+    if (showAddProfileDialog && canDo(EventAction.ManageParticipants)) {
         AddProfileToEventDialog(
             availableProfiles = availableProfiles,
             onDismiss = { showAddProfileDialog = false },
@@ -279,20 +293,27 @@ fun EventDetailScreen(
     }
 
     // Dialog 5: CalculatorSheet (replaces QuickSplitDialog)
-    if (showQuickSplitDialog) {
+    if (showQuickSplitDialog && canDo(EventAction.Calculate)) {
+        // Derive deleted profile IDs: profiles that were event members but no longer have debts
+        val currentParticipantIds = eventParticipants.map { it.second.id }.toSet()
+        val deletedProfileIds = event.effectiveMemberIds.filter { it !in currentParticipantIds }.toSet()
+
         CalculatorSheet(
+            event = event,
             profiles = eventParticipants.map { it.second },
             eventExpenses = eventExpenses,
             onDismiss = { showQuickSplitDialog = false },
-            onApply = { calculation ->
+            onApply = { calculationResult ->
                 showQuickSplitDialog = false
-                onApplyCalculation(calculation)
-            }
+                onApplyCalculation(calculationResult)
+            },
+            deletedProfileIds = deletedProfileIds,
+            priorSnapshot = null, // Prior snapshot not yet persisted — future enhancement
         )
     }
 
     // Dialog 6: InviteMemberDialog
-    if (showInviteMemberDialog) {
+    if (showInviteMemberDialog && canDo(EventAction.ManageParticipants)) {
         InviteMemberDialog(
             onDismiss = { showInviteMemberDialog = false },
             onInvite = { email ->
@@ -409,6 +430,8 @@ private fun ExpensesList(
     profiles: List<ProfileItem>,
     currentUid: String,
     profileById: Map<String, ProfileItem>,
+    currentRole: EventRole,
+    canDo: (EventAction) -> Boolean,
     onAddExpense: () -> Unit,
     onEditExpense: (EventExpenseItem) -> Unit,
     onRemoveExpense: (String) -> Unit,
@@ -430,6 +453,7 @@ private fun ExpensesList(
         )
         Button(
             onClick = onAddExpense,
+            enabled = canDo(EventAction.CreateExpense),
             colors = ButtonDefaults.buttonColors(
                 containerColor = colors.primaryContainer,
                 contentColor = colors.onSurface,
@@ -458,9 +482,12 @@ private fun ExpensesList(
                     expense = expense,
                     paidByProfile = paidByProfile,
                     isCurrentUser = isCurrentUser,
+                    isReadOnly = currentRole == EventRole.READER,
                     onTap = { onEditExpense(expense) },
                     onEdit = { onEditExpense(expense) },
                     onDelete = { onRemoveExpense(expense.id) },
+                    enabledEdit = canDo(EventAction.EditExpense(expense.paidByProfileId)),
+                    enabledDelete = canDo(EventAction.DeleteExpense(expense.paidByProfileId)),
                 )
             }
         }

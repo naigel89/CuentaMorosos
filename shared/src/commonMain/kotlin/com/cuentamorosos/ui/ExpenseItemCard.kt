@@ -36,6 +36,9 @@ fun ExpenseItemCard(
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    enabledEdit: Boolean = true,
+    enabledDelete: Boolean = true,
+    isReadOnly: Boolean = false,
 ) {
     val category = ExpenseCategory.fromId(expense.category)
     val colors = NeoFintechColors.dark()
@@ -113,6 +116,21 @@ fun ExpenseItemCard(
                         fontFamily = JetBrainsMonoFontFamily(),
                     )
                 }
+                // Read-only badge for READER role
+                if (isReadOnly) {
+                    Surface(
+                        color = themeColors.surfaceContainerHigh.copy(alpha = 0.6f),
+                        shape = NeoFintechShapes.full,
+                    ) {
+                        Text(
+                            text = "Solo lectura",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = themeColors.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
             }
 
             // Amount + actions
@@ -128,10 +146,10 @@ fun ExpenseItemCard(
                     color = themeColors.onSurface,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    TextButton(onClick = onEdit) {
+                    TextButton(onClick = onEdit, enabled = enabledEdit) {
                         Text("Editar", fontSize = 11.sp, color = colors.onSurfaceVariant)
                     }
-                    TextButton(onClick = onDelete) {
+                    TextButton(onClick = onDelete, enabled = enabledDelete) {
                         Text("Eliminar", fontSize = 11.sp, color = colors.error)
                     }
                 }

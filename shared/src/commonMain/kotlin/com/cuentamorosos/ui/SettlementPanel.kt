@@ -16,6 +16,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -37,10 +38,14 @@ fun SettlementPanel(
     profiles: List<ProfileItem>,
     pendingTotal: Double,
     expenseTotal: Double,
+    currentUserUid: String = "",
     onCalculateTotals: () -> Unit,
     onTogglePaid: (EventDebtItem) -> Unit,
     onAddProfile: () -> Unit,
     onInviteMember: () -> Unit,
+    canCalculate: Boolean = true,
+    canManageParticipants: Boolean = true,
+    canInvite: Boolean = true,
 ) {
     val profileById = profiles.associateBy { it.id }
     val pendingDebts = debts.filter { !it.paid }
@@ -74,6 +79,7 @@ fun SettlementPanel(
                 // Calculate Totals button (full width, neon green, bold)
                 Button(
                     onClick = onCalculateTotals,
+                    enabled = canCalculate,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = colors.primaryContainer,
@@ -105,6 +111,7 @@ fun SettlementPanel(
                         DebtRow(
                             profile = profile,
                             debt = debt,
+                            currentUserUid = currentUserUid,
                             onTogglePaid = onTogglePaid,
                             isPaid = false,
                         )
@@ -118,6 +125,7 @@ fun SettlementPanel(
                         DebtRow(
                             profile = profile,
                             debt = debt,
+                            currentUserUid = currentUserUid,
                             onTogglePaid = onTogglePaid,
                             isPaid = true,
                         )
@@ -141,6 +149,7 @@ fun SettlementPanel(
         ) {
             Button(
                 onClick = onAddProfile,
+                enabled = canManageParticipants,
                 modifier = Modifier.weight(1f),
                 shape = NeoFintechShapes.md,
             ) {
@@ -148,6 +157,7 @@ fun SettlementPanel(
             }
             Button(
                 onClick = onInviteMember,
+                enabled = canInvite,
                 modifier = Modifier.weight(1f),
                 shape = NeoFintechShapes.md,
             ) {
@@ -161,12 +171,19 @@ fun SettlementPanel(
 private fun DebtRow(
     profile: ProfileItem?,
     debt: EventDebtItem,
+    currentUserUid: String,
     onTogglePaid: (EventDebtItem) -> Unit,
     isPaid: Boolean,
 ) {
     val colors = NeoFintechColors.dark()
     val themeColors = MaterialTheme.colorScheme
-    val initials = profile?.name?.take(2)?.uppercase() ?: "?"
+    val isCurrentUser = debt.profileId == currentUserUid && currentUserUid.isNotBlank()
+    val displayName = when {
+        profile != null -> profile.name
+        isCurrentUser -> "Vos"
+        else -> "Desconocido"
+    }
+    val initials = profile?.name?.take(2)?.uppercase() ?: if (isCurrentUser) "V" else "?"
 
     Row(
         modifier = Modifier
@@ -202,11 +219,30 @@ private fun DebtRow(
                     color = themeColors.onSurface,
                 )
             }
-            Text(
-                text = profile?.name ?: "Desconocido",
-                style = MaterialTheme.typography.bodyMedium,
-                color = themeColors.onSurface,
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = displayName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = themeColors.onSurface,
+                )
+                if (isCurrentUser) {
+                    Surface(
+                        color = themeColors.primaryContainer.copy(alpha = 0.2f),
+                        shape = NeoFintechShapes.full,
+                    ) {
+                        Text(
+                            text = "Tú",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = themeColors.primary,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                        )
+                    }
+                }
+            }
         }
         Text(
             text = formatEuros(debt.amountEuros),
