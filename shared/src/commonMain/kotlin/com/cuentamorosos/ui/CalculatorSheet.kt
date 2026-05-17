@@ -1,23 +1,23 @@
 package com.cuentamorosos.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -30,13 +30,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.cuentamorosos.model.CalculationApplication
-import com.cuentamorosos.model.CalculationPreview
+import com.cuentamorosos.model.CalculationResult
 import com.cuentamorosos.model.EventExpenseItem
+import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.SettlementEngine
 import com.cuentamorosos.model.SplitMode
-import com.cuentamorosos.model.buildCalculationPreview
-import com.cuentamorosos.model.buildSettlementTransfers
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.parseEuroAmount
 import kotlinx.coroutines.launch
@@ -67,10 +66,11 @@ private fun List<String>.updateAt(index: Int, value: String): List<String> = map
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalculatorSheet(
+    event: EventItem,
     profiles: List<ProfileItem>,
     eventExpenses: List<EventExpenseItem>,
     onDismiss: () -> Unit,
-    onApply: (CalculationApplication) -> Unit,
+    onApply: (CalculationResult) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -81,44 +81,60 @@ fun CalculatorSheet(
     }
     var selectedModeId by remember { mutableStateOf(SplitMode.REAL_CONSUMPTION.id) }
     var percentageInputs by remember(profiles.size) { mutableStateOf(defaultPercentageInputs(profiles.size)) }
+    var exactAmountInputs by remember(profiles.size) { mutableStateOf(List(profiles.size) { "" }) }
+    var partsInputs by remember(profiles.size) { mutableStateOf(List(profiles.size) { "1" }) }
     var showComparison by remember { mutableStateOf(false) }
+
+    // Calculation state
+    var isCalculating by remember { mutableStateOf(false) }
+    var calculationResult by remember { mutableStateOf<CalculationResult?>(null) }
+    var paidTransferIndices by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
     val totalValue = parseEuroAmount(totalText)
     val selectedMode = SplitMode.fromId(selectedModeId)
 
-    fun previewFor(mode: SplitMode): CalculationPreview {
-        val rawInputs = when (mode) {
-            SplitMode.REAL_CONSUMPTION -> List(profiles.size) { 1.0 }
-            SplitMode.SIMPLE_AVG -> List(profiles.size) { 1.0 }
-            SplitMode.BY_CATEGORY -> List(profiles.size) { 1.0 }
-            SplitMode.CUSTOM_PERCENTAGE -> percentageInputs.map { parseDecimalValue(it) ?: Double.NaN }
-        }
-
-        if (rawInputs.any { it.isNaN() }) {
-            return CalculationPreview(validationMessage = "Revisa los valores introducidos para este reparto.")
-        }
-
-        return buildCalculationPreview(
-            total = totalValue ?: expenseTotal,
-            mode = mode,
-            inputs = rawInputs,
-            participantIds = profiles.map { it.id },
-            expenses = eventExpenses,
-        )
-    }
-
-    val selectedPreview = if (totalValue != null || eventExpenses.isNotEmpty()) previewFor(selectedMode) else null
-    val canApply = selectedPreview?.validationMessage == null && selectedPreview != null
-
-    val colors = NeoFintechColors.light()
+    val themeColors = MaterialTheme.colorScheme
     val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
     val monoFont = JetBrainsMonoFontFamily()
 
+    fun runCalculation() {
+        if (isCalculating) return
+        isCalculating = true
+        paidTransferIndices = emptySet()
+
+        // Apply mode-specific weights to expenses for EXACT and PARTS modes
+        val adjustedExpenses = when (selectedMode) {
+            SplitMode.EXACT -> {
+                val profileWeights = profiles.mapIndexedNotNull { index, profile ->
+                    val amount = parseDecimalValue(exactAmountInputs[index])
+                    if (amount != null) profile.id to amount else null
+                }.toMap()
+                eventExpenses.map { it.copy(splitMode = "EXACT", profileWeights = profileWeights) }
+            }
+            SplitMode.PARTS -> {
+                val profileWeights = profiles.mapIndexedNotNull { index, profile ->
+                    val parts = partsInputs[index].toIntOrNull()
+                    if (parts != null && parts > 0) profile.id to parts.toDouble() else null
+                }.toMap()
+                eventExpenses.map { it.copy(splitMode = "PARTS", profileWeights = profileWeights) }
+            }
+            else -> eventExpenses
+        }
+
+        calculationResult = SettlementEngine.calculateWithEdgeCases(
+            event = event,
+            expenses = adjustedExpenses,
+            profileNameResolver = { id -> profiles.find { it.id == id }?.name ?: id },
+        )
+
+        isCalculating = false
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = colors.background,
+        containerColor = themeColors.surfaceContainerLow,
     ) {
         Column(
             modifier = Modifier
@@ -135,10 +151,10 @@ fun CalculatorSheet(
 
             Text(
                 text = "Simula el reparto en tiempo real y confirma solo cuando el resultado te encaje.",
-                style = typography.bodyMedium.copy(color = colors.onSurfaceVariant),
+                style = typography.bodyMedium.copy(color = themeColors.onSurfaceVariant),
             )
 
-            // Total input field
+            // Total input field (informational)
             OutlinedTextField(
                 value = totalText,
                 onValueChange = { totalText = it },
@@ -152,12 +168,12 @@ fun CalculatorSheet(
                 singleLine = true,
                 shape = shapes.md,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = colors.primaryContainer,
-                    unfocusedBorderColor = colors.outlineVariant,
+                    focusedBorderColor = themeColors.primary,
+                    unfocusedBorderColor = themeColors.outline,
                 ),
             )
 
-            // Mode selector chip
+            // Mode selector chip (preserved)
             ModeSelectorChip(
                 selectedMode = selectedMode,
                 onModeSelected = { mode -> selectedModeId = mode.id },
@@ -166,11 +182,11 @@ fun CalculatorSheet(
             // Mode helper text + example
             Text(
                 text = selectedMode.helperText,
-                style = typography.bodySmall.copy(color = colors.onSurfaceVariant),
+                style = typography.bodySmall.copy(color = themeColors.onSurfaceVariant),
             )
             Text(
                 text = "Ej.: ${selectedMode.exampleText}",
-                style = typography.bodySmall.copy(color = colors.onSurfaceVariant),
+                style = typography.bodySmall.copy(color = themeColors.onSurfaceVariant),
             )
 
             // Parameter input for CUSTOM_PERCENTAGE
@@ -191,6 +207,78 @@ fun CalculatorSheet(
                 }
             }
 
+            // Parameter input for EXACT mode
+            if (selectedMode == SplitMode.EXACT) {
+                Text(
+                    text = "Importe exacto por perfil",
+                    style = typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                )
+                profiles.forEachIndexed { index, profile ->
+                    ParameterInputRow(
+                        profile = profile,
+                        label = "€",
+                        value = exactAmountInputs[index],
+                        onValueChange = { value ->
+                            exactAmountInputs = exactAmountInputs.updateAt(index, value)
+                        },
+                    )
+                }
+                // EXACT sum validation feedback
+                val exactSum = exactAmountInputs
+                    .mapNotNull { parseDecimalValue(it) }
+                    .sum()
+                val exactSumValid = totalValue?.let { kotlin.math.abs(exactSum - it) <= 0.01 } ?: false
+                if (exactAmountInputs.any { it.isNotBlank() }) {
+                    Text(
+                        text = if (exactSumValid) {
+                            "Suma: ${formatEuros(exactSum)} ✓"
+                        } else {
+                            "Suma: ${formatEuros(exactSum)} — debe coincidir con ${formatEuros(totalValue ?: 0.0)} (±0,01 €)"
+                        },
+                        style = typography.bodySmall.copy(
+                            color = if (exactSumValid) themeColors.primary else themeColors.error,
+                        ),
+                    )
+                }
+            }
+
+            // Parameter input for PARTS mode
+            if (selectedMode == SplitMode.PARTS) {
+                Text(
+                    text = "Partes por perfil",
+                    style = typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                )
+                profiles.forEachIndexed { index, profile ->
+                    ParameterInputRow(
+                        profile = profile,
+                        label = "Partes",
+                        value = partsInputs[index],
+                        onValueChange = { value ->
+                            val filtered = value.filter { it.isDigit() }
+                            val intValue = filtered.toIntOrNull()
+                            val clamped = when {
+                                intValue == null -> ""
+                                intValue < 1 -> "1"
+                                intValue > 100 -> "100"
+                                else -> filtered
+                            }
+                            partsInputs = partsInputs.updateAt(index, clamped)
+                        },
+                    )
+                }
+                // PARTS sum validation feedback
+                val partsSum = partsInputs
+                    .mapNotNull { it.toIntOrNull() }
+                    .sum()
+                val partsSumValid = partsSum > 0
+                Text(
+                    text = "Total de partes: $partsSum",
+                    style = typography.bodySmall.copy(
+                        color = if (partsSumValid) themeColors.primary else themeColors.error,
+                    ),
+                )
+            }
+
             // Available expenses list
             if (eventExpenses.isNotEmpty()) {
                 Text(
@@ -205,59 +293,93 @@ fun CalculatorSheet(
                     ) {
                         Text(
                             text = "• ${expense.name} · ${category.label}",
-                            style = typography.bodySmall.copy(color = colors.onSurfaceVariant),
+                            style = typography.bodySmall.copy(color = themeColors.onSurfaceVariant),
                         )
                         Text(
                             text = formatEuros(expense.amountEuros),
                             style = typography.labelSmall.copy(
                                 fontFamily = monoFont,
-                                color = colors.primaryContainer,
+                                color = themeColors.primary,
                             ),
                         )
                     }
                 }
             }
 
-            // Validation message
-            selectedPreview?.validationMessage?.let { message ->
-                Text(
-                    text = message,
-                    style = typography.bodySmall.copy(color = colors.error),
-                )
+            // Calculate button
+            val modeInputsValid = when (selectedMode) {
+                SplitMode.EXACT -> {
+                    val exactSum = exactAmountInputs
+                        .mapNotNull { parseDecimalValue(it) }
+                        .sum()
+                    totalValue?.let { kotlin.math.abs(exactSum - it) <= 0.01 } == true
+                }
+                SplitMode.PARTS -> {
+                    partsInputs
+                        .mapNotNull { it.toIntOrNull() }
+                        .sum() > 0
+                }
+                else -> true
+            }
+            Button(
+                onClick = { runCalculation() },
+                enabled = !isCalculating && eventExpenses.isNotEmpty() && modeInputsValid,
+                modifier = Modifier.fillMaxWidth(),
+                shape = shapes.md,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = themeColors.primary,
+                    contentColor = themeColors.onPrimary,
+                    disabledContainerColor = themeColors.surfaceContainerHigh,
+                    disabledContentColor = themeColors.onSurfaceVariant,
+                ),
+            ) {
+                if (isCalculating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = themeColors.onPrimary,
+                    )
+                    Text(
+                        text = "Calculando...",
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                } else {
+                    Text("Calcular")
+                }
             }
 
-            // Preview breakdown (when valid)
-            if (selectedPreview != null && selectedPreview.validationMessage == null) {
+            // Calculation results
+            calculationResult?.let { result ->
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 8.dp),
-                    color = colors.outlineVariant,
+                    color = themeColors.outlineVariant,
                 )
 
-                PreviewBreakdown(
-                    profiles = profiles,
-                    amounts = selectedPreview.amounts,
-                    summary = selectedPreview.summary,
-                )
-
-                // Collapsible comparison card
-                ComparisonCard(
-                    total = totalValue ?: expenseTotal,
-                    profiles = profiles,
-                    eventExpenses = eventExpenses,
-                    percentageInputs = percentageInputs,
-                    expanded = showComparison,
-                    onToggleExpanded = { showComparison = !showComparison },
-                )
-
-                // Settlement card
-                val transfers = remember(profiles, selectedPreview.amounts) {
-                    buildSettlementTransfers(
-                        profileNames = profiles.map { it.name },
-                        amounts = selectedPreview.amounts,
+                // Preview breakdown from snapshot (if available)
+                result.snapshot?.let { snapshot ->
+                    PreviewBreakdown(
+                        profiles = profiles,
+                        amounts = snapshot.participantBalances.values.toList(),
+                        summary = formatEuros(snapshot.totalExpense),
                     )
-                }
-                if (transfers.isNotEmpty()) {
-                    SettlementCard(transfers = transfers)
+
+                    // Transfer list panel (replaces SettlementCard)
+                    val profileNameResolver: (String) -> String = { id ->
+                        profiles.find { it.id == id }?.name ?: id
+                    }
+                    TransferListPanel(
+                        snapshot = snapshot,
+                        status = result.status,
+                        profileNameResolver = profileNameResolver,
+                        paidTransferIndices = paidTransferIndices,
+                        onTogglePaid = { index ->
+                            paidTransferIndices = if (index in paidTransferIndices) {
+                                paidTransferIndices - index
+                            } else {
+                                paidTransferIndices + index
+                            }
+                        },
+                    )
                 }
             }
 
@@ -268,19 +390,14 @@ fun CalculatorSheet(
                     .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                val canApply = calculationResult?.isSuccess == true && !isCalculating
+
                 Button(
                     onClick = {
-                        if (selectedPreview != null && selectedPreview.validationMessage == null) {
+                        calculationResult?.let { result ->
                             scope.launch { sheetState.hide() }.invokeOnCompletion {
                                 if (!sheetState.isVisible) {
-                                    onApply(
-                                        CalculationApplication(
-                                            total = selectedPreview.calculatedTotal,
-                                            mode = selectedMode,
-                                            amounts = selectedPreview.amounts,
-                                            summary = selectedPreview.summary,
-                                        )
-                                    )
+                                    onApply(result)
                                 }
                             }
                         }
@@ -289,10 +406,10 @@ fun CalculatorSheet(
                     modifier = Modifier.weight(1f),
                     shape = shapes.md,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = colors.buttonContainer,
-                        contentColor = colors.onButton,
-                        disabledContainerColor = colors.surfaceContainerHigh,
-                        disabledContentColor = colors.onSurfaceVariant,
+                        containerColor = themeColors.primary,
+                        contentColor = themeColors.onPrimary,
+                        disabledContainerColor = themeColors.surfaceContainerHigh,
+                        disabledContentColor = themeColors.onSurfaceVariant,
                     ),
                 ) {
                     Text("Aplicar cálculo")
@@ -308,9 +425,9 @@ fun CalculatorSheet(
                     modifier = Modifier.weight(1f),
                     shape = shapes.md,
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = colors.onSurface,
+                        contentColor = themeColors.primary,
                     ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, themeColors.outline),
                 ) {
                     Text("Cancelar")
                 }
@@ -328,7 +445,7 @@ fun ParameterInputRow(
     value: String,
     onValueChange: (String) -> Unit,
 ) {
-    val colors = NeoFintechColors.light()
+    val themeColors = MaterialTheme.colorScheme
     val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
 
@@ -350,8 +467,8 @@ fun ParameterInputRow(
             singleLine = true,
             shape = shapes.md,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = colors.primaryContainer,
-                unfocusedBorderColor = colors.outlineVariant,
+                focusedBorderColor = themeColors.primary,
+                unfocusedBorderColor = themeColors.outline,
             ),
         )
     }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -25,7 +26,7 @@ fun ModeSelectorChip(
     selectedMode: SplitMode,
     onModeSelected: (SplitMode) -> Unit,
 ) {
-    val colors = NeoFintechColors.light()
+    val themeColors = MaterialTheme.colorScheme
     val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
 
@@ -34,6 +35,8 @@ fun ModeSelectorChip(
         SplitMode.SIMPLE_AVG,
         SplitMode.BY_CATEGORY,
         SplitMode.CUSTOM_PERCENTAGE,
+        SplitMode.EXACT,
+        SplitMode.PARTS,
     )
 
     val modeIcons = mapOf(
@@ -41,6 +44,8 @@ fun ModeSelectorChip(
         SplitMode.SIMPLE_AVG to "\u2797",               // ➗ divide
         SplitMode.BY_CATEGORY to "\uD83D\uDCC2",        // 📂 folder
         SplitMode.CUSTOM_PERCENTAGE to "\uD83D\uDCCA",  // 📊 chart
+        SplitMode.EXACT to "\uD83C\uDFAF",              // 🎯 target
+        SplitMode.PARTS to "\uD83E\uDDE9",              // 🧩 puzzle
     )
 
     Row(
@@ -66,8 +71,8 @@ fun ModeSelectorChip(
                 shape = shapes.md,
                 modifier = Modifier.padding(vertical = 2.dp),
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = colors.primaryContainer,
-                    selectedLabelColor = colors.onSurface,
+                    selectedContainerColor = themeColors.primaryContainer,
+                    selectedLabelColor = themeColors.onSurface,
                 ),
             )
         }
