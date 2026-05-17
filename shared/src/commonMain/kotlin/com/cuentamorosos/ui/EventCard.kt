@@ -50,7 +50,6 @@ fun EventCard(
     youAreOwed: Double = 0.0,
     profiles: List<ProfileItem>,
     category: ExpenseCategory = ExpenseCategory.SHARED,
-    statusLabel: String = if (pendingTotal > 0.0) "Activo" else "Saldado",
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -58,7 +57,7 @@ fun EventCard(
     canDelete: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
-    val neoColors = NeoFintechColors.dark()
+    val neoColors = LocalNeoFintechColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val stateBadgeColor = event.state.stateBadgeColor(neoColors)

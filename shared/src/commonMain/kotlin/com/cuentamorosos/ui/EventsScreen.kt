@@ -86,6 +86,7 @@ fun EventsScreen(
     onClearValidationErrors: (() -> Unit)? = null,
     currentProfileId: String? = null,
 ) {
+    val colors = LocalNeoFintechColors.current
     var editableEvent by remember { mutableStateOf<EventItem?>(null) }
     var eventToDelete by remember { mutableStateOf<EventItem?>(null) }
     var searchQuery by remember { mutableStateOf("") }
@@ -256,7 +257,6 @@ fun EventsScreen(
                                 youAreOwed = youAreOwedByEvent[event.id] ?: 0.0,
                                 profiles = eventProfiles,
                                 category = ExpenseCategory.fromId("shared"),
-                                statusLabel = if ((pendingTotalsByEvent[event.id] ?: 0.0) > 0.0) "Activo" else "Saldado",
                                 onTap = { onOpenEvent(event) },
                                 onEdit = { editableEvent = event },
                                 onDelete = { eventToDelete = event },
@@ -321,7 +321,7 @@ fun EventsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { onConfirmTransition?.invoke() }) {
-                    Text("Confirmar", color = NeoFintechColors.dark().warning)
+                    Text("Confirmar", color = colors.warning)
                 }
             },
             dismissButton = {
@@ -397,6 +397,7 @@ private fun EventEditorDialog(
     onDismiss: () -> Unit,
     onSave: (EventItem) -> Unit,
 ) {
+    val colors = LocalNeoFintechColors.current
     var name by remember(initialEvent.id) { mutableStateOf(initialEvent.name) }
     var dateText by remember(initialEvent.id) { mutableStateOf(initialEvent.formattedDate().ifBlank { currentDateText() }) }
     var validationErrors by remember(initialEvent.id) { mutableStateOf<List<ValidationError>>(emptyList()) }
@@ -448,7 +449,7 @@ private fun EventEditorDialog(
                     validationWarnings.forEach { warning ->
                         Text(
                             text = "⚠ ${warning.message}",
-                            color = NeoFintechColors.dark().warning,
+                            color = colors.warning,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }

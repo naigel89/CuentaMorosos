@@ -97,6 +97,7 @@ import com.cuentamorosos.model.parseEventDate
 import com.cuentamorosos.model.parseEuroAmount
 import com.cuentamorosos.model.EventInvitation
 import com.cuentamorosos.model.EventAction
+import com.cuentamorosos.model.TransitionContext
 
 private enum class MainSection(val title: String, val emoji: String) {
     DASHBOARD("Panel", "📊"),
@@ -132,6 +133,8 @@ fun CuentaMorososApp(
     val debts by eventDetailViewModel.debts.collectAsState(initial = emptyList())
     val expenses by eventDetailViewModel.expenses.collectAsState(initial = emptyList())
     val currentRole by eventDetailViewModel.currentRole.collectAsState(initial = EventRole.READER)
+    val transitionWarning by eventDetailViewModel.transitionWarning.collectAsState()
+    val validationErrors by eventDetailViewModel.validationErrors.collectAsState()
 
     val isOnline by networkMonitor.isOnline.collectAsState(initial = true)
 
@@ -337,7 +340,64 @@ fun CuentaMorososApp(
                             },
                             currentRole = currentRole,
                             canDo = { action -> eventDetailViewModel.canDo(action) },
+                            onOpenEvent = {
+                                val ctx = TransitionContext(
+                                    eventName = currentEvent.name,
+                                    eventBaseCurrency = currentEvent.baseCurrency,
+                                    memberCount = currentEvent.effectiveMemberIds.size,
+                                    expenseCount = expenses.filter { it.eventId == currentEvent.id }.size,
+                                    isOwner = currentRole == EventRole.OWNER,
+                                )
+                                eventDetailViewModel.calculateEvent(ctx)
+                            },
                         )
+
+                        // Transition warning dialog for event detail
+                        val currentTransitionWarning = transitionWarning
+                        if (currentTransitionWarning != null) {
+                            AlertDialog(
+                                onDismissRequest = { eventDetailViewModel.dismissTransitionWarning() },
+                                title = { Text("Confirmar acción") },
+                                text = {
+                                    Text(
+                                        "⚠ ${currentTransitionWarning.warning}\n\n¿Querés continuar?",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        eventDetailViewModel.confirmTransition(currentTransitionWarning.newState)
+                                    }) {
+                                        Text("Confirmar", color = MaterialTheme.colorScheme.error)
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { eventDetailViewModel.dismissTransitionWarning() }) {
+                                        Text("Cancelar")
+                                    }
+                                },
+                            )
+                        }
+
+                        // Validation errors dialog for event detail
+                        if (validationErrors.isNotEmpty()) {
+                            AlertDialog(
+                                onDismissRequest = { eventDetailViewModel.clearValidationErrors() },
+                                title = { Text("No se puede abrir el evento") },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        validationErrors.forEach { error ->
+                                            Text("• $error", style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = { eventDetailViewModel.clearValidationErrors() }) {
+                                        Text("Entendido")
+                                    }
+                                },
+                            )
+                        }
                         } else {
                             AnimatedContent(
                                 targetState = MainSection.valueOf(currentSection),
@@ -370,6 +430,14 @@ fun CuentaMorososApp(
                                 participantCountByEvent = participantCountByEvent,
                                 pendingTotalsByEvent = pendingTotalsByEvent,
                                 totalSpent = totalSpent,
+                                totalExpensesByEvent = events.associate { event ->
+                                    event.id to expenses.filter { it.eventId == event.id }.sumOf { it.amountEuros }
+                                },
+                                yourShareByEvent = emptyMap(),
+                                youAreOwedByEvent = emptyMap(),
+                                expenseCountByEvent = events.associate { event ->
+                                    event.id to expenses.filter { it.eventId == event.id }.size
+                                },
                                 reminders = reminderMessages,
                                 currentUserUid = currentUserUid,
                                 onOpenEvent = { event ->
@@ -382,7 +450,19 @@ fun CuentaMorososApp(
                                 onDeleteEvent = { event ->
                                     eventsViewModel.deleteEvent(event.id)
                                     feedbackMessage = "Evento \"${event.name}\" eliminado."
-                                }
+                                },
+                                transitionWarning = transitionWarning,
+                                onConfirmTransition = {
+                                    selectedEvent?.let { event ->
+                                        eventDetailViewModel.confirmTransition(
+                                            com.cuentamorosos.model.EventState.OPEN
+                                        )
+                                    }
+                                },
+                                onDismissWarning = { eventDetailViewModel.dismissTransitionWarning() },
+                                validationErrors = validationErrors,
+                                onClearValidationErrors = { eventDetailViewModel.clearValidationErrors() },
+                                currentProfileId = currentUserUid,
                             )
 
                             MainSection.PROFILES -> ProfilesScreen(

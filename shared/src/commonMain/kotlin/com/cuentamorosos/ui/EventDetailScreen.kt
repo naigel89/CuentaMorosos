@@ -40,6 +40,7 @@ import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.ExpenseCategory
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
@@ -67,14 +68,13 @@ fun EventDetailScreen(
     onRemoveMember: (String) -> Unit,
     currentRole: EventRole = EventRole.OWNER,
     canDo: (EventAction) -> Boolean = { true },
+    onOpenEvent: (() -> Unit)? = null,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
     val profileById = profiles.associateBy { it.id }
-    val eventParticipants = eventDebts.mapNotNull { debt ->
-        profileById[debt.profileId]?.let { profile -> debt to profile }
-    }
-    val pendingTotal = eventParticipants.filter { !it.first.paid }.sumOf { it.first.amountEuros }
+    val eventParticipants = profiles.filter { it.id in event.effectiveMemberIds }
+    val pendingTotal = eventDebts.filter { !it.paid }.sumOf { it.amountEuros }
     val eventExpenseTotal = eventExpenses.sumOf { it.amountEuros }
     val availableProfiles = profiles.filter { profile ->
         eventDebts.none { it.profileId == profile.id }
@@ -100,6 +100,8 @@ fun EventDetailScreen(
                 expenseCount = eventExpenses.size,
                 onBack = onBack,
                 isWide = isWide,
+                currentRole = currentRole,
+                onOpenEvent = onOpenEvent,
             )
 
             // ── Main content ───────────────────────────────────────────────
@@ -149,6 +151,7 @@ fun EventDetailScreen(
                             profiles = profiles,
                             pendingTotal = pendingTotal,
                             expenseTotal = eventExpenseTotal,
+                            currentUserUid = currentUid,
                             onCalculateTotals = { showQuickSplitDialog = true },
                             onTogglePaid = onTogglePaid,
                             onAddProfile = { showAddProfileDialog = true },
@@ -201,6 +204,7 @@ fun EventDetailScreen(
                         profiles = profiles,
                         pendingTotal = pendingTotal,
                         expenseTotal = eventExpenseTotal,
+                        currentUserUid = currentUid,
                         onCalculateTotals = { showQuickSplitDialog = true },
                         onTogglePaid = onTogglePaid,
                         onAddProfile = { showAddProfileDialog = true },
@@ -232,7 +236,8 @@ fun EventDetailScreen(
     editableExpense?.let { expense ->
         ExpenseEditorDialog(
             expense = expense,
-            profiles = eventParticipants.map { it.second },
+            profiles = eventParticipants,
+            effectiveMemberIds = event.effectiveMemberIds,
             currentUid = currentUid,
             onDismiss = { editableExpense = null },
             onSave = { updatedExpense ->
@@ -295,12 +300,12 @@ fun EventDetailScreen(
     // Dialog 5: CalculatorSheet (replaces QuickSplitDialog)
     if (showQuickSplitDialog && canDo(EventAction.Calculate)) {
         // Derive deleted profile IDs: profiles that were event members but no longer have debts
-        val currentParticipantIds = eventParticipants.map { it.second.id }.toSet()
+        val currentParticipantIds = eventParticipants.map { it.id }.toSet()
         val deletedProfileIds = event.effectiveMemberIds.filter { it !in currentParticipantIds }.toSet()
 
         CalculatorSheet(
             event = event,
-            profiles = eventParticipants.map { it.second },
+            profiles = eventParticipants,
             eventExpenses = eventExpenses,
             onDismiss = { showQuickSplitDialog = false },
             onApply = { calculationResult ->
@@ -334,8 +339,10 @@ private fun HeaderSection(
     expenseCount: Int,
     onBack: () -> Unit,
     isWide: Boolean,
+    currentRole: EventRole = EventRole.OWNER,
+    onOpenEvent: (() -> Unit)? = null,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
 
     Column(
@@ -419,6 +426,24 @@ private fun HeaderSection(
                 color = themeColors.onSurfaceVariant,
             )
         }
+
+        // "Abrir evento" button — visible only for DRAFT events with OWNER/CONTRIBUTOR role
+        if (event.state == EventState.DRAFT &&
+            (currentRole == EventRole.OWNER || currentRole == EventRole.CONTRIBUTOR) &&
+            onOpenEvent != null
+        ) {
+            Button(
+                onClick = onOpenEvent,
+                modifier = Modifier.padding(top = 4.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.primaryContainer,
+                    contentColor = colors.onSurface,
+                ),
+                shape = NeoFintechShapes.lg,
+            ) {
+                Text("Abrir evento", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -436,7 +461,7 @@ private fun ExpensesList(
     onEditExpense: (EventExpenseItem) -> Unit,
     onRemoveExpense: (String) -> Unit,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
 
     // Title + Add button row
@@ -595,6 +620,7 @@ private fun AddProfileToEventDialog(
 private fun ExpenseEditorDialog(
     expense: EventExpenseItem,
     profiles: List<ProfileItem>,
+    effectiveMemberIds: List<String>,
     currentUid: String,
     onDismiss: () -> Unit,
     onSave: (EventExpenseItem) -> Unit,
@@ -850,6 +876,7 @@ private fun ExpenseEditorDialog(
                         name.isBlank() -> "Indica un nombre para el ítem."
                         parsedAmount == null -> "Introduce un importe válido."
                         parsedAmount < 0.0 -> "El importe no puede ser negativo."
+                        selectedPaidByProfileId.isBlank() -> "Seleccioná quién pagó el gasto."
                         selectedCategory != ExpenseCategory.SHARED && selectedProfileIds.isEmpty() -> "Selecciona al menos un perfil para esta categoría."
                         selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
                             selectedProfileIds.any { parseDecimalValue(selectedWeights[it] ?: "") == null } ->
@@ -887,6 +914,16 @@ private fun ExpenseEditorDialog(
                                 },
                                 profileWeights = normalizedWeights,
                                 paidByProfileId = selectedPaidByProfileId,
+                                debtorIds = if (selectedCategory == ExpenseCategory.SHARED) {
+                                    effectiveMemberIds
+                                } else {
+                                    selectedProfileIds
+                                },
+                                payerContributions = if (selectedPaidByProfileId.isNotBlank()) {
+                                    mapOf(selectedPaidByProfileId to parsedAmount)
+                                } else {
+                                    emptyMap()
+                                },
                             )
                         )
                     }
