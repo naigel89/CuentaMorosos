@@ -83,9 +83,14 @@ class OfflineFirstExpenseRepository(
                                     description = expense.name,
                                     amountEuros = expense.amountEuros,
                                     category = expense.category,
-                                    paidByProfileId = expense.assignedProfileIds.firstOrNull() ?: "",
-                                    dateMillis = 0L,
-                                    updatedAt = currentTimeMillis()
+                                    paidByProfileId = expense.paidByProfileId,
+                                    dateMillis = expense.createdAtMillis,
+                                    updatedAt = currentTimeMillis(),
+                                    debtor_ids = expense.debtorIds.toJsonArray(),
+                                    payer_contributions = expense.payerContributions.toJsonObject(),
+                                    assigned_profile_ids = expense.assignedProfileIds.toJsonArray(),
+                                    profile_weights = expense.profileWeights.toJsonObject(),
+                                    split_mode = expense.splitMode
                                 )
                             }
                         }
@@ -116,9 +121,14 @@ class OfflineFirstExpenseRepository(
                                     description = expense.name,
                                     amountEuros = expense.amountEuros,
                                     category = expense.category,
-                                    paidByProfileId = expense.assignedProfileIds.firstOrNull() ?: "",
-                                    dateMillis = 0L,
-                                    updatedAt = currentTimeMillis()
+                                    paidByProfileId = expense.paidByProfileId,
+                                    dateMillis = expense.createdAtMillis,
+                                    updatedAt = currentTimeMillis(),
+                                    debtor_ids = expense.debtorIds.toJsonArray(),
+                                    payer_contributions = expense.payerContributions.toJsonObject(),
+                                    assigned_profile_ids = expense.assignedProfileIds.toJsonArray(),
+                                    profile_weights = expense.profileWeights.toJsonObject(),
+                                    split_mode = expense.splitMode
                                 )
                             }
                         }
@@ -145,9 +155,14 @@ class OfflineFirstExpenseRepository(
             description = expense.name,
             amountEuros = expense.amountEuros,
             category = expense.category,
-            paidByProfileId = expense.assignedProfileIds.firstOrNull() ?: "",
-            dateMillis = 0L,
-            updatedAt = currentTimeMillis()
+            paidByProfileId = expense.paidByProfileId,
+            dateMillis = expense.createdAtMillis,
+            updatedAt = currentTimeMillis(),
+            debtor_ids = expense.debtorIds.toJsonArray(),
+            payer_contributions = expense.payerContributions.toJsonObject(),
+            assigned_profile_ids = expense.assignedProfileIds.toJsonArray(),
+            profile_weights = expense.profileWeights.toJsonObject(),
+            split_mode = expense.splitMode
         )
         try {
             remoteRepository.saveExpense(expense)
@@ -181,13 +196,50 @@ class OfflineFirstExpenseRepository(
         remoteRepository.replaceProfileId(oldId, newId)
     }
 
+    // ── JSON serialization helpers ──────────────────────────────────────────────
+
+    private fun List<String>.toJsonArray(): String =
+        joinToString(prefix = "[", postfix = "]", separator = ",") { "\"$it\"" }
+
+    private fun Map<String, Double>.toJsonObject(): String =
+        entries.joinToString(prefix = "{", postfix = "}", separator = ",") { (k, v) -> "\"$k\":$v" }
+
+    private fun String?.toStringArray(): List<String> =
+        if (isNullOrBlank()) emptyList()
+        else removeSurrounding("[", "]").split(",").map { it.trim().removeSurrounding("\"") }.filter { it.isNotEmpty() }
+
+    private fun String?.toMapDouble(): Map<String, Double> =
+        if (isNullOrBlank()) emptyMap()
+        else {
+            val inner = removeSurrounding("{", "}").trim()
+            if (inner.isEmpty()) emptyMap()
+            else inner.split(",").associate {
+                val parts = it.split(":", limit = 2)
+                val key = parts[0].trim().removeSurrounding("\"")
+                val value = parts.getOrNull(1)?.trim()?.toDoubleOrNull() ?: 0.0
+                key to value
+            }
+        }
+
+    // ── Mapping ─────────────────────────────────────────────────────────────────
+
     private fun com.cuentamorosos.db.CachedExpense.toExpenseItem(): EventExpenseItem = EventExpenseItem(
         id = id,
         eventId = eventId,
         name = description,
         amountEuros = amountEuros,
         category = category,
-        assignedProfileIds = listOf(paidByProfileId).filter { it.isNotBlank() },
-        profileWeights = emptyMap()
+        assignedProfileIds = assigned_profile_ids.toStringArray().let {
+            if (it.isEmpty() && paidByProfileId.isNotBlank()) listOf(paidByProfileId) else it
+        },
+        profileWeights = profile_weights.toMapDouble(),
+        paidByProfileId = paidByProfileId,
+        splitMode = split_mode ?: "SIMPLE_AVG",
+        payerContributions = payer_contributions.toMapDouble(),
+        debtorIds = debtor_ids.toStringArray(),
+        exchangeRate = null,
+        itemCurrency = null,
+        createdAtMillis = 0L,
+        createdByProfileId = ""
     )
 }

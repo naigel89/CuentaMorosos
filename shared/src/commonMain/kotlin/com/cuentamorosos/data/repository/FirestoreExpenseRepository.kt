@@ -106,7 +106,15 @@ class FirestoreExpenseRepository : ExpenseRepository {
         "amountEuros" to amountEuros,
         "category" to category,
         "assignedProfileIds" to assignedProfileIds,
-        "profileWeights" to profileWeights
+        "profileWeights" to profileWeights,
+        "paidByProfileId" to paidByProfileId,
+        "splitMode" to splitMode,
+        "debtorIds" to debtorIds,
+        "payerContributions" to payerContributions,
+        "exchangeRate" to exchangeRate,
+        "itemCurrency" to itemCurrency,
+        "createdAtMillis" to createdAtMillis,
+        "createdByProfileId" to createdByProfileId
     )
 
     private fun dev.gitlive.firebase.firestore.DocumentSnapshot.toExpenseItem(): EventExpenseItem? {
@@ -121,7 +129,17 @@ class FirestoreExpenseRepository : ExpenseRepository {
                 assignedProfileIds = (data["assignedProfileIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                 profileWeights = (data["profileWeights"] as? Map<*, *>)?.entries?.associate {
                     (it.key as String) to ((it.value as? Number)?.toDouble() ?: 0.0)
-                } ?: emptyMap()
+                } ?: emptyMap(),
+                paidByProfileId = data["paidByProfileId"] as? String ?: "",
+                splitMode = data["splitMode"] as? String ?: "SIMPLE_AVG",
+                debtorIds = (data["debtorIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+                payerContributions = (data["payerContributions"] as? Map<*, *>)?.entries?.associate {
+                    (it.key as String) to ((it.value as? Number)?.toDouble() ?: 0.0)
+                } ?: emptyMap(),
+                exchangeRate = (data["exchangeRate"] as? Number)?.toDouble(),
+                itemCurrency = data["itemCurrency"] as? String,
+                createdAtMillis = (data["createdAtMillis"] as? Number)?.toLong() ?: 0L,
+                createdByProfileId = data["createdByProfileId"] as? String ?: ""
             )
         } catch (e: Exception) {
             null
