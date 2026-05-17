@@ -86,6 +86,7 @@ import com.cuentamorosos.model.CalculationResult
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.ExpenseCategory
 import com.cuentamorosos.model.ProfileItem
@@ -266,8 +267,19 @@ fun CuentaMorososApp(
                                             profileId = profile.id
                                         )
                                     )
-                                    feedbackMessage = "Perfil añadido al evento."
                                 }
+                                // Sync participant to event's participants list
+                                if (currentEvent.participants.none { it.profileId == profile.id }) {
+                                    val newParticipant = EventParticipant(
+                                        profileId = profile.id,
+                                        role = EventRole.CONTRIBUTOR,
+                                        joinedAtMillis = currentTimeMillis()
+                                    )
+                                    eventsViewModel.saveEvent(
+                                        currentEvent.copy(participants = currentEvent.participants + newParticipant)
+                                    )
+                                }
+                                feedbackMessage = "Perfil añadido al evento."
                             },
                             onSaveDebt = { debt ->
                                 eventDetailViewModel.saveDebt(debt)
@@ -348,7 +360,7 @@ fun CuentaMorososApp(
                                     expenseCount = expenses.filter { it.eventId == currentEvent.id }.size,
                                     isOwner = currentRole == EventRole.OWNER,
                                 )
-                                eventDetailViewModel.calculateEvent(ctx)
+                                eventDetailViewModel.openEvent(ctx)
                             },
                         )
 
