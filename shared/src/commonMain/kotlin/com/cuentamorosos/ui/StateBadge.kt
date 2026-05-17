@@ -50,7 +50,7 @@ fun StateBadge(
     state: EventState,
     modifier: Modifier = Modifier,
 ) {
-    val neoColors = NeoFintechColors.dark()
+    val neoColors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
 
     Surface(

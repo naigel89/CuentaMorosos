@@ -22,6 +22,7 @@ data class NeoFintechColorSet(
     val secondary: Color,
     val buttonContainer: Color,
     val onButton: Color,
+    val warning: Color,
 )
 
 object NeoFintechColors {
@@ -45,6 +46,7 @@ object NeoFintechColors {
         secondary = Color(0xFF5E5E5E),
         buttonContainer = Color(0xFF191C1D),
         onButton = Color(0xFFFFFFFF),
+        warning = Color(0xFFFFA000),
     )
 
     fun dark() = NeoFintechColorSet(
@@ -67,6 +69,7 @@ object NeoFintechColors {
         secondary = Color(0xFFC8C5CB),
         buttonContainer = Color(0xFFE5E2E1),
         onButton = Color(0xFF191C1D),
+        warning = Color(0xFFFFB74D),
     )
 }
 

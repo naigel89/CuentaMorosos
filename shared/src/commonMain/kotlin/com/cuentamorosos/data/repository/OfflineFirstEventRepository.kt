@@ -5,6 +5,11 @@ import com.cuentamorosos.data.NetworkMonitor
 import com.cuentamorosos.data.PendingOperationQueue
 import com.cuentamorosos.db.CuentaMorososDatabase
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.EventParticipant
+import com.cuentamorosos.model.EventRole
+import com.cuentamorosos.model.SUPPORTED_CURRENCY
+import com.cuentamorosos.model.deserializeParticipants
+import com.cuentamorosos.model.serializeParticipants
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.CoroutineScope
@@ -48,6 +53,11 @@ class OfflineFirstEventRepository(
             }
     }
 
+    override fun observeEvent(eventId: String): Flow<EventItem?> =
+        observeEvents().map { events ->
+            events.find { it.id == eventId }
+        }
+
     private fun startSync() {
         syncJob?.cancel()
         syncJob = syncScope.launch(Dispatchers.Default) {
@@ -64,6 +74,8 @@ class OfflineFirstEventRepository(
                                     dateMillis = event.dateMillis,
                                     ownerId = event.ownerId,
                                     memberIds = event.memberIds.joinToString(","),
+                                    participants = event.participants.serializeParticipants(),
+                                    base_currency = event.baseCurrency,
                                     lastCalculationMode = event.lastCalculationMode,
                                     lastCalculationTotal = event.lastCalculationTotal,
                                     lastCalculationTimestamp = event.lastCalculationTimestamp,
@@ -96,6 +108,8 @@ class OfflineFirstEventRepository(
             dateMillis = event.dateMillis,
             ownerId = event.ownerId,
             memberIds = event.memberIds.joinToString(","),
+            participants = event.participants.serializeParticipants(),
+            base_currency = event.baseCurrency,
             lastCalculationMode = event.lastCalculationMode,
             lastCalculationTotal = event.lastCalculationTotal,
             lastCalculationTimestamp = event.lastCalculationTimestamp,
@@ -151,6 +165,8 @@ class OfflineFirstEventRepository(
         dateMillis = dateMillis,
         ownerId = ownerId,
         memberIds = if (memberIds.isBlank()) emptyList() else memberIds.split(","),
+        participants = deserializeParticipants(participants),
+        baseCurrency = base_currency,
         lastCalculationMode = lastCalculationMode,
         lastCalculationTotal = lastCalculationTotal,
         lastCalculationTimestamp = lastCalculationTimestamp,

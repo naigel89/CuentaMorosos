@@ -161,7 +161,7 @@ class EventExpenseCalculationTest {
 
         val transfers = buildSettlementTransfers(profileNames, debtAmounts)
 
-        val aliceToBob = transfers.find { it.fromName == "Alice" && it.toName == "Bob" }
+        val aliceToBob = transfers.find { it.fromProfileId == "Alice" && it.toProfileId == "Bob" }
         assertNull("No debe haber null en la búsqueda de Alice→Bob", null) // placeholder
         assertEquals("Alice debe pagar 20,00 € a Bob", 20.0, aliceToBob!!.amount, 0.001)
     }
@@ -173,7 +173,7 @@ class EventExpenseCalculationTest {
 
         val transfers = buildSettlementTransfers(profileNames, debtAmounts)
 
-        val carolToBob = transfers.find { it.fromName == "Carol" && it.toName == "Bob" }
+        val carolToBob = transfers.find { it.fromProfileId == "Carol" && it.toProfileId == "Bob" }
         assertEquals("Carol debe pagar 20,00 € a Bob", 20.0, carolToBob!!.amount, 0.001)
     }
 
@@ -184,7 +184,7 @@ class EventExpenseCalculationTest {
 
         val transfers = buildSettlementTransfers(profileNames, debtAmounts)
 
-        val invalidTransfer = transfers.find { it.toName == "Alice" || it.toName == "Carol" }
+        val invalidTransfer = transfers.find { it.toProfileId == "Alice" || it.toProfileId == "Carol" }
         assertEquals("Nadie debería pagar a Alice ni a Carol", null, invalidTransfer)
     }
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,7 +39,7 @@ fun ComparisonCard(
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
 ) {
-    val colors = NeoFintechColors.light()
+    val themeColors = MaterialTheme.colorScheme
     val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
 
@@ -48,6 +49,8 @@ fun ComparisonCard(
             SplitMode.SIMPLE_AVG -> List(profiles.size) { 1.0 }
             SplitMode.BY_CATEGORY -> List(profiles.size) { 1.0 }
             SplitMode.CUSTOM_PERCENTAGE -> percentageInputs.map { parseDecimalValue(it) ?: Double.NaN }
+            SplitMode.EXACT -> List(profiles.size) { 1.0 }
+            SplitMode.PARTS -> List(profiles.size) { 1.0 }
         }
 
         return if (rawInputs.any { it.isNaN() }) {
@@ -72,9 +75,9 @@ fun ComparisonCard(
                 clip = false,
             )
             .clickable { onToggleExpanded() },
-        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        colors = CardDefaults.cardColors(containerColor = themeColors.surface),
         shape = shapes.lg,
-        border = BorderStroke(1.dp, colors.outlineVariant),
+        border = BorderStroke(1.dp, themeColors.outline),
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -107,7 +110,7 @@ fun ComparisonCard(
 
                         Text(
                             text = "${mode.label}: $text",
-                            style = typography.bodySmall.copy(color = colors.onSurfaceVariant),
+                            style = typography.bodySmall.copy(color = themeColors.onSurfaceVariant),
                         )
                     }
                 }

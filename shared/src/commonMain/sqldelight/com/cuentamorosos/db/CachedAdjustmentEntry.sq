@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS CachedAdjustmentEntry (
+    id TEXT NOT NULL PRIMARY KEY,
+    eventId TEXT NOT NULL,
+    transferKey TEXT NOT NULL,
+    deltaCents INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    profileId TEXT NOT NULL,
+    timestamp INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM CachedAdjustmentEntry;
+
+selectByEvent:
+SELECT * FROM CachedAdjustmentEntry WHERE eventId = ? ORDER BY timestamp ASC;
+
+selectByDebt:
+SELECT * FROM CachedAdjustmentEntry WHERE eventId = ? AND transferKey = ? ORDER BY timestamp ASC;
+
+sumByDebt:
+SELECT COALESCE(SUM(deltaCents), 0) AS totalDelta FROM CachedAdjustmentEntry WHERE eventId = ? AND transferKey = ?;
+
+insertEntry:
+INSERT INTO CachedAdjustmentEntry VALUES (?, ?, ?, ?, ?, ?, ?);
+
+deleteByEvent:
+DELETE FROM CachedAdjustmentEntry WHERE eventId = ?;

@@ -2,6 +2,9 @@ package com.cuentamorosos.data
 
 import android.content.Context
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.EventParticipant
+import com.cuentamorosos.model.EventRole
+import com.cuentamorosos.model.SUPPORTED_CURRENCY
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
@@ -84,17 +87,32 @@ object MigrationManager {
 
     // ── Mapas de serialización para la migración ──────────────────────────────
 
-    private fun EventItem.toMigrationMap(uid: String): Map<String, Any?> = mapOf(
-        "id" to id,
-        "name" to name,
-        "dateMillis" to dateMillis,
-        "ownerId" to uid,
-        "memberIds" to listOf(uid),
-        "lastCalculationMode" to lastCalculationMode,
-        "lastCalculationTotal" to lastCalculationTotal,
-        "lastCalculationTimestamp" to lastCalculationTimestamp,
-        "lastCalculationSummary" to lastCalculationSummary
-    )
+    private fun EventItem.toMigrationMap(uid: String): Map<String, Any?> {
+        val participants = buildList {
+            if (uid.isNotBlank()) {
+                add(EventParticipant(profileId = uid, role = EventRole.OWNER, joinedAtMillis = dateMillis))
+            }
+            memberIds.filter { it != uid }.forEach { mid ->
+                add(EventParticipant(profileId = mid, role = EventRole.CONTRIBUTOR, joinedAtMillis = dateMillis))
+            }
+        }
+        return mapOf(
+            "id" to id,
+            "name" to name,
+            "dateMillis" to dateMillis,
+            "ownerId" to uid,
+            "memberIds" to listOf(uid),
+            "participants" to participants.map { p ->
+                mapOf("profileId" to p.profileId, "role" to p.role.name, "joinedAtMillis" to p.joinedAtMillis)
+            },
+            "participantIds" to participants.map { it.profileId },
+            "baseCurrency" to (baseCurrency.takeIf { it.isNotBlank() } ?: SUPPORTED_CURRENCY),
+            "lastCalculationMode" to lastCalculationMode,
+            "lastCalculationTotal" to lastCalculationTotal,
+            "lastCalculationTimestamp" to lastCalculationTimestamp,
+            "lastCalculationSummary" to lastCalculationSummary
+        )
+    }
 
     private fun com.cuentamorosos.model.EventDebtItem.toMigrationMap(): Map<String, Any?> = mapOf(
         "id" to id,

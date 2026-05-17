@@ -41,7 +41,7 @@ fun ExpenseItemCard(
     isReadOnly: Boolean = false,
 ) {
     val category = ExpenseCategory.fromId(expense.category)
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
 
     val splitBadge = when {

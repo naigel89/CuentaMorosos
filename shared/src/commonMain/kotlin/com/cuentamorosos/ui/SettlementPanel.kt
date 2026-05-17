@@ -50,7 +50,7 @@ fun SettlementPanel(
     val profileById = profiles.associateBy { it.id }
     val pendingDebts = debts.filter { !it.paid }
     val paidDebts = debts.filter { it.paid }
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
 
     Column(
@@ -175,7 +175,7 @@ private fun DebtRow(
     onTogglePaid: (EventDebtItem) -> Unit,
     isPaid: Boolean,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
     val isCurrentUser = debt.profileId == currentUserUid && currentUserUid.isNotBlank()
     val displayName = when {

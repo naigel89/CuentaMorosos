@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 fun CreateEventCard(
     onCreate: () -> Unit,
 ) {
-    val neoColors = NeoFintechColors.dark()
+    val neoColors = LocalNeoFintechColors.current
 
     Button(
         onClick = onCreate,

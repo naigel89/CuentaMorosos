@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -42,6 +40,10 @@ import androidx.compose.ui.unit.dp
 import com.cuentamorosos.isValidEmail
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
+import com.cuentamorosos.model.validation.ProfileValidator
+import com.cuentamorosos.model.validation.ValidationError
+import com.cuentamorosos.model.validation.allErrors
+import com.cuentamorosos.model.validation.hasErrors
 
 // ── ProfilesScreen ────────────────────────────────────────────────────────────
 
@@ -55,7 +57,7 @@ fun ProfilesScreen(
     onSaveProfile: (ProfileItem) -> Unit,
     onDeleteProfile: (ProfileItem) -> Unit,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     var selectedProfile by remember { mutableStateOf<ProfileItem?>(null) }
     var editableProfile by remember { mutableStateOf<ProfileItem?>(null) }
     var profileToDelete by remember { mutableStateOf<ProfileItem?>(null) }
@@ -175,6 +177,7 @@ fun ProfilesScreen(
     editableProfile?.let { profile ->
         ProfileEditorDialog(
             initialProfile = profile,
+            existingProfiles = profiles,
             onDismiss = { editableProfile = null },
             onSave = { savedProfile ->
                 editableProfile = null
@@ -184,10 +187,20 @@ fun ProfilesScreen(
     }
 
     profileToDelete?.let { profile ->
+        val deleteWarnings = ProfileValidator.checkDeleteWarning(
+            profile = profile,
+            activeEventIds = emptySet(), // TODO: thread active event membership from parent
+        )
+        val warningText = deleteWarnings.joinToString("\n") { it.message }
         NeoAlertDialog(
             onDismissRequest = { profileToDelete = null },
             title = "Eliminar perfil",
-            message = "¿Seguro que quieres eliminar \"${profile.icon} ${profile.name}\"? Se eliminarán también todas sus deudas en todos los eventos. Esta acción no se puede deshacer.",
+            message = buildString {
+                append("¿Seguro que quieres eliminar \"${profile.icon} ${profile.name}\"? Se eliminarán también todas sus deudas en todos los eventos. Esta acción no se puede deshacer.")
+                if (warningText.isNotBlank()) {
+                    append("\n\n⚠ $warningText")
+                }
+            },
             confirmText = "Eliminar",
             onConfirm = {
                 profileToDelete = null
@@ -207,7 +220,7 @@ private fun NeoAlertDialog(
     confirmText: String,
     onConfirm: () -> Unit,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     AlertDialog(
         onDismissRequest = onDismissRequest,
         containerColor = colors.surface,
@@ -245,10 +258,11 @@ private fun NeoAlertDialog(
 @Composable
 private fun ProfileEditorDialog(
     initialProfile: ProfileItem,
+    existingProfiles: List<ProfileItem>,
     onDismiss: () -> Unit,
     onSave: (ProfileItem) -> Unit,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val iconOptions = listOf(
         "🙂", "😄", "😎", "🤩", "🥳", "😇",
         "🧑", "👩", "👨", "👴", "👵", "🧒",
@@ -260,7 +274,7 @@ private fun ProfileEditorDialog(
     var selectedIcon by remember(initialProfile.id) { mutableStateOf(initialProfile.icon.ifBlank { "🙂" }) }
     var isGhost by remember(initialProfile.id) { mutableStateOf(initialProfile.isGhost) }
     var linkedEmail by remember(initialProfile.id) { mutableStateOf(initialProfile.linkedEmail.orEmpty()) }
-    var validationMessage by remember(initialProfile.id) { mutableStateOf<String?>(null) }
+    var validationErrors by remember(initialProfile.id) { mutableStateOf<List<ValidationError>>(emptyList()) }
 
     val isNewProfile = initialProfile.name.isBlank()
 
@@ -284,7 +298,7 @@ private fun ProfileEditorDialog(
                     value = name,
                     onValueChange = {
                         name = it
-                        validationMessage = null
+                        validationErrors = emptyList()
                     },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Nombre del perfil", color = colors.onSurfaceVariant) },
@@ -299,7 +313,7 @@ private fun ProfileEditorDialog(
                             if (!isGhost) {
                                 linkedEmail = ""
                             }
-                            validationMessage = null
+                            validationErrors = emptyList()
                         },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -310,7 +324,7 @@ private fun ProfileEditorDialog(
                             if (!checked) {
                                 linkedEmail = ""
                             }
-                            validationMessage = null
+                            validationErrors = emptyList()
                         },
                     )
                     Text(
@@ -324,7 +338,7 @@ private fun ProfileEditorDialog(
                         value = linkedEmail,
                         onValueChange = {
                             linkedEmail = it.trim()
-                            validationMessage = null
+                            validationErrors = emptyList()
                         },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Email para vincular (opcional)", color = colors.onSurfaceVariant) },
@@ -343,39 +357,38 @@ private fun ProfileEditorDialog(
                     fontWeight = FontWeight.Medium,
                     color = colors.onSurface,
                 )
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(6),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    items(count = iconOptions.size) { index ->
-                        val icon = iconOptions[index]
-                        val isSelected = icon == selectedIcon
-                        if (isSelected) {
-                            Button(
-                                onClick = { selectedIcon = icon; validationMessage = null },
-                                contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(32.dp),
-                                shape = NeoFintechShapes.md,
-                                colors = ButtonDefaults.buttonColors(containerColor = colors.primaryContainer),
-                            ) {
-                                Text(icon)
-                            }
-                        } else {
-                            OutlinedButton(
-                                onClick = { selectedIcon = icon; validationMessage = null },
-                                contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(32.dp),
-                                shape = NeoFintechShapes.md,
-                            ) {
-                                Text(icon)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    iconOptions.chunked(6).forEach { row ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            row.forEach { icon ->
+                                val isSelected = icon == selectedIcon
+                                if (isSelected) {
+                                    Button(
+                                        onClick = { selectedIcon = icon; validationErrors = emptyList() },
+                                        contentPadding = PaddingValues(0.dp),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(32.dp),
+                                        shape = NeoFintechShapes.md,
+                                        colors = ButtonDefaults.buttonColors(containerColor = colors.primaryContainer),
+                                    ) {
+                                        Text(icon)
+                                    }
+                                } else {
+                                    OutlinedButton(
+                                        onClick = { selectedIcon = icon; validationErrors = emptyList() },
+                                        contentPadding = PaddingValues(0.dp),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(32.dp),
+                                        shape = NeoFintechShapes.md,
+                                    ) {
+                                        Text(icon)
+                                    }
+                                }
                             }
                         }
                     }
@@ -385,41 +398,45 @@ private fun ProfileEditorDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                 )
-                validationMessage?.let { message ->
-                    Text(
-                        text = message,
-                        color = colors.error,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                if (validationErrors.isNotEmpty()) {
+                    validationErrors.forEach { error ->
+                        Text(
+                            text = "• ${error.message}",
+                            color = colors.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (name.isBlank()) {
-                        validationMessage = "Indica un nombre para el perfil."
-                        return@TextButton
-                    }
-
                     val normalizedLinkedEmail = linkedEmail.trim().lowercase()
                     val invalidLinkedEmail = isGhost &&
                         normalizedLinkedEmail.isNotBlank() &&
                         !isValidEmail(normalizedLinkedEmail)
                     if (invalidLinkedEmail) {
-                        validationMessage = "El email de vinculación no es válido."
+                        validationErrors = listOf(ValidationError("El email de vinculación no es válido.", "email"))
                         return@TextButton
                     }
 
-                    validationMessage = null
-                    onSave(
-                        initialProfile.copy(
-                            name = name.trim(),
-                            icon = selectedIcon,
-                            isGhost = isGhost,
-                            linkedEmail = normalizedLinkedEmail.takeIf { isGhost && it.isNotBlank() },
-                        ),
+                    val draftProfile = initialProfile.copy(
+                        name = name.trim(),
+                        icon = selectedIcon,
+                        isGhost = isGhost,
+                        linkedEmail = normalizedLinkedEmail.takeIf { isGhost && it.isNotBlank() },
                     )
+
+                    val result = ProfileValidator.validate(draftProfile, existingProfiles)
+
+                    if (result.hasErrors()) {
+                        validationErrors = result.allErrors()
+                        return@TextButton
+                    }
+
+                    validationErrors = emptyList()
+                    onSave(draftProfile)
                 },
             ) {
                 Text("Guardar", color = colors.primaryContainer)
@@ -444,7 +461,7 @@ private fun ProfileDetailDialog(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = colors.surface,

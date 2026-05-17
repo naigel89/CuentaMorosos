@@ -3,7 +3,9 @@ CREATE TABLE IF NOT EXISTS CachedEvent (
     name TEXT NOT NULL,
     dateMillis INTEGER NOT NULL,
     ownerId TEXT NOT NULL,
-    memberIds TEXT NOT NULL,                  -- JSON array as text
+    memberIds TEXT NOT NULL,                  -- JSON array as text (legacy)
+    participants TEXT NOT NULL DEFAULT '',     -- JSON array of EventParticipant
+    base_currency TEXT NOT NULL DEFAULT 'EUR',
     lastCalculationMode TEXT,
     lastCalculationTotal REAL,
     lastCalculationTimestamp INTEGER,
@@ -14,9 +16,12 @@ CREATE TABLE IF NOT EXISTS CachedEvent (
 selectAll:
 SELECT * FROM CachedEvent ORDER BY dateMillis DESC;
 
+selectById:
+SELECT * FROM CachedEvent WHERE id = ?;
+
 upsert:
 INSERT OR REPLACE INTO CachedEvent
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteById:
 DELETE FROM CachedEvent WHERE id = ?;

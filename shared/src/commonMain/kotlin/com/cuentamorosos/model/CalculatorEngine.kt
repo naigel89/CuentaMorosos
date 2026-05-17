@@ -36,6 +36,18 @@ enum class SplitMode(
         label = "% personalizado",
         helperText = "Asigna un porcentaje a cada perfil. La suma debe ser 100 %.",
         exampleText = "Un piso entre 2 personas: uno paga el 60 % y el otro el 40 % del alquiler.",
+    ),
+    EXACT(
+        id = "exact",
+        label = "Importe exacto",
+        helperText = "Asigna un importe exacto a cada perfil. La suma debe coincidir con el total.",
+        exampleText = "Ana paga 30 €, Bob 45,50 € y Charlie 24,50 €: cada uno sabe cuánto debe.",
+    ),
+    PARTS(
+        id = "parts",
+        label = "Por partes",
+        helperText = "Asigna partes enteras (1-100) a cada perfil. El total se reparte proporcionalmente.",
+        exampleText = "Un asado entre 3: uno pone 3 partes, otro 2 y otro 1 → se divide en 6 partes.",
     );
 
     companion object {
@@ -63,6 +75,8 @@ fun buildCalculationPreview(
     inputs: List<Double>,
     participantIds: List<String> = emptyList(),
     expenses: List<EventExpenseItem> = emptyList(),
+    profileWeights: Map<String, Double> = emptyMap(),
+    payerContributions: Map<String, Double> = emptyMap(),
 ): CalculationPreview {
     if (total < 0.0) {
         return CalculationPreview(validationMessage = "El total no puede ser negativo.")
@@ -74,11 +88,15 @@ fun buildCalculationPreview(
             participantIds = participantIds,
             expenses = expenses,
         )
-        SplitMode.SIMPLE_AVG -> CalculationPreview(
-            amounts = splitAmountEvenly(total = total, participants = inputs.size),
-            summary = "Media simple entre ${inputs.size} perfiles",
-            calculatedTotal = total,
-        )
+        SplitMode.SIMPLE_AVG -> {
+            val ids = if (participantIds.isNotEmpty()) participantIds else inputs.mapIndexed { i, _ -> "p$i" }
+            val amounts = SplitCalculator.calculateEqual(total = total, debtorIds = ids)
+            CalculationPreview(
+                amounts = amounts.values.toList(),
+                summary = "Media simple entre ${ids.size} perfiles",
+                calculatedTotal = total,
+            )
+        }
         SplitMode.BY_CATEGORY -> buildExpenseDrivenPreview(
             mode = mode,
             participantIds = participantIds,
@@ -92,11 +110,60 @@ fun buildCalculationPreview(
                 abs(sum - 100.0) > 0.01 -> CalculationPreview(
                     validationMessage = "La suma actual es ${formatTwoDecimals(sum)}%. Debe ser 100%."
                 )
-                else -> CalculationPreview(
-                    amounts = distributeProportionally(total = total, factors = inputs),
-                    summary = "Porcentajes personalizados: ${inputs.joinToString { "${formatZeroDecimals(it)}%" }}",
-                    calculatedTotal = total,
-                )
+                else -> {
+                    val ids = if (participantIds.isNotEmpty()) participantIds else inputs.mapIndexed { i, _ -> "p$i" }
+                    val percentages = ids.zip(inputs).toMap()
+                    val amounts = SplitCalculator.calculatePercentage(total = total, percentages = percentages)
+                    CalculationPreview(
+                        amounts = amounts.values.toList(),
+                        summary = "Porcentajes personalizados: ${inputs.joinToString { "${formatZeroDecimals(it)}%" }}",
+                        calculatedTotal = total,
+                    )
+                }
+            }
+        }
+        SplitMode.EXACT -> {
+            val amounts = if (payerContributions.isNotEmpty()) {
+                payerContributions
+            } else {
+                val ids = if (participantIds.isNotEmpty()) participantIds else inputs.mapIndexed { i, _ -> "p$i" }
+                ids.zip(inputs).toMap()
+            }
+            if (amounts.isEmpty()) {
+                CalculationPreview(validationMessage = "Añade al menos un perfil al evento.")
+            } else {
+                runCatching {
+                    val result = SplitCalculator.calculateExact(total = total, amounts = amounts)
+                    CalculationPreview(
+                        amounts = result.values.toList(),
+                        summary = "Importes exactos: ${result.size} perfiles",
+                        calculatedTotal = total,
+                    )
+                }.getOrElse {
+                    CalculationPreview(validationMessage = it.message ?: "Error en importes exactos")
+                }
+            }
+        }
+        SplitMode.PARTS -> {
+            val parts = if (profileWeights.isNotEmpty()) {
+                profileWeights.mapValues { (_, v) -> v.toInt() }
+            } else {
+                val ids = if (participantIds.isNotEmpty()) participantIds else inputs.mapIndexed { i, _ -> "p$i" }
+                ids.zip(inputs.map { it.toInt() }).toMap()
+            }
+            if (parts.isEmpty()) {
+                CalculationPreview(validationMessage = "Añade al menos un perfil al evento.")
+            } else {
+                runCatching {
+                    val result = SplitCalculator.calculateParts(total = total, parts = parts)
+                    CalculationPreview(
+                        amounts = result.values.toList(),
+                        summary = "Por partes: ${parts.values.sum()} partes entre ${result.size} perfiles",
+                        calculatedTotal = total,
+                    )
+                }.getOrElse {
+                    CalculationPreview(validationMessage = it.message ?: "Error en reparto por partes")
+                }
             }
         }
     }
@@ -257,16 +324,16 @@ private fun distributeProportionallyCents(totalCents: Int, factors: List<Double>
 // ---------------------------------------------------------------------------
 
 data class SettlementTransfer(
-    val fromName: String,
-    val toName: String,
+    val fromProfileId: String,
+    val toProfileId: String,
     val amount: Double,
 )
 
 fun buildSettlementTransfers(
-    profileNames: List<String>,
+    profileIds: List<String>,
     amounts: List<Double>,
 ): List<SettlementTransfer> {
-    if (profileNames.size != amounts.size || profileNames.isEmpty()) return emptyList()
+    if (profileIds.size != amounts.size || profileIds.isEmpty()) return emptyList()
 
     val balanceCents = amounts.map { (it * 100).roundToInt() }.toMutableList()
 
@@ -294,8 +361,8 @@ fun buildSettlementTransfers(
 
         transfers.add(
             SettlementTransfer(
-                fromName = profileNames[debtorIdx],
-                toName = profileNames[creditorIdx],
+                fromProfileId = profileIds[debtorIdx],
+                toProfileId = profileIds[creditorIdx],
                 amount = transferAmount,
             )
         )

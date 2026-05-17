@@ -1,0 +1,364 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>CuentaMorosos - Events Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "secondary": "#c8c5cb",
+                "on-tertiary-fixed": "#1b1b1f",
+                "surface-container-highest": "#353534",
+                "surface-variant": "#353534",
+                "surface-bright": "#3a3939",
+                "on-background": "#e5e2e1",
+                "primary-fixed": "#79ff5b",
+                "tertiary": "#fbf9fe",
+                "surface-container-low": "#1c1b1b",
+                "outline-variant": "#3c4b35",
+                "surface-dim": "#131313",
+                "on-surface-variant": "#baccb0",
+                "on-primary-container": "#107100",
+                "background": "#131313",
+                "secondary-fixed": "#e4e1e7",
+                "surface-container-lowest": "#0e0e0e",
+                "on-secondary-fixed": "#1b1b1f",
+                "on-secondary": "#303034",
+                "inverse-surface": "#e5e2e1",
+                "on-tertiary-container": "#616065",
+                "on-primary-fixed": "#022100",
+                "on-tertiary": "#303034",
+                "secondary-container": "#47464b",
+                "outline": "#85967c",
+                "error-container": "#93000a",
+                "on-primary-fixed-variant": "#095300",
+                "on-tertiary-fixed-variant": "#47464b",
+                "on-error-container": "#ffdad6",
+                "tertiary-fixed": "#e4e1e7",
+                "tertiary-fixed-dim": "#c8c5cb",
+                "on-primary": "#053900",
+                "surface-container": "#201f1f",
+                "secondary-fixed-dim": "#c8c5cb",
+                "on-error": "#690005",
+                "inverse-primary": "#106e00",
+                "surface-tint": "#2ae500",
+                "on-secondary-fixed-variant": "#47464b",
+                "tertiary-container": "#dfdce1",
+                "primary-container": "#39ff14",
+                "surface-container-high": "#2a2a2a",
+                "surface": "#131313",
+                "primary": "#efffe3",
+                "primary-fixed-dim": "#2ae500",
+                "error": "#ffb4ab",
+                "on-secondary-container": "#b6b4b9",
+                "on-surface": "#e5e2e1",
+                "inverse-on-surface": "#313030"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "md": "24px",
+                "gutter": "20px",
+                "lg": "40px",
+                "sm": "16px",
+                "xl": "64px",
+                "margin-desktop": "48px",
+                "base": "4px",
+                "margin-mobile": "16px",
+                "xs": "8px"
+        },
+        "fontFamily": {
+                "body-sm": [
+                        "Geist"
+                ],
+                "display-lg-mobile": [
+                        "Geist"
+                ],
+                "body-lg": [
+                        "Geist"
+                ],
+                "label-caps": [
+                        "JetBrains Mono"
+                ],
+                "display-lg": [
+                        "Geist"
+                ],
+                "numeric-data": [
+                        "JetBrains Mono"
+                ],
+                "headline-md": [
+                        "Geist"
+                ]
+        },
+        "fontSize": {
+                "body-sm": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "display-lg-mobile": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "body-lg": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "label-caps": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.1em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "display-lg": [
+                        "48px",
+                        {
+                                "lineHeight": "56px",
+                                "letterSpacing": "-0.04em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "numeric-data": [
+                        "18px",
+                        {
+                                "lineHeight": "24px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style data-stitch-cursor=""></style><style data-stitch-scroll-lock=""></style></head>
+<body class="bg-background text-on-background min-h-screen pb-24 md:pb-0 font-body-md text-body-md antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="docked full-width top-0 bg-surface flat no shadows z-40 sticky">
+<div class="flex justify-between items-center w-full px-4 py-4 h-16 max-w-7xl mx-auto">
+<div class="flex items-center gap-4">
+<img alt="User profile photo" class="w-8 h-8 rounded-full object-cover shadow-sm ring-1 ring-surface-variant hover:opacity-80 transition-opacity active:scale-95 duration-200 cursor-pointer" data-alt="A close-up, highly detailed portrait of a professional individual looking slightly off-camera. The lighting is soft and natural, emphasizing approachability and modern professionalism. The background is a clean, bright neutral tone, aligning with a high-end minimalist digital aesthetic. The overall mood is confident and clean, perfect for a financial app profile placeholder." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw9Jb8cUs4E6WmRETkxDn_MwiV09QOUqCblOpjW-4dh8sOGoBJBy7rEOMlgXJ6_y26q1F4w2BweIgmm01T5042LonKsE6o6dZZJ70jl7XYABg5nxVOIMk-bbqRHh2xWUCVLRje2MwkyArDxF0XIMOYaZkfqfI30pD2QWp5G9zpEs4JJVXPw0PZ-h84JZiJgRp6YBsBunkPTXGQTSM46huP9K6rfKDKNVhto1FatRJ8wf2W-gMZk42X77QNhPdpSARbi7e8s5FsZn4">
+<h1 class="font-headline-md text-headline-md-mobile md:text-headline-md font-bold text-on-surface tracking-tight">CuentaMorosos</h1>
+</div>
+<div class="hidden md:flex items-center gap-8 font-label-md text-label-md">
+<a class="text-primary hover:opacity-80 transition-opacity flex items-center gap-2" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+                    Events
+                </a>
+<a class="text-on-surface-variant hover:opacity-80 transition-opacity flex items-center gap-2" href="#">
+<span class="material-symbols-outlined">group</span>
+                    Profiles
+                </a>
+<a class="text-on-surface-variant hover:opacity-80 transition-opacity flex items-center gap-2" href="#">
+<span class="material-symbols-outlined">settings</span>
+                    Settings
+                </a>
+</div>
+<div class="flex items-center gap-2">
+<button class="text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200 p-2 rounded-full hover:bg-surface-container-low" onclick="document.documentElement.classList.toggle('dark')">
+<span class="material-symbols-outlined block dark:hidden">dark_mode</span>
+<span class="material-symbols-outlined hidden dark:block">light_mode</span>
+</button>
+<button class="text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200 p-2 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="w-full px-4 mx-auto max-w-7xl pt-8 flex flex-col gap-8">
+<!-- Balance Summary Bento -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Total Balance Card -->
+<div class="bg-surface rounded-xl p-6 shadow-[0_4px_20px_0_rgba(0,0,0,0.04)] border border-surface-variant flex flex-col justify-between md:col-span-2 relative overflow-hidden group">
+<div class="absolute -right-10 -top-10 w-40 h-40 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors duration-500"></div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-2">Total Balance</p>
+<h2 class="font-headline-xl text-headline-xl-mobile md:text-headline-xl text-on-background tracking-tight">€450.00</h2>
+<div class="mt-4 flex items-center gap-2">
+<span class="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-full font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+                            You are owed
+                        </span>
+<span class="font-label-sm text-label-sm text-on-surface-variant ml-2">from 3 events</span>
+</div>
+</div>
+<div class="mt-6 flex gap-3">
+<button class="bg-primary-container text-on-primary-container font-label-md text-label-md px-6 py-3 rounded-xl hover:opacity-90 active:scale-98 transition-all shadow-sm">Settle Up</button>
+<button class="bg-surface-container text-on-surface font-label-md text-label-md px-6 py-3 rounded-xl hover:bg-surface-container-high active:scale-98 transition-all border border-surface-variant">Request</button>
+</div>
+</div>
+<!-- Quick Stats -->
+<div class="flex flex-col gap-3">
+<div class="bg-surface rounded-xl p-5 shadow-[0_4px_20px_0_rgba(0,0,0,0.04)] border border-surface-variant flex items-center justify-between">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Active Events</p>
+<p class="font-headline-md text-headline-md mt-1">4</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event</span>
+</div>
+</div>
+<div class="bg-surface rounded-xl p-5 shadow-[0_4px_20px_0_rgba(0,0,0,0.04)] border border-surface-variant flex items-center justify-between">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Total Spent</p>
+<p class="font-headline-md text-headline-md mt-1">€1,240.50</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">credit_card</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Events List Area -->
+<section class="flex flex-col gap-6">
+<div class="flex justify-between items-end">
+<div>
+<h3 class="font-headline-md text-headline-md text-on-background">Recent Events</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Manage your shared expenses.</p>
+</div>
+<button class="hidden md:flex items-center gap-2 bg-primary-container text-on-primary-container font-label-md text-label-md px-4 py-2 rounded-xl hover:opacity-90 active:scale-98 transition-all shadow-sm">
+<span class="material-symbols-outlined">add</span>
+                    Create Event
+                </button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Event Card 1 -->
+<div class="bg-surface rounded-xl p-6 shadow-[0_4px_20px_0_rgba(0,0,0,0.04)] border border-surface-variant hover:shadow-[0_8px_30px_0_rgba(0,0,0,0.08)] transition-all duration-300 cursor-pointer group flex flex-col h-full">
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 rounded-xl bg-tertiary-fixed-dim/20 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[24px]">flight_takeoff</span>
+</div>
+<span class="bg-primary/10 text-primary px-2 py-1 rounded-full font-label-sm text-label-sm">Active</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-headline-md text-[20px] leading-tight mb-1 group-hover:text-primary transition-colors">Trip to Madrid</h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mb-4">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span> Oct 12 - Oct 18
+                        </p>
+</div>
+<div class="mt-auto pt-4 border-t border-surface-variant/50">
+<div class="flex justify-between items-end mb-3">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Total Expense</p>
+<p class="font-headline-md text-[18px]">€845.20</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Your Share</p>
+<p class="font-headline-md text-[18px] text-primary">€422.60</p>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex -space-x-2">
+<img alt="Participant" class="w-8 h-8 rounded-full border-2 border-surface" data-alt="A small, circular avatar portrait of a smiling woman. The lighting is soft and bright, fitting a high-quality user profile placeholder for a modern web application. The background is slightly blurred." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDB4tHCYMqbI6owRienv7ikttCwLao6kgssmnjkJKK6EBiiQF0y8mmVq7TTsb7SUS4I25KV5ySkEc7UAW5GG5BtJfa_DswLjC20uRNohaSBwdROcEYxIhrnBdR0pJlICOfV_rvaItMvtoE2-fLtTgwSPI2bD83KU8bljYh5fajQNQTUEPdmc_NTQtkeFSa25hLp5Fl7OW67T0OGr3VU8adU_ox8uN6kgvgvtCTfe9OL192FXbztu9rnyOEhU3y-Cle3kjLleFZev0c">
+<img alt="Participant" class="w-8 h-8 rounded-full border-2 border-surface" data-alt="A small, circular avatar portrait of a thoughtful man. The lighting is crisp and the background is a neutral tone, designed to look clean and professional in a digital interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHxV2Vz5DdSPIER8Xzy7VcUmQ86-08Fc5m8duwbog2DJeDvhmR5KtL8uAQZNxCvwOBu7pSDLTt52EZvu_Kjhb8Hv2rKuGU2TDiauXs3KBeLQMpd14VcKttwHQcDzM9Kd7f600GCXJjXgwWp8FNy8DmFKE0TWsYlMo6tV4QXU6ajCwmK7fSdoyKmr1il0pNj5BSjQe1Y-6jnRZyHSJjLoyrMbIf_KbpRh2YyfaYoikl25Fszx_UawHEijztQ1eb99-QQJMhem5tBhM">
+</div>
+<p class="font-label-sm text-label-sm text-primary">You are owed €120.00</p>
+</div>
+</div>
+</div>
+<!-- Event Card 2 -->
+<div class="bg-surface rounded-xl p-6 shadow-[0_4px_20px_0_rgba(0,0,0,0.04)] border border-surface-variant hover:shadow-[0_8px_30px_0_rgba(0,0,0,0.08)] transition-all duration-300 cursor-pointer group flex flex-col h-full">
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 rounded-xl bg-secondary-container/30 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[24px]">restaurant</span>
+</div>
+<span class="bg-primary/10 text-primary px-2 py-1 rounded-full font-label-sm text-label-sm">Active</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-headline-md text-[20px] leading-tight mb-1 group-hover:text-primary transition-colors">Dinner with friends</h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mb-4">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span> Oct 24
+                        </p>
+</div>
+<div class="mt-auto pt-4 border-t border-surface-variant/50">
+<div class="flex justify-between items-end mb-3">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Total Expense</p>
+<p class="font-headline-md text-[18px]">€180.00</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Your Share</p>
+<p class="font-headline-md text-[18px] text-primary">€45.00</p>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex -space-x-2">
+<img alt="Participant" class="w-8 h-8 rounded-full border-2 border-surface" data-alt="A small, circular avatar portrait of a smiling woman. The lighting is soft and bright, fitting a high-quality user profile placeholder for a modern web application. The background is slightly blurred." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQ7W9OD4T9rYMg5qAm6iA5gmt5VO5_H3qsN21P2WXyIpenSeM251iF9Q8eWm1RZ0u3yCzyoaVrJlOyViEbseLHbH35ywNpYbE3A-BFsWhXH_sco3wtGrOrV25xRKIAnd2EBWY7CCfjkaxhTl88h4Nz-DH-MOBP01GjIwoeKMUI6CeWXm0AXt8OrjzoSpyMGoZAk4InMFDmJfqQkwe7L_FHGo8SWThfOozFEeEg6_Dfovz-bgsQdvpatLb_3a9dMwca6iA-G-mRmvU">
+<img alt="Participant" class="w-8 h-8 rounded-full border-2 border-surface" data-alt="A small, circular avatar portrait of a thoughtful man. The lighting is crisp and the background is a neutral tone, designed to look clean and professional in a digital interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqqYEpwC9yqUKtdp8KBaAZkSKXXatIyBipm3EeATN9DYn_vNhsAge-kRyHxheVbyqV2nCNVi5HHUFQsWlj_kOr_rGxm_uTndNmU-SfcYr2HsfUFFvkdxGscUfuSgCDH6OqtU8a4WUmUUem6JPmchQC9O6yB1Q4dGvx_MXTlnZMq0zThFIhARDXHndODID87CHKNkv10Ll68k5wwlxY2Ee03AnmjxWaRzxewjEXOox1rAAG6KUIM8OGzznQX8Nl2ypqW1pvBW2pSdA">
+<img alt="Participant" class="w-8 h-8 rounded-full border-2 border-surface" data-alt="A small circular avatar showing a young woman looking directly at the camera. Professional neutral lighting suitable for a UI component." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxkD46mKws_W3_MIN2oqraGhSU2qtqVwF2c2yYB1quNvMZAXs-1DFu6OiNDSzUAooE2TjcTzKzvKc9Wi4kBnYhkBQ-Vg3LOuc8Iaxt65X2QRCIeFP4i8VpdiYcvELhFrVcXNqz6ozPKkJdrs943ndYILj4rhgQ_UcFM2rOAzmYKtENpcZ3Myz9vjkzRyoBTwMPi5idatCGuAOYyuaHgHp3leOaa4h6bxspwRhNBAlX2Oh9CXOR5l-PJL7FDmBLTWZ6cznZ5V8xnKM">
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-variant flex items-center justify-center font-label-sm text-label-sm text-on-surface-variant z-10">+1</div>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Settled</p>
+</div>
+</div>
+</div>
+<!-- Create New Empty State Card -->
+<div class="bg-surface-container-low border-2 border-dashed border-surface-variant rounded-xl p-6 flex flex-col items-center justify-center h-full min-h-[280px] hover:bg-surface-container transition-colors cursor-pointer group">
+<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined text-[32px]">add</span>
+</div>
+<h4 class="font-headline-md text-[20px] text-on-background mb-1">Create New Event</h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant text-center">Start a new shared expense tracker for trips, housemates, or events.</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Button (Mobile Only) -->
+<button class="md:hidden fixed bottom-28 right-6 w-14 h-14 bg-primary-container text-on-primary-container rounded-2xl shadow-lg flex items-center justify-center hover:opacity-90 active:scale-95 transition-all z-40">
+<span class="material-symbols-outlined text-[28px]">add</span>
+</button>
+<!-- BottomNavBar -->
+<nav class="md:hidden bg-surface-container-lowest shadow-lg docked full-width bottom-0 rounded-t-xl fixed left-0 w-full z-50 flex justify-around items-center px-4 py-3 h-20 shadow-[0_-4px_20px_0_rgba(0,0,0,0.05)]">
+<a class="flex flex-col items-center justify-center text-primary font-bold hover:bg-surface-container-low transition-colors scale-98 transition-all duration-200 px-4 py-2 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+<span class="font-label-sm text-label-sm mt-1">Events</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors px-4 py-2 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-label-sm text-label-sm mt-1">Profiles</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors px-4 py-2 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-sm text-label-sm mt-1">Settings</span>
+</a>
+</nav>
+
+
+</body></html>

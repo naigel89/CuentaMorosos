@@ -4,6 +4,9 @@ import android.content.Context
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.EventParticipant
+import com.cuentamorosos.model.EventRole
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.UserPreferences
 import org.json.JSONArray
@@ -19,10 +22,29 @@ class CuentaMorososLocalStore(context: Context) {
         if (id.isBlank() || name.isBlank()) {
             null
         } else {
+            val dateMillis = item.optLong("dateMillis", System.currentTimeMillis())
+            val ownerId = item.optString("ownerId", "")
+            val memberIds = buildList {
+                val ids = item.optJSONArray("memberIds") ?: JSONArray()
+                for (index in 0 until ids.length()) {
+                    ids.optString(index)?.takeIf { it.isNotBlank() }?.let(::add)
+                }
+            }
+            val participants = loadParticipants(item, ownerId, dateMillis)
             EventItem(
                 id = id,
                 name = name,
-                dateMillis = item.optLong("dateMillis", System.currentTimeMillis()),
+                dateMillis = dateMillis,
+                ownerId = ownerId,
+                memberIds = memberIds,
+                participants = participants,
+                startDateMillis = item.optLong("startDateMillis", dateMillis),
+                endDateMillis = item.optLong("endDateMillis", dateMillis),
+                baseCurrency = item.optString("baseCurrency", ""),
+                creatorId = item.optString("creatorId", ""),
+                state = runCatching {
+                    EventState.valueOf(item.optString("state", "DRAFT"))
+                }.getOrDefault(EventState.DRAFT),
                 lastCalculationMode = item.optString("lastCalculationMode").takeIf { it.isNotBlank() },
                 lastCalculationTotal = item.optDouble("lastCalculationTotal").takeIf { item.has("lastCalculationTotal") },
                 lastCalculationTimestamp = item.optLong("lastCalculationTimestamp").takeIf { item.has("lastCalculationTimestamp") },
@@ -30,6 +52,41 @@ class CuentaMorososLocalStore(context: Context) {
             )
         }
     }.sortedByDescending { it.dateMillis }
+
+    private fun loadParticipants(
+        item: JSONObject,
+        ownerId: String,
+        dateMillis: Long,
+    ): List<EventParticipant> {
+        // Try to load participants array first
+        val participantsArray = item.optJSONArray("participants")
+        if (participantsArray != null && participantsArray.length() > 0) {
+            return buildList {
+                for (i in 0 until participantsArray.length()) {
+                    val p = participantsArray.optJSONObject(i) ?: continue
+                    val profileId = p.optString("profileId").takeIf { it.isNotBlank() } ?: continue
+                    val role = runCatching {
+                        EventRole.valueOf(p.optString("role", "CONTRIBUTOR"))
+                    }.getOrDefault(EventRole.CONTRIBUTOR)
+                    val joinedAt = p.optLong("joinedAtMillis", dateMillis)
+                    add(EventParticipant(profileId = profileId, role = role, joinedAtMillis = joinedAt))
+                }
+            }
+        }
+        // Migration: derive from memberIds (ownerId → OWNER, rest → CONTRIBUTOR)
+        return buildList {
+            if (ownerId.isNotBlank()) {
+                add(EventParticipant(profileId = ownerId, role = EventRole.OWNER, joinedAtMillis = dateMillis))
+            }
+            val ids = item.optJSONArray("memberIds") ?: JSONArray()
+            for (index in 0 until ids.length()) {
+                val mid = ids.optString(index)?.takeIf { it.isNotBlank() } ?: continue
+                if (mid != ownerId) {
+                    add(EventParticipant(profileId = mid, role = EventRole.CONTRIBUTOR, joinedAtMillis = dateMillis))
+                }
+            }
+        }
+    }
 
     fun saveEvents(events: List<EventItem>) {
         val payload = JSONArray().apply {
@@ -39,6 +96,22 @@ class CuentaMorososLocalStore(context: Context) {
                         .put("id", event.id)
                         .put("name", event.name)
                         .put("dateMillis", event.dateMillis)
+                        .put("ownerId", event.ownerId)
+                        .put("memberIds", JSONArray().apply { event.memberIds.forEach(::put) })
+                        .put("participants", JSONArray().apply {
+                            event.participants.forEach { p ->
+                                put(JSONObject()
+                                    .put("profileId", p.profileId)
+                                    .put("role", p.role.name)
+                                    .put("joinedAtMillis", p.joinedAtMillis)
+                                )
+                            }
+                        })
+                        .put("startDateMillis", event.startDateMillis)
+                        .put("endDateMillis", event.endDateMillis)
+                        .put("baseCurrency", event.baseCurrency)
+                        .put("creatorId", event.creatorId)
+                        .put("state", event.state.name)
                         .apply {
                             event.lastCalculationMode?.let { put("lastCalculationMode", it) }
                             event.lastCalculationTotal?.let { put("lastCalculationTotal", it) }
@@ -61,7 +134,10 @@ class CuentaMorososLocalStore(context: Context) {
                 id = id,
                 name = name,
                 icon = item.optString("icon").ifBlank { "🙂" },
-                totalPendingEuros = item.optDouble("totalPendingEuros", 0.0)
+                totalPendingEuros = item.optDouble("totalPendingEuros", 0.0),
+                isGhost = item.optBoolean("isGhost", false),
+                linkedEmail = item.optString("linkedEmail", ""),
+                ownerId = item.optString("ownerId", "")
             )
         }
     }.sortedBy { it.name.lowercase() }
@@ -75,6 +151,9 @@ class CuentaMorososLocalStore(context: Context) {
                         .put("name", profile.name)
                         .put("icon", profile.icon)
                         .put("totalPendingEuros", profile.totalPendingEuros)
+                        .put("isGhost", profile.isGhost)
+                        .put("linkedEmail", profile.linkedEmail)
+                        .put("ownerId", profile.ownerId)
                 )
             }
         }
@@ -140,6 +219,29 @@ class CuentaMorososLocalStore(context: Context) {
                     }
                 },
                 paidByProfileId = item.optString("paidByProfileId", ""),
+                profileWeights = buildMap {
+                    val weights = item.optJSONObject("profileWeights") ?: JSONObject()
+                    weights.keys().forEach { key ->
+                        put(key, weights.optDouble(key, 0.0))
+                    }
+                },
+                splitMode = item.optString("splitMode").ifBlank { "SIMPLE_AVG" },
+                payerContributions = buildMap {
+                    val contributions = item.optJSONObject("payerContributions") ?: JSONObject()
+                    contributions.keys().forEach { key ->
+                        put(key, contributions.optDouble(key, 0.0))
+                    }
+                },
+                debtorIds = buildList {
+                    val ids = item.optJSONArray("debtorIds") ?: JSONArray()
+                    for (index in 0 until ids.length()) {
+                        ids.optString(index)?.takeIf { it.isNotBlank() }?.let(::add)
+                    }
+                },
+                exchangeRate = item.optDouble("exchangeRate").takeIf { item.has("exchangeRate") },
+                itemCurrency = item.optString("itemCurrency").takeIf { it.isNotBlank() },
+                createdAtMillis = item.optLong("createdAtMillis", 0),
+                createdByProfileId = item.optString("createdByProfileId", ""),
             )
         }
     }
@@ -160,10 +262,33 @@ class CuentaMorososLocalStore(context: Context) {
                                 expense.assignedProfileIds.forEach(::put)
                             }
                         )
+                        .put(
+                            "profileWeights",
+                            JSONObject().apply {
+                                expense.profileWeights.forEach { (k, v) -> put(k, v) }
+                            }
+                        )
+                        .put("splitMode", expense.splitMode)
+                        .put(
+                            "payerContributions",
+                            JSONObject().apply {
+                                expense.payerContributions.forEach { (k, v) -> put(k, v) }
+                            }
+                        )
+                        .put(
+                            "debtorIds",
+                            JSONArray().apply {
+                                expense.debtorIds.forEach(::put)
+                            }
+                        )
+                        .put("createdAtMillis", expense.createdAtMillis)
+                        .put("createdByProfileId", expense.createdByProfileId)
                         .apply {
                             if (expense.paidByProfileId.isNotBlank()) {
                                 put("paidByProfileId", expense.paidByProfileId)
                             }
+                            expense.exchangeRate?.let { put("exchangeRate", it) }
+                            expense.itemCurrency?.let { put("itemCurrency", it) }
                         }
                 )
             }

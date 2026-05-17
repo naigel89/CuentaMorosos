@@ -12,7 +12,8 @@ import com.cuentamorosos.ui.ProfilesViewModel
  * ViewModelProvider.Factory that creates all ViewModels using the RepositoryProvider.
  */
 class AppViewModelFactory(
-    private val repositoryProvider: RepositoryProvider
+    private val repositoryProvider: RepositoryProvider,
+    private val currentProfileId: String = "",
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -21,13 +22,16 @@ class AppViewModelFactory(
             modelClass.isAssignableFrom(EventsViewModel::class.java) -> {
                 EventsViewModel(
                     eventRepository = repositoryProvider.eventRepository,
-                    debtRepository = repositoryProvider.debtRepository
+                    debtRepository = repositoryProvider.debtRepository,
+                    currentProfileId = currentProfileId,
                 ) as T
             }
             modelClass.isAssignableFrom(EventDetailViewModel::class.java) -> {
                 EventDetailViewModel(
+                    eventRepository = repositoryProvider.eventRepository,
                     debtRepository = repositoryProvider.debtRepository,
-                    expenseRepository = repositoryProvider.expenseRepository
+                    expenseRepository = repositoryProvider.expenseRepository,
+                    currentProfileId = currentProfileId,
                 ) as T
             }
             modelClass.isAssignableFrom(ProfilesViewModel::class.java) -> {
@@ -47,7 +51,7 @@ class AppViewModelFactory(
                     debtRepository = repositoryProvider.debtRepository,
                     expenseRepository = repositoryProvider.expenseRepository,
                     profileRepository = repositoryProvider.profileRepository,
-                    currentUserUid = "", // TODO: pass actual UID from MainActivity
+                    currentUserUid = currentProfileId,
                 ) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

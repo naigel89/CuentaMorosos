@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,7 +36,7 @@ fun PreviewBreakdown(
     amounts: List<Double>,
     summary: String,
 ) {
-    val colors = NeoFintechColors.light()
+    val themeColors = MaterialTheme.colorScheme
     val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
     val monoFont = JetBrainsMonoFontFamily()
@@ -48,9 +49,9 @@ fun PreviewBreakdown(
                 shape = NeoFintechElevation.cardShadowShape,
                 clip = false,
             ),
-        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        colors = CardDefaults.cardColors(containerColor = themeColors.surface),
         shape = shapes.lg,
-        border = BorderStroke(1.dp, colors.outlineVariant),
+        border = BorderStroke(1.dp, themeColors.outline),
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -66,7 +67,7 @@ fun PreviewBreakdown(
                 if (index > 0) {
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 4.dp),
-                        color = colors.outlineVariant,
+                        color = themeColors.outlineVariant,
                     )
                 }
 
@@ -91,14 +92,14 @@ fun PreviewBreakdown(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(NeoFintechShapes.full)
-                                .background(colors.tertiaryContainer),
+                                .background(themeColors.tertiaryContainer),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 text = initials,
                                 style = typography.labelSmall.copy(
                                     fontWeight = FontWeight.SemiBold,
-                                    color = colors.onTertiaryContainer,
+                                    color = themeColors.onTertiaryContainer,
                                 ),
                             )
                         }
@@ -111,7 +112,7 @@ fun PreviewBreakdown(
                         text = formatEuros(amount),
                         style = typography.headlineMedium.copy(
                             fontFamily = monoFont,
-                            color = colors.primaryContainer,
+                            color = themeColors.primary,
                             fontWeight = FontWeight.Medium,
                         ),
                     )
@@ -121,7 +122,7 @@ fun PreviewBreakdown(
             // Total separator + summary row
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
-                color = colors.onSurfaceVariant,
+                color = themeColors.onSurfaceVariant,
                 thickness = 2.dp,
             )
 
@@ -129,7 +130,7 @@ fun PreviewBreakdown(
                 text = "Total: $summary",
                 style = typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = colors.onSurface,
+                    color = themeColors.onSurface,
                 ),
             )
         }

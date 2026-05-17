@@ -1,5 +1,6 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,18 +22,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.cuentamorosos.formatDateMillis
 import com.cuentamorosos.model.formatEuros
 
 @Composable
@@ -40,24 +42,34 @@ fun DashboardScreen(
     modifier: Modifier = Modifier,
     state: DashboardState,
     onAlertTap: (SmartAlert) -> Unit = {},
-    onActivityTap: (ActivityItem) -> Unit = {},
+    onEventTap: (DashboardEventRow) -> Unit = {},
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
+    var expandedAlertIds by remember { mutableStateOf(setOf<String>()) }
+
+    fun toggleAlert(alertId: String) {
+        expandedAlertIds = if (alertId in expandedAlertIds) {
+            expandedAlertIds - alertId
+        } else {
+            expandedAlertIds + alertId
+        }
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // Title
         item {
             Text(
-                text = "Panel de Control",
+                text = "Panel",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
             )
         }
 
-        // FIX D1: Indicator cards with top accent bar
+        // Resumen: indicator cards
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -72,7 +84,7 @@ fun DashboardScreen(
                 )
                 IndicatorCard(
                     modifier = Modifier.weight(1f),
-                    title = "Debés",
+                    title = "Debes",
                     amount = state.totalYouOwe,
                     borderColor = colors.error,
                     icon = "\uD83D\uDCC9",
@@ -80,55 +92,15 @@ fun DashboardScreen(
             }
         }
 
-        // Historial de eventos
-        item {
-            Text(
-                text = "HISTORIAL DE EVENTOS",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.primaryContainer,
-            )
-        }
-
-        if (state.eventHistory.isEmpty()) {
-            item {
-                Text(
-                    text = "No hay eventos activos",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            items(state.eventHistory) { historyItem ->
-                EventHistoryRow(
-                    historyItem = historyItem,
-                    onTap = {
-                        // Build a SmartAlert to reuse onAlertTap for navigation
-                        onAlertTap(
-                            SmartAlert(
-                                type = AlertType.NO_EXPENSES,
-                                message = historyItem.eventName,
-                                icon = "\uD83D\uDCCB",
-                                eventId = historyItem.eventId,
-                            ),
-                        )
-                    },
-                )
-            }
-        }
-
-        // Smart Alerts
-        item {
-            Text(
-                text = "ALERTAS INTELIGENTES",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.primaryContainer,
-            )
-        }
-
+        // Alertas Inteligentes (collapsible)
         if (state.smartAlerts.isEmpty()) {
             item {
+                Text(
+                    text = "ALERTAS INTELIGENTES",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.primaryContainer,
+                )
                 Text(
                     text = "\u2705 Todo en orden",
                     style = MaterialTheme.typography.bodyMedium,
@@ -136,58 +108,64 @@ fun DashboardScreen(
                 )
             }
         } else {
-            items(state.smartAlerts) { alert ->
-                AlertCard(
-                    alert = alert,
-                    onTap = { onAlertTap(alert) },
-                )
-            }
-        }
-
-        // FIX D5: Recent Activity with "Ver todo" button
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            item {
+                val alertCount = state.smartAlerts.size
                 Text(
-                    text = "ACTIVIDAD RECIENTE",
+                    text = "ALERTAS INTELIGENTES ($alertCount)",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = colors.primaryContainer,
+                    modifier = Modifier.clickable {
+                        // Toggle all alerts at once
+                        if (expandedAlertIds.isEmpty()) {
+                            expandedAlertIds = state.smartAlerts.map { it.eventId }.toSet()
+                        } else {
+                            expandedAlertIds = emptySet()
+                        }
+                    },
                 )
-                TextButton(onClick = { /* TODO: navigate to all activity */ }) {
-                    Text(
-                        text = "Ver todo",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.primaryContainer,
+            }
+            items(state.smartAlerts) { alert ->
+                val isExpanded = alert.eventId in expandedAlertIds
+                AnimatedVisibility(visible = isExpanded) {
+                    AlertCard(
+                        alert = alert,
+                        onTap = { onAlertTap(alert) },
                     )
                 }
             }
         }
 
-        if (state.recentActivity.isEmpty()) {
+        // TODOS MIS EVENTOS (unified list)
+        item {
+            Text(
+                text = "TODOS MIS EVENTOS",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.primaryContainer,
+            )
+        }
+
+        if (state.allEvents.isEmpty()) {
             item {
                 Text(
-                    text = "Sin actividad reciente",
+                    text = "No tienes eventos aún",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         } else {
-            // FIX D6: Activity rows wrapped in a single Card container
-            item {
-                ActivityCardContainer(
-                    activities = state.recentActivity,
-                    onActivityTap = onActivityTap,
+            items(state.allEvents) { eventRow ->
+                DashboardEventRow(
+                    row = eventRow,
+                    onTap = { onEventTap(eventRow) },
                 )
             }
         }
     }
 }
 
-// ── IndicatorCard with top accent bar (FIX D1) ────────────────────────────────
+// ── IndicatorCard with top accent bar ─────────────────────────────────────────
 
 @Composable
 private fun IndicatorCard(
@@ -197,7 +175,7 @@ private fun IndicatorCard(
     borderColor: androidx.compose.ui.graphics.Color,
     icon: String,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
 
     Card(
         modifier = modifier
@@ -232,7 +210,6 @@ private fun IndicatorCard(
                     Text(text = icon, style = MaterialTheme.typography.headlineMedium)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                // FIX D4: JetBrains Mono for amounts
                 Text(
                     text = formatEuros(amount),
                     style = MaterialTheme.typography.displayLarge,
@@ -245,74 +222,15 @@ private fun IndicatorCard(
     }
 }
 
-// ── EventHistoryRow ───────────────────────────────────────────────────────────
-
-@Composable
-private fun EventHistoryRow(
-    historyItem: EventHistoryItem,
-    onTap: () -> Unit,
-) {
-    val colors = NeoFintechColors.dark()
-    val amountColor = if (historyItem.amount >= 0) colors.primaryContainer else colors.error
-    val participantLabel = when {
-        historyItem.participantCount == 0 -> "Sin participantes"
-        historyItem.participantCount == 1 -> "1 participante"
-        else -> "${historyItem.participantCount} participantes"
-    }
-    val statusLabel = when (historyItem.status) {
-        EventStatus.ACTIVE -> "Activo"
-        EventStatus.SETTLING -> "Calculando"
-        EventStatus.CLOSED -> "Cerrado"
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onTap),
-        colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
-        shape = NeoFintechShapes.md,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = historyItem.eventName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = colors.onSurface,
-                )
-                Text(
-                    text = "$participantLabel · $statusLabel",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                )
-            }
-            Text(
-                text = formatEuros(historyItem.amount),
-                style = MaterialTheme.typography.labelLarge,
-                fontFamily = JetBrainsMonoFontFamily(),
-                fontWeight = FontWeight.SemiBold,
-                color = amountColor,
-            )
-        }
-    }
-}
-
-// ── AlertCard with icon circles (FIX D3) ──────────────────────────────────────
+// ── AlertCard with icon circles ───────────────────────────────────────────────
 
 @Composable
 private fun AlertCard(
     alert: SmartAlert,
     onTap: () -> Unit,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
 
-    // Resolve icon circle colors based on alert type
     val (iconBgColor, iconColor) = when (alert.type) {
         AlertType.NO_PARTICIPANTS -> colors.errorContainer to colors.onErrorContainer
         AlertType.NO_EXPENSES -> colors.surfaceContainerHigh to colors.onSurfaceVariant
@@ -372,96 +290,61 @@ private fun AlertCard(
     }
 }
 
-// ── Activity rows in card container (FIX D6) ──────────────────────────────────
+// ── DashboardEventRow (unified event row) ─────────────────────────────────────
 
 @Composable
-private fun ActivityCardContainer(
-    activities: List<ActivityItem>,
-    onActivityTap: (ActivityItem) -> Unit,
+private fun DashboardEventRow(
+    row: DashboardEventRow,
+    onTap: () -> Unit,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
+    val amountColor = if (row.amount >= 0) colors.primaryContainer else colors.error
+    val participantLabel = when {
+        row.participantCount == 0 -> "Sin participantes"
+        row.participantCount == 1 -> "1 participante"
+        else -> "${row.participantCount} participantes"
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
-            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
+            .clickable(onClick = onTap),
         colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
-        shape = NeoFintechShapes.lg,
+        shape = NeoFintechShapes.md,
     ) {
-        Column {
-            activities.forEachIndexed { index, activity ->
-                ActivityRow(
-                    activity = activity,
-                    onTap = { onActivityTap(activity) },
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = row.eventName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = colors.onSurface,
                 )
-                if (index < activities.lastIndex) {
-                    HorizontalDivider(color = colors.outlineVariant)
-                }
+                Text(
+                    text = participantLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = formatEuros(row.amount),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontFamily = JetBrainsMonoFontFamily(),
+                    fontWeight = FontWeight.SemiBold,
+                    color = amountColor,
+                )
+                StateBadge(state = row.state)
             }
         }
-    }
-}
-
-@Composable
-private fun ActivityRow(
-    activity: ActivityItem,
-    onTap: () -> Unit,
-) {
-    val colors = NeoFintechColors.dark()
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onTap)
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column {
-            Text(
-                text = activity.eventName,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = colors.onSurface,
-            )
-            Text(
-                text = formatDateMillis(activity.timestamp),
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.onSurfaceVariant,
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = formatEuros(activity.amount),
-                style = MaterialTheme.typography.labelSmall,
-                fontFamily = JetBrainsMonoFontFamily(),
-                color = colors.primaryContainer,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            StatusBadge(status = activity.status)
-        }
-    }
-}
-
-@Composable
-private fun StatusBadge(status: EventStatus) {
-    val colors = NeoFintechColors.dark()
-    val (label, bgColor, textColor) = when (status) {
-        EventStatus.ACTIVE -> Triple("Activo", colors.primaryContainer.copy(alpha = 0.15f), colors.primaryContainer)
-        EventStatus.SETTLING -> Triple("Calculando", colors.surfaceContainer, colors.onSurfaceVariant)
-        EventStatus.CLOSED -> Triple("Cerrado", colors.tertiaryContainer.copy(alpha = 0.3f), colors.onTertiaryContainer)
-    }
-    Surface(
-        color = bgColor,
-        shape = NeoFintechShapes.full,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = textColor,
-            textAlign = TextAlign.Center,
-        )
     }
 }

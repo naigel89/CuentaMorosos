@@ -27,7 +27,7 @@ fun TotalCostCard(
     totalPending: Double,
     expenseCount: Int,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
 
     Card(

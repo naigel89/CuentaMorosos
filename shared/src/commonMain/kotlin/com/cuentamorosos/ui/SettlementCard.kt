@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -26,8 +27,9 @@ import com.cuentamorosos.model.formatEuros
 @Composable
 fun SettlementCard(
     transfers: List<SettlementTransfer>,
+    profileNameResolver: (String) -> String = { it },
 ) {
-    val colors = NeoFintechColors.light()
+    val themeColors = MaterialTheme.colorScheme
     val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
     val monoFont = JetBrainsMonoFontFamily()
@@ -42,9 +44,9 @@ fun SettlementCard(
                 shape = NeoFintechElevation.cardShadowShape,
                 clip = false,
             ),
-        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        colors = CardDefaults.cardColors(containerColor = themeColors.surface),
         shape = shapes.lg,
-        border = BorderStroke(1.dp, colors.outlineVariant),
+        border = BorderStroke(1.dp, themeColors.outline),
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -59,7 +61,7 @@ fun SettlementCard(
                     style = typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 )
                 Badge(
-                    containerColor = colors.tertiaryContainer,
+                    containerColor = themeColors.tertiaryContainer,
                 ) {
                     Text(
                         text = "${transfers.size}",
@@ -70,7 +72,7 @@ fun SettlementCard(
 
             Text(
                 text = "Transferencias mínimas necesarias:",
-                style = typography.bodySmall.copy(color = colors.onSurfaceVariant),
+                style = typography.bodySmall.copy(color = themeColors.onSurfaceVariant),
             )
 
             transfers.forEach { transfer ->
@@ -79,14 +81,14 @@ fun SettlementCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = "${transfer.fromName} \u2192 ${transfer.toName}",
+                        text = "${profileNameResolver(transfer.fromProfileId)} → ${profileNameResolver(transfer.toProfileId)}",
                         style = typography.bodyMedium,
                     )
                     Text(
                         text = formatEuros(transfer.amount),
                         style = typography.labelSmall.copy(
                             fontFamily = monoFont,
-                            color = colors.primaryContainer,
+                            color = themeColors.primary,
                             fontWeight = FontWeight.Medium,
                         ),
                     )

@@ -1,0 +1,25 @@
+CREATE TABLE IF NOT EXISTS CachedAuditEntry (
+    id TEXT NOT NULL PRIMARY KEY,
+    eventId TEXT NOT NULL,
+    expenseId TEXT NOT NULL,
+    action TEXT NOT NULL,
+    profileId TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    beforeSnapshot TEXT,
+    afterSnapshot TEXT
+);
+
+selectAll:
+SELECT * FROM CachedAuditEntry;
+
+selectByEvent:
+SELECT * FROM CachedAuditEntry WHERE eventId = ? ORDER BY timestamp ASC;
+
+selectByExpense:
+SELECT * FROM CachedAuditEntry WHERE expenseId = ? ORDER BY timestamp ASC;
+
+insertEntry:
+INSERT INTO CachedAuditEntry VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteByEvent:
+DELETE FROM CachedAuditEntry WHERE eventId = ?;

@@ -2,14 +2,14 @@
 
 > **Código:** SPR0009A1
 > **Versión:** A
-> **Revisión:** A.1
-> **Fecha:** 2026-04-30
+> **Revisión:** 2
+> **Fecha:** 2026-05-14
 
 ## Objetivo del sprint
 Reestructurar el proyecto a arquitectura Kotlin Multiplatform (KMP) con Compose Multiplatform para que la app sea compilable y funcional en iOS, compartiendo la lógica de negocio y la mayor parte de la UI con Android.
 
 ## Estado
-En progreso
+Parcial — módulo `shared/` creado y compilando para Android. iOS pendiente (requiere Mac). **Código NO integrado** en `MainActivity`.
 
 ## Requisitos e historias incluidas
 | ID | Tipo | Nombre | Prioridad | Estado | Dependencias |
@@ -20,63 +20,52 @@ En progreso
 ## Tareas técnicas
 
 ### T4-01 — Reestructuración del proyecto a KMP ✅
-- Creado módulo `shared` con estructura `commonMain`, `androidMain`, `iosMain`.
-- Actualizado `settings.gradle.kts` para incluir `:shared`.
-- Añadido plugin `org.jetbrains.kotlin.multiplatform` al build raíz.
-- Los targets iOS se activan solo en macOS (la compilación iOS requiere Xcode en Mac).
+- Módulo `shared` con `commonMain`, `androidMain`, `iosMain`.
+- `settings.gradle.kts` actualizado con `:shared`.
 
-### T4-02 — Mover modelos a commonMain ✅
-- Trasladados `Models.kt` y `CalculatorEngine.kt` a `shared/src/commonMain/`.
-- `java.util.UUID` y `java.text.SimpleDateFormat` reemplazados con `expect/actual`.
-- Los archivos originales en `:app` han sido eliminados.
+### T4-02 a T4-04 — Modelos, repositorios y Firebase en commonMain ✅
+- `Models.kt`, `CalculatorEngine.kt` trasladados a `commonMain`.
+- Interfaces de repositorio en `commonMain`.
+- Implementaciones Firestore reescritas con `dev.gitlive:firebase-*`.
 
-### T4-03 — Mover repositorios y ViewModels a commonMain ✅
-- Trasladadas las interfaces `EventRepository`, `DebtRepository`, `ExpenseRepository`, `ProfileRepository`, `InvitationRepository` a `commonMain`.
-- Los archivos originales en `:app` han sido eliminados.
-- `LocalProfileRepository` y `CompositeProfileRepository` permanecen en `:app` (Android-específicos).
-
-### T4-04 — Reemplazar Firebase Android SDK por wrapper KMP ✅
-- Las implementaciones Firestore (`FirestoreEventRepository`, `FirestoreDebtRepository`, `FirestoreExpenseRepository`, `FirestoreProfileRepository`, `FirestoreInvitationRepository`) reescritas en `commonMain` usando `dev.gitlive:firebase-auth:1.13.0` y `dev.gitlive:firebase-firestore:1.13.0`.
-- Los archivos originales en `:app` han sido eliminados.
-
-### T4-05 — Configuración del proyecto Xcode
+### T4-05 — Configuración del proyecto Xcode ⏳
 - **Pendiente** — Requiere Mac con Xcode.
 
-### T4-06 — Target iOS en Firebase Console
+### T4-06 — Target iOS en Firebase Console ⏳
 - **Pendiente** — Requiere Mac.
 
-### T4-07 — Pantallas Compose a commonMain
-- **Pendiente** — Las pantallas permanecen en `:app` hasta que se disponga de un Mac para validar el resultado en iOS.
+### T4-07 — Pantallas Compose a commonMain ✅
+- `CuentaMorososApp`, `LoginScreen`, `RegisterScreen`, `ForgotPasswordScreen`, `UserProfileScreen` migrados a `commonMain`.
+- Firebase extraído a lambdas de callback provistas por `:app`.
 
-### T4-08 — Código expect/actual para funcionalidades nativas ✅
-- Implementado `Platform.kt` en `commonMain` con `expect` para: `generateUuid()`, `currentTimeMillis()`, `formatDateMillis()`, `parseDateString()`, `currentDateText()`.
-- `Platform.android.kt` usa `java.util.UUID` y `java.text.SimpleDateFormat`.
-- `Platform.ios.kt` usa `platform.Foundation.NSUUID` y `NSDateFormatter`.
+### T4-08 — Código expect/actual ✅
+- `Platform.kt` con `expect` para UUID, fechas, formateo.
+- `Platform.android.kt` y `Platform.ios.kt` implementados.
 
-### T4-09 — Adaptación de navegación para iOS
+### T4-09 — Adaptación de navegación para iOS ⏳
 - **Pendiente** — Requiere Mac con simulador iOS.
 
-### T4-10 — Primera compilación sin regresiones en Android ✅
+### T4-10 — Compilación Android sin regresiones ✅
 - `./gradlew :app:assembleDebug` → BUILD SUCCESSFUL.
-- `./gradlew :app:testDebugUnitTest` → BUILD SUCCESSFUL (todos los tests pasan).
+- `./gradlew :app:testDebugUnitTest` → BUILD SUCCESSFUL.
 
 ## Riesgos o bloqueos
-- Este sprint **requiere un Mac** con Xcode instalado. Sin Mac no es posible compilar para iOS.
-- La migración a KMP puede introducir regresiones en Android; ejecutar pruebas de regresión completas tras cada cambio.
-- Algunas APIs de Android (como `SharedPreferences` o `Context`) no están disponibles en `commonMain` y deben abstraerse.
+- **BLOQUEO PRINCIPAL**: `MainActivity` no usa `CuentaMorososApp` de `shared/`. Todo el código KMP existe pero está desconectado.
+- iOS requiere Mac con Xcode instalado.
 
 ## Definition of Done
-- [x] El módulo `shared` compila sin errores para Android
-- [x] Los modelos, interfaces de repositorio e implementaciones Firestore están en `commonMain`
-- [x] El proyecto Android compila y los tests pasan sin regresiones
-- [ ] El proyecto compila sin errores para iOS (requiere Mac)
-- [ ] Las pantallas principales son funcionales en el simulador de iPhone
-- [ ] Login, gestión de eventos y gastos funcionan en iOS
-- [ ] La sincronización con Firestore funciona en iOS
-- [ ] No hay regresiones en la versión Android
+- [x] Módulo `shared` compila sin errores para Android
+- [x] Modelos, repositorios e implementaciones Firestore en commonMain
+- [x] Todas las pantallas Compose y ViewModels migrados a commonMain
+- [x] Código expect/actual para funcionalidades nativas
+- [x] Android compila y tests pasan sin regresiones
+- [ ] MainActivity wireada para usar CuentaMorososApp de shared/
+- [ ] Proyecto compila para iOS (requiere Mac)
+- [ ] Pantallas funcionales en simulador de iPhone
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
-| 2026-04-30 | A | A.1 | Alta | Creación del sprint 09 con migración a Compose Multiplatform para iOS. |
-| 2026-05-02 | A | A.2 | Alta | T4-01..04, T4-08, T4-10 completados: módulo shared KMP creado, modelos y repos migrados a commonMain, Firebase reemplazado por gitlive, expect/actual implementado, APK Android BUILD SUCCESSFUL. |
+| 2026-04-30 | A | A.1 | Alta | Creación del sprint 09 con migración a Compose Multiplatform. |
+| 2026-05-02 | A | A.3 | Alta | T4-07 completado: pantallas y ViewModels migrados a commonMain. |
+| 2026-05-14 | A | A.4 | Corrección | Estado cambiado a Parcial: código en shared/ pero MainActivity no integrada. iOS pendiente. |

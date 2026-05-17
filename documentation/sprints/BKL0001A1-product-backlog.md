@@ -2,8 +2,8 @@
 
 > **Código:** BKL0001A1
 > **Versión:** A
-> **Revisión:** A.17
-> **Fecha:** 2026-05-02
+> **Revisión:** A.19
+> **Fecha:** 2026-05-14
 
 ## Resumen
 Backlog general del proyecto. Debe recoger todos los requisitos, tareas técnicas y pendientes relevantes para planificar los próximos sprints.
@@ -31,22 +31,40 @@ Backlog general del proyecto. Debe recoger todos los requisitos, tareas técnica
 | DT0005A1 | DT | Notificaciones en segundo plano con WorkManager | Media | Sprint 04 | Hecho | FR0004A1, API0001A1 |
 | FR0001B1 | FR | Vista de calendario de eventos | Baja | Sprint 05 | Hecho | FR0001A1 |
 | UX0001A1 | UX | Búsqueda y filtrado de eventos | Media | Sprint 05 | Hecho | FR0001A1 |
-| US-01 | US | Registro de nuevo usuario | Alta | Sprint 06 | Hecho | — |
-| US-02 | US | Inicio de sesión | Alta | Sprint 06 | Hecho | US-01 |
-| US-03 | US | Recuperación de contraseña | Media | Sprint 06 | Hecho | US-01 |
-| US-04 | US | Cerrar sesión | Media | Sprint 06 | Hecho | US-02 |
-| US-05 | US | Crear un evento online | Alta | Sprint 07 | Hecho | SPR0006 |
-| US-06 | US | Ver eventos en tiempo real | Alta | Sprint 07 | Hecho | US-05 |
-| FR0006A1 | FR | Perfiles fantasma y vinculación manual | Alta | Sprint 08B.2 | Hecho | SPR0008A1 |
-| FR0007A1 | FR | Creador de evento opcional en el reparto | Media | Sprint 08B.1 | Hecho | SPR0008A1 |
-| FR0008A1 | FR | Divisiones porcentuales por ítem individual | Alta | Sprint 08B.2 | Hecho | FR0005A1 |
-| UI0006A1 | UI | Simplificación de la interfaz de modos de cálculo | Media | Sprint 08B.1 | Hecho | UI0005A1 |
+| US-01 | US | Registro de nuevo usuario | Alta | Sprint 06 | Parcial | — |
+| US-02 | US | Inicio de sesión | Alta | Sprint 06 | Parcial | US-01 |
+| US-03 | US | Recuperación de contraseña | Media | Sprint 06 | Parcial | US-01 |
+| US-04 | US | Cerrar sesión | Media | Sprint 06 | Parcial | US-02 |
+| US-05 | US | Crear un evento online | Alta | Sprint 07 | Parcial | SPR0006 |
+| US-06 | US | Ver eventos en tiempo real | Alta | Sprint 07 | Parcial | US-05 |
+| US-07 | US | Invitar a alguien a un evento por email | Alta | Sprint 08 | Parcial | SPR0007 |
+| US-08 | US | Aceptar o rechazar una invitación | Alta | Sprint 08 | Parcial | US-07 |
+| US-09 | US | Ver miembros de un evento | Media | Sprint 08 | Parcial | US-07 |
+| US-10 | US | Expulsar a un miembro | Media | Sprint 08 | Parcial | US-09 |
+| FR0006A1 | FR | Perfiles fantasma y vinculación manual | Alta | Sprint 08B.2 | Parcial | SPR0008A1 |
+| FR0007A1 | FR | Creador de evento opcional en el reparto | Media | Sprint 08B.1 | Parcial | SPR0008A1 |
+| FR0008A1 | FR | Divisiones porcentuales por ítem individual | Alta | Sprint 08B.2 | Parcial | FR0005A1 |
+| UI0006A1 | UI | Simplificación de la interfaz de modos de cálculo | Media | Sprint 08B.1 | Parcial | UI0005A1 |
+| US-11 | US | Usar la app sin conexión a internet | Alta | Sprint 10 | Pendiente | SPR0007 |
+| US-12 | US | Usar la app en un iPhone | Alta | Sprint 09 | Pendiente | SPR0008 |
+| US-13 | US | Sincronización entre Android e iOS | Alta | Sprint 09 | Pendiente | US-12 |
+| NFR0001B1 | NFR | Sistema de diseño Neo-Fintech Precision (colores, Geist, animaciones) | Alta | Sprint 11 | Pendiente | NFR0001A1 |
+| UI0007B1 | UI | Panel de Control (Dashboard) — nueva pantalla principal | Alta | Sprint 11 | Pendiente | NFR0001B1 |
+| UI0001B1 | UI | Pantalla de eventos — rediseño Bento Grid | Alta | Sprint 11 | Pendiente | NFR0001B1, UI0007B1 |
+| UI0002B1 | UI | Detalle de evento y pagos — rediseño dos columnas | Alta | Sprint 11 | Pendiente | NFR0001B1, UI0001B1 |
+| UI0003B1 | UI | Pantalla de perfiles — rediseño con dashboard balance | Alta | Sprint 11 | Pendiente | NFR0001B1 |
+| UI0004B1 | UI | Ajustes y apariencia — rediseño con toggles neón | Media | Sprint 11 | Pendiente | NFR0001B1 |
+| UI0005B1 | UI | Calculadora automática — simplificación Consumo Real | Media | Sprint 11 | Pendiente | NFR0001B1, UI0002B1 |
 
 ## Notas de priorización
 - Priorizar primero la base de datos y el flujo mínimo de eventos y perfiles.
 - Completar después el control de pagos y el recálculo de importes pendientes.
 - Dejar recordatorios y personalización visual para una fase posterior ya estable.
-- Sprint 04 cierra deuda técnica acumulada: eliminación de registros, permisos runtime, liquidación real y notificaciones en background. La vista de calendario queda como mejora de baja prioridad.
+- Sprint 04 cierra deuda técnica acumulada: eliminación de registros, permisos runtime, liquidación real y notificaciones en background.
+- **NOTA (2026-05-14)**: Sprints 06-09 tienen código implementado en `shared/src/commonMain/` pero **NO integrado** en `MainActivity`. El orden de trabajo corregido es:
+  1. **Sprint A**: Integración KMP (wirear MainActivity → shared/)
+  2. **Sprint B**: Sprint 10 - Completar offline (OfflineFirst repos + NetworkMonitor)
+  3. **Sprint C**: Sprint 11 - Rediseño Neo-Fintech Precision
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
@@ -67,3 +85,4 @@ Backlog general del proyecto. Debe recoger todos los requisitos, tareas técnica
 | 2026-05-01 | A | A.15 | Actualización | Se añaden requisitos de usabilidad (perfiles fantasma, creador opcional, % por ítem y UI simplificada) asignados al bloque Sprint 08B antes de la migración a iOS. |
 | 2026-05-01 | A | A.16 | Actualización | Sprint 08B.1 completado: creador opcional en reparto y simplificación de modos de cálculo marcados como Hecho; quedan pendientes perfiles fantasma y porcentajes por ítem (08B.2). |
 | 2026-05-02 | A | A.17 | Actualización | Sprint 08B.2 completado: perfiles fantasma con vinculación automática por email y reparto porcentual por ítem marcados como Hecho. |
+| 2026-05-14 | A | A.19 | Corrección | Auditoría completa: sprints 06-09 cambiados de "Hecho" a "Parcial" (código en shared/ pero no integrado en MainActivity). Añadidos US-07 a US-13 al backlog. Nota de priorización actualizada con orden corregido: Integración KMP → Offline → Rediseño. |

@@ -34,7 +34,6 @@ import kotlinx.coroutines.runBlocking
 class MainActivity : ComponentActivity() {
 
     private lateinit var repositoryProvider: RepositoryProvider
-    private lateinit var viewModelFactory: AppViewModelFactory
     private lateinit var localStore: CuentaMorososLocalStore
     private lateinit var networkMonitor: com.cuentamorosos.data.NetworkMonitor
 
@@ -49,7 +48,6 @@ class MainActivity : ComponentActivity() {
         val sqlDriver = DriverFactory(applicationContext).createDriver()
         networkMonitor = NetworkMonitorFactory(applicationContext).create()
         repositoryProvider = RepositoryProvider(sqlDriver, networkMonitor)
-        viewModelFactory = AppViewModelFactory(repositoryProvider)
         localStore = CuentaMorososLocalStore(applicationContext)
 
         // Sync Firebase user on startup if already logged in
@@ -81,7 +79,7 @@ class MainActivity : ComponentActivity() {
                     if (currentUser != null) {
                         MainAppContent(
                             user = currentUser!!,
-                            viewModelFactory = viewModelFactory,
+                            repositoryProvider = repositoryProvider,
                             localStore = localStore,
                             networkMonitor = networkMonitor,
                             application = application
@@ -106,11 +104,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MainAppContent(
     user: com.google.firebase.auth.FirebaseUser,
-    viewModelFactory: ViewModelProvider.Factory,
+    repositoryProvider: RepositoryProvider,
     localStore: CuentaMorososLocalStore,
     networkMonitor: com.cuentamorosos.data.NetworkMonitor,
     application: android.app.Application
 ) {
+    val viewModelFactory = remember(user.uid) {
+        AppViewModelFactory(repositoryProvider, currentProfileId = user.uid)
+    }
     var preferences by remember { mutableStateOf(localStore.loadPreferences()) }
 
     CuentaMorososApp(

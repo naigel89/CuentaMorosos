@@ -10,6 +10,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -31,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.model.CalculationResult
+import com.cuentamorosos.model.CalculationSnapshot
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.ProfileItem
@@ -71,6 +74,8 @@ fun CalculatorSheet(
     eventExpenses: List<EventExpenseItem>,
     onDismiss: () -> Unit,
     onApply: (CalculationResult) -> Unit,
+    deletedProfileIds: Set<String> = emptySet(),
+    priorSnapshot: CalculationSnapshot? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -380,6 +385,45 @@ fun CalculatorSheet(
                             }
                         },
                     )
+                }
+            }
+
+            // Null-snapshot error display: shows when calculation failed to produce a snapshot
+            calculationResult?.takeIf { it.snapshot == null }?.let { result ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = themeColors.errorContainer,
+                    ),
+                    shape = shapes.md,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = "❌ Error en el cálculo",
+                            style = typography.titleSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = themeColors.onErrorContainer,
+                            ),
+                        )
+                        if (result.errors.isNotEmpty()) {
+                            Text(
+                                text = result.errors.joinToString("\n"),
+                                style = typography.bodySmall.copy(color = themeColors.onErrorContainer),
+                            )
+                        }
+                        result.status?.let { status ->
+                            Text(
+                                text = status.message,
+                                style = typography.bodySmall.copy(
+                                    color = themeColors.onErrorContainer,
+                                    fontWeight = FontWeight.Medium,
+                                ),
+                            )
+                        }
+                    }
                 }
             }
 

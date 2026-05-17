@@ -33,7 +33,7 @@ fun ProfileAvatar(
     size: Dp = 48.dp,
     modifier: Modifier = Modifier,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
     val avatarColor = if (initial.isNotBlank()) colorForName(name) else colors.surfaceContainerHigh
 

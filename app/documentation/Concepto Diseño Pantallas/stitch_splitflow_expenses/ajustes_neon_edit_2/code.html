@@ -1,0 +1,411 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>CuentaMorosos - Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "secondary": "#c8c5cb",
+                "on-tertiary-fixed": "#1b1b1f",
+                "surface-container-highest": "#353534",
+                "surface-variant": "#353534",
+                "surface-bright": "#3a3939",
+                "on-background": "#e5e2e1",
+                "primary-fixed": "#79ff5b",
+                "tertiary": "#fbf9fe",
+                "surface-container-low": "#1c1b1b",
+                "outline-variant": "#3c4b35",
+                "surface-dim": "#131313",
+                "on-surface-variant": "#baccb0",
+                "on-primary-container": "#107100",
+                "background": "#131313",
+                "secondary-fixed": "#e4e1e7",
+                "surface-container-lowest": "#0e0e0e",
+                "on-secondary-fixed": "#1b1b1f",
+                "on-secondary": "#303034",
+                "inverse-surface": "#e5e2e1",
+                "on-tertiary-container": "#616065",
+                "on-primary-fixed": "#022100",
+                "on-tertiary": "#303034",
+                "secondary-container": "#47464b",
+                "outline": "#85967c",
+                "error-container": "#93000a",
+                "on-primary-fixed-variant": "#095300",
+                "on-tertiary-fixed-variant": "#47464b",
+                "on-error-container": "#ffdad6",
+                "tertiary-fixed": "#e4e1e7",
+                "tertiary-fixed-dim": "#c8c5cb",
+                "on-primary": "#053900",
+                "surface-container": "#201f1f",
+                "secondary-fixed-dim": "#c8c5cb",
+                "on-error": "#690005",
+                "inverse-primary": "#106e00",
+                "surface-tint": "#2ae500",
+                "on-secondary-fixed-variant": "#47464b",
+                "tertiary-container": "#dfdce1",
+                "primary-container": "#39ff14",
+                "surface-container-high": "#2a2a2a",
+                "surface": "#131313",
+                "primary": "#efffe3",
+                "primary-fixed-dim": "#2ae500",
+                "error": "#ffb4ab",
+                "on-secondary-container": "#b6b4b9",
+                "on-surface": "#e5e2e1",
+                "inverse-on-surface": "#313030"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "md": "24px",
+                "gutter": "20px",
+                "lg": "40px",
+                "sm": "16px",
+                "xl": "64px",
+                "margin-desktop": "48px",
+                "base": "4px",
+                "margin-mobile": "16px",
+                "xs": "8px",
+                "container-max": "1280px",
+                "section-margin": "40px",
+                "container-padding": "20px",
+                "stack-gap-md": "24px",
+                "stack-gap-sm": "12px"
+        },
+        "fontFamily": {
+                "body-sm": [
+                        "Geist"
+                ],
+                "display-lg-mobile": [
+                        "Geist"
+                ],
+                "body-lg": [
+                        "Geist"
+                ],
+                "label-caps": [
+                        "JetBrains Mono"
+                ],
+                "display-lg": [
+                        "Geist"
+                ],
+                "numeric-data": [
+                        "JetBrains Mono"
+                ],
+                "headline-md": [
+                        "Geist"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "headline-xl-mobile": [
+                        "Hanken Grotesk"
+                ],
+                "label-sm": [
+                        "JetBrains Mono"
+                ],
+                "headline-lg": [
+                        "Hanken Grotesk"
+                ],
+                "headline-xl": [
+                        "Hanken Grotesk"
+                ],
+                "label-md": [
+                        "JetBrains Mono"
+                ],
+                "headline-lg-mobile": ["Hanken Grotesk"]
+        },
+        "fontSize": {
+                "body-sm": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "display-lg-mobile": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "body-lg": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "label-caps": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.1em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "display-lg": [
+                        "48px",
+                        {
+                                "lineHeight": "56px",
+                                "letterSpacing": "-0.04em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "numeric-data": [
+                        "18px",
+                        {
+                                "lineHeight": "24px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-xl-mobile": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "fontWeight": "500"
+                        }
+                ],
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-xl": [
+                        "48px",
+                        {
+                                "lineHeight": "56px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "label-md": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "fontWeight": "500"
+                        }
+                ],
+                "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }]
+        }
+},
+    },
+  }
+</script>
+<style>
+        body { font-family: 'Hanken Grotesk', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style data-stitch-cursor=""></style><style data-stitch-scroll-lock=""></style></head>
+<body class="bg-background text-on-background min-h-screen pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="bg-surface text-primary flex justify-between items-center w-full px-container-padding py-4 h-16 sticky top-0 z-40">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container-high border border-surface-container-highest">
+<img alt="User profile photo" class="w-full h-full object-cover" data-alt="A close-up portrait of a professional individual in a well-lit studio. They have a confident, approachable expression. The lighting is soft and modern, highlighting their features against a subtle, neutral background, perfect for a high-end corporate or financial app profile placeholder." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxfjDyGfsNdp70DybSQkNCcgoz1Qs2k9C0QYA9qFnHFg_ldm1B6eHyuBDlkRqxh8BsIwRvlWC_ov0NrmW-fm0v6njpjKThPLLtoflneXB07TdVfAu6uf02NZ1RWx1xwplRk1a-98RV_9n5q1eH3jbSxphOJW-AuZbh2hv_0b-OnZGezDCOt5W8cEnBdHG_kriHW3lC8WtPdVp7o_dpjMqMhok8wEGWNZrsezJvNtY0frCkBTIq0UQ8zcUwBDMqle865c_13EDyqCs">
+</div>
+<h1 class="font-headline-md text-headline-md-mobile md:text-headline-md font-bold text-on-surface">CuentaMorosos</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors text-primary">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<main class="px-container-padding max-w-4xl mx-auto pt-6 md:pt-12">
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-stack-gap-md">Settings</h2>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<!-- Left Column: Navigation / Categories (Desktop) -->
+<aside class="hidden md:block md:col-span-3 space-y-2">
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" href="#">
+<span class="material-symbols-outlined text-primary">tune</span>
+                        Preferences
+                    </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-low text-on-surface-variant font-label-md text-label-md transition-colors" href="#">
+<span class="material-symbols-outlined">security</span>
+                        Security
+                    </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-low text-on-surface-variant font-label-md text-label-md transition-colors" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+                        Account
+                    </a>
+</nav>
+</aside>
+<!-- Right Column: Settings Content -->
+<div class="col-span-1 md:col-span-9 space-y-section-margin">
+<!-- Appearance Section -->
+<section>
+<h3 class="font-label-md text-label-md text-primary mb-stack-gap-sm uppercase tracking-wider">Appearance</h3>
+<div class="bg-surface-container-lowest rounded-xl border border-surface-container-highest shadow-[0_4px_20px_0_rgba(0,0,0,0.04)] overflow-hidden">
+<!-- Theme Toggle -->
+<div class="flex items-center justify-between p-4 border-b border-surface-variant">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface">Theme</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Choose your preferred visual mode.</p>
+</div>
+<div class="flex bg-surface-container rounded-xl p-1">
+<button class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface font-label-md text-label-md flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined">light_mode</span>
+                                    Light
+                                </button>
+<button class="px-4 py-2 rounded-lg bg-surface-container-lowest text-primary shadow-sm font-label-md text-label-md flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+                                    Dark
+                                </button>
+</div>
+</div>
+<!-- Accent Color -->
+<div class="flex items-center justify-between p-4 border-b border-surface-variant">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface">Accent Color</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Customize the primary interface color.</p>
+</div>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-full bg-primary-container ring-2 ring-offset-2 ring-primary-container ring-offset-surface-container-lowest"></button>
+<button class="w-8 h-8 rounded-full bg-[#00C566] hover:scale-110 transition-transform"></button>
+<button class="w-8 h-8 rounded-full bg-secondary hover:scale-110 transition-transform"></button>
+</div>
+</div>
+<!-- Density -->
+<div class="flex items-center justify-between p-4">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface">List Density</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Adjust the spacing in data views.</p>
+</div>
+<select class="bg-surface-container-low border-none rounded-lg py-2 pl-4 pr-10 text-on-surface font-body-md text-body-md focus:ring-2 focus:ring-primary-container">
+<option>Compact</option>
+<option selected="">Standard</option>
+<option>Comfortable</option>
+</select>
+</div>
+</div>
+</section>
+<!-- Notifications Section -->
+<section>
+<h3 class="font-label-md text-label-md text-primary mb-stack-gap-sm uppercase tracking-wider">Notifications</h3>
+<div class="bg-surface-container-lowest rounded-xl border border-surface-container-highest shadow-[0_4px_20px_0_rgba(0,0,0,0.04)] overflow-hidden">
+<!-- Push Notifications -->
+<div class="flex items-center justify-between p-4 border-b border-surface-variant">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface">Push Notifications</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Receive alerts on your device.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value="">
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+<!-- Email Summaries -->
+<div class="flex items-center justify-between p-4 border-b border-surface-variant">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface">Email Summaries</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Weekly reports of your activity.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value="">
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+<!-- Promotional -->
+<div class="flex items-center justify-between p-4">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface">Promotional Offers</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Updates on new features and deals.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value="">
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Session Management Section -->
+<section>
+<h3 class="font-label-md text-label-md text-primary mb-stack-gap-sm uppercase tracking-wider">Session &amp; Security</h3>
+<div class="bg-surface-container-lowest rounded-xl border border-surface-container-highest shadow-[0_4px_20px_0_rgba(0,0,0,0.04)] overflow-hidden p-4">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">devices</span>
+</div>
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface">Active Sessions</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Manage devices logged into your account.</p>
+</div>
+</div>
+<button class="px-4 py-2 rounded-xl border border-surface-variant text-on-surface font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                                View Devices
+                            </button>
+</div>
+<div class="mt-6 pt-6 border-t border-surface-variant">
+<button class="flex items-center gap-2 text-error font-label-md text-label-md hover:text-[#FF4D4D] transition-colors">
+<span class="material-symbols-outlined">logout</span>
+                                Sign Out Everywhere
+                            </button>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-container-padding py-3 h-20 bg-surface-container-lowest shadow-[0_-4px_20px_0_rgba(0,0,0,0.05)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors w-16 h-16 rounded-xl" href="#">
+<span class="material-symbols-outlined mb-1">account_balance_wallet</span>
+<span class="font-label-sm text-label-sm">Events</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors w-16 h-16 rounded-xl" href="#">
+<span class="material-symbols-outlined mb-1">group</span>
+<span class="font-label-sm text-label-sm">Profiles</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary font-bold hover:bg-surface-container-low transition-colors w-16 h-16 rounded-xl scale-98" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="font-label-sm text-label-sm">Settings</span>
+</a>
+</nav>
+
+
+</body></html>

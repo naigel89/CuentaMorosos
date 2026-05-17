@@ -39,7 +39,7 @@ fun ProfileBalanceSummary(
     currentUid: String?,
     modifier: Modifier = Modifier,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
 
     val totalOwedToYou by remember(profiles, currentUid) {
         derivedStateOf {
@@ -111,7 +111,7 @@ private fun SummaryIndicator(
     amountColor: androidx.compose.ui.graphics.Color,
     iconColor: androidx.compose.ui.graphics.Color,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     Card(
         modifier = modifier
             .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)

@@ -1,0 +1,29 @@
+CREATE TABLE IF NOT EXISTS CachedCalculationVersion (
+    id TEXT NOT NULL PRIMARY KEY,
+    eventId TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    snapshotJson TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    isActive INTEGER NOT NULL DEFAULT 0
+);
+
+selectByEvent:
+SELECT * FROM CachedCalculationVersion WHERE eventId = ? ORDER BY version ASC;
+
+selectByVersion:
+SELECT * FROM CachedCalculationVersion WHERE eventId = ? AND version = ?;
+
+selectMaxVersion:
+SELECT MAX(version) AS maxVersion FROM CachedCalculationVersion WHERE eventId = ?;
+
+selectActive:
+SELECT * FROM CachedCalculationVersion WHERE eventId = ? AND isActive = 1 LIMIT 1;
+
+insertVersion:
+INSERT INTO CachedCalculationVersion VALUES (?, ?, ?, ?, ?, ?);
+
+updateIsActiveByEvent:
+UPDATE CachedCalculationVersion SET isActive = 0 WHERE eventId = ?;
+
+deleteByEvent:
+DELETE FROM CachedCalculationVersion WHERE eventId = ?;

@@ -48,9 +48,6 @@ class DashboardViewModel(
         expenses: List<EventExpenseItem>,
         @Suppress("UNUSED_PARAMETER") profiles: List<ProfileItem>,
     ): DashboardState {
-        // Simplification: show total pending across all events.
-        // Proper creditor/debtor tracking requires matching currentUser to a ProfileItem,
-        // which is not reliably available yet.
         val totalOwedToYou = debts
             .filter { !it.paid }
             .sumOf { it.amountEuros }
@@ -58,15 +55,13 @@ class DashboardViewModel(
         val totalYouOwe = 0.0
 
         val smartAlerts = computeSmartAlerts(events, expenses)
-        val recentActivity = buildRecentActivity(events, expenses)
-        val eventHistory = buildEventHistory(events, debts, expenses)
+        val allEvents = buildAllEvents(events, debts, expenses)
 
         return DashboardState(
             totalOwedToYou = totalOwedToYou,
             totalYouOwe = totalYouOwe,
             smartAlerts = smartAlerts,
-            recentActivity = recentActivity,
-            eventHistory = eventHistory,
+            allEvents = allEvents,
         )
     }
 
@@ -83,8 +78,7 @@ class DashboardViewModel(
             .toSet()
 
         events.forEach { event ->
-            // Events without participants
-            if (event.memberIds.isEmpty()) {
+            if (event.effectiveMemberIds.isEmpty()) {
                 alerts.add(
                     SmartAlert(
                         type = AlertType.NO_PARTICIPANTS,
@@ -95,7 +89,6 @@ class DashboardViewModel(
                 )
             }
 
-            // Events without expenses
             if (event.id !in eventsWithExpenses) {
                 alerts.add(
                     SmartAlert(
@@ -107,7 +100,6 @@ class DashboardViewModel(
                 )
             }
 
-            // Events with expenses but no calculation
             if (event.id in eventsWithExpenses && event.id !in eventsWithCalculation) {
                 alerts.add(
                     SmartAlert(
@@ -123,57 +115,24 @@ class DashboardViewModel(
         return alerts
     }
 
-    private fun buildRecentActivity(
-        events: List<EventItem>,
-        expenses: List<EventExpenseItem>,
-    ): List<ActivityItem> {
-        return events
-            .sortedByDescending { it.dateMillis }
-            .take(20)
-            .map { event ->
-                val eventExpenses = expenses.filter { it.eventId == event.id }
-                val totalAmount = eventExpenses.sumOf { it.amountEuros }
-                val status = if (event.lastCalculationMode != null) {
-                    EventStatus.SETTLING
-                } else {
-                    EventStatus.ACTIVE
-                }
-
-                ActivityItem(
-                    eventName = event.name,
-                    eventId = event.id,
-                    timestamp = event.dateMillis,
-                    amount = totalAmount,
-                    status = status,
-                )
-            }
-    }
-
-    private fun buildEventHistory(
+    private fun buildAllEvents(
         events: List<EventItem>,
         debts: List<EventDebtItem>,
         expenses: List<EventExpenseItem>,
-    ): List<EventHistoryItem> {
-        return events.map { event ->
-            val eventDebts = debts.filter { it.eventId == event.id }
-            val eventExpenses = expenses.filter { it.eventId == event.id }
-            val totalExpenses = eventExpenses.sumOf { it.amountEuros }
-            val totalDebts = eventDebts.sumOf { it.amountEuros }
-            // Positive = total expenses (money spent in event), negative perspective = debts owed
-            val netAmount = if (totalExpenses > 0) totalExpenses else totalDebts
-            val status = if (event.lastCalculationMode != null) {
-                EventStatus.SETTLING
-            } else {
-                EventStatus.ACTIVE
-            }
+    ): List<DashboardEventRow> = events.map { event ->
+        val eventExpenses = expenses.filter { it.eventId == event.id }
+        val eventDebts = debts.filter { it.eventId == event.id }
+        val totalExpenses = eventExpenses.sumOf { it.amountEuros }
+        val totalDebts = eventDebts.sumOf { it.amountEuros }
+        val netAmount = if (totalExpenses > 0) totalExpenses else totalDebts
 
-            EventHistoryItem(
-                eventId = event.id,
-                eventName = event.name,
-                amount = netAmount,
-                participantCount = event.memberIds.size,
-                status = status,
-            )
-        }.sortedByDescending { it.amount }
-    }
+        DashboardEventRow(
+            eventId = event.id,
+            eventName = event.name,
+            amount = netAmount,
+            participantCount = event.effectiveMemberIds.size,
+            state = event.state,
+            dateMillis = event.dateMillis,
+        )
+    }.sortedByDescending { it.dateMillis }
 }

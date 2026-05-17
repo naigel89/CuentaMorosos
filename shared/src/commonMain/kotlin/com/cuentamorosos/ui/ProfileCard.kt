@@ -40,7 +40,7 @@ fun ProfileCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val balanceColor by remember(profile.totalPendingEuros) {
         derivedStateOf {
             if (profile.totalPendingEuros >= 0) colors.primaryContainer else colors.error
@@ -116,7 +116,7 @@ private fun BalanceBadges(
     balance: Double,
     isOwnProfile: Boolean,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         if (isOwnProfile) {
             BalanceBadge(text = "Tú", bgColor = colors.onSurfaceVariant.copy(alpha = 0.15f), textColor = colors.onSurfaceVariant)

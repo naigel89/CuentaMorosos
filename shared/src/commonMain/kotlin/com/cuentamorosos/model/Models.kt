@@ -142,10 +142,11 @@ data class CalculationResult(
 
 /** Status of a calculation run, including edge case detection. */
 sealed class CalculationStatus {
-    data class Success(val message: String = "Cálculo completado") : CalculationStatus()
-    data class ZeroBalance(val message: String = "Todo está saldado") : CalculationStatus()
-    data class EdgeCaseWarning(val message: String) : CalculationStatus()
-    data class Error(val message: String) : CalculationStatus()
+    abstract val message: String
+    data class Success(override val message: String = "Cálculo completado") : CalculationStatus()
+    data class ZeroBalance(override val message: String = "Todo está saldado") : CalculationStatus()
+    data class EdgeCaseWarning(override val message: String) : CalculationStatus()
+    data class Error(override val message: String) : CalculationStatus()
 }
 
 data class EventExpenseItem(

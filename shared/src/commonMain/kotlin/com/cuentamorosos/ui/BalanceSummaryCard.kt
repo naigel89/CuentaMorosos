@@ -29,7 +29,7 @@ fun BalanceSummaryCard(
     onSettleUp: (() -> Unit)? = null,
     onRequest: (() -> Unit)? = null,
 ) {
-    val colors = NeoFintechColors.dark()
+    val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
 
     Row(

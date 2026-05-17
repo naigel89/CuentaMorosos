@@ -34,7 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,7 +57,7 @@ private fun SegmentedControl(
     ) {
         segments.forEachIndexed { index, label ->
             val isSelected = index == selectedIndex
-            val colors = NeoFintechColors.dark()
+            val colors = LocalNeoFintechColors.current
             Text(
                 text = label,
                 modifier = Modifier
@@ -103,51 +104,52 @@ fun SettingsScreen(
         else -> 1 // default to dark for "system"
     }
 
-    val colors = NeoFintechColors.dark()
-    val configuration = LocalConfiguration.current
-    val isWide = configuration.screenWidthDp >= 600
+    val colors = LocalNeoFintechColors.current
 
-    val activeNavItem = "preferences"
-    val navItems = listOf(
-        Triple("preferences", "\uD83C\uDF9B️", "Preferencias"),
-        Triple("security", "\uD83D\uDD12", "Seguridad"),
-        Triple("account", "\uD83D\uDC64", "Cuenta"),
-    )
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isWide = maxWidth >= 600.dp
 
-    val onSaveClick: () -> Unit = {
-        val parsedDays = reminderDaysText.toIntOrNull()
-        validationMessage = when {
-            parsedDays == null -> "Introduce un número de días válido."
-            parsedDays <= 0 -> "Los días deben ser mayores que 0."
-            else -> null
-        }
+        val activeNavItem = "preferences"
+        val navItems = listOf(
+            Triple("preferences", "\uD83C\uDF9B️", "Preferencias"),
+            Triple("security", "\uD83D\uDD12", "Seguridad"),
+            Triple("account", "\uD83D\uDC64", "Cuenta"),
+        )
 
-        if (validationMessage == null && parsedDays != null) {
-            onSavePreferences(
-                UserPreferences(
-                    themeMode = selectedThemeMode,
-                    accentColorId = preferences.accentColorId,
-                    reminderDays = parsedDays,
-                    remindersEnabled = remindersEnabled,
+        val onSaveClick: () -> Unit = {
+            val parsedDays = reminderDaysText.toIntOrNull()
+            validationMessage = when {
+                parsedDays == null -> "Introduce un número de días válido."
+                parsedDays <= 0 -> "Los días deben ser mayores que 0."
+                else -> null
+            }
+
+            if (validationMessage == null && parsedDays != null) {
+                onSavePreferences(
+                    UserPreferences(
+                        themeMode = selectedThemeMode,
+                        accentColorId = preferences.accentColorId,
+                        reminderDays = parsedDays,
+                        remindersEnabled = remindersEnabled,
+                    )
                 )
-            )
+            }
         }
-    }
 
-    val onDaysTextChange: (String) -> Unit = {
-        reminderDaysText = it
-        validationMessage = null
-    }
-
-    val onThemeChange: (Int) -> Unit = { index ->
-        selectedThemeMode = when (index) {
-            0 -> "light"
-            1 -> "dark"
-            else -> "dark"
+        val onDaysTextChange: (String) -> Unit = {
+            reminderDaysText = it
+            validationMessage = null
         }
-    }
 
-    if (isWide) {
+        val onThemeChange: (Int) -> Unit = { index ->
+            selectedThemeMode = when (index) {
+                0 -> "light"
+                1 -> "dark"
+                else -> "dark"
+            }
+        }
+
+        if (isWide) {
         Row(
             modifier = modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(24.dp)
@@ -235,6 +237,7 @@ fun SettingsScreen(
             onPostReminders = onPostReminders,
             onSignOut = onSignOut,
         )
+    }
     }
 }
 
