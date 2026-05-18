@@ -1,5 +1,7 @@
 package com.cuentamorosos.model
 
+import java.math.BigDecimal
+import java.math.RoundingMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -325,10 +327,14 @@ class SplitCalculatorTest {
      */
     private fun validateExactSum(inputs: List<String>, total: Double?): Boolean {
         val parsed = inputs.mapNotNull { value ->
-            value.trim().replace(',', '.').toDoubleOrNull()
+            val trimmed = value.trim().replace(',', '.')
+            if (trimmed.isEmpty()) null else trimmed.toBigDecimalOrNull()
         }
-        val sum = parsed.sum()
-        return total?.let { kotlin.math.abs(sum - it) <= 0.01 } == true
+        val sum = parsed.fold(BigDecimal.ZERO) { acc, bd -> acc.add(bd) }
+        return total?.let {
+            val diff = sum.subtract(it.toBigDecimal()).abs()
+            diff <= BigDecimal("0.01")
+        } == true
     }
 
     @Test
@@ -392,12 +398,12 @@ class SplitCalculatorTest {
     }
 
     private fun clampPartsValue(value: String): String {
-        val intValue = value.filter { it.isDigit() }.toIntOrNull()
+        val intValue = value.toIntOrNull()
         return when {
-            intValue == null -> ""
+            intValue == null -> value.filter { it.isDigit() }.takeIf { it.isNotEmpty() } ?: ""
             intValue < 1 -> "1"
             intValue > 100 -> "100"
-            else -> value.filter { it.isDigit() }
+            else -> intValue.toString()
         }
     }
 

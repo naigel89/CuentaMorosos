@@ -53,9 +53,9 @@ object EventValidator {
             )
         }
 
-        // EV-05: Minimum participants (warning for DRAFT, error for calculation)
+        // EV-05: Minimum participants (error for calculation)
         if (event.effectiveMemberIds.size < 2) {
-            warnings.add(
+            errors.add(
                 ValidationError("Se necesitan al menos 2 participantes para calcular", "members"),
             )
         }
