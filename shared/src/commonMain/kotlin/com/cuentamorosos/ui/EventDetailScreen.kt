@@ -48,6 +48,7 @@ import com.cuentamorosos.model.parseEuroAmount
 
 // ── EventDetailScreen ─────────────────────────────────────────────────────────
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun EventDetailScreen(
     modifier: Modifier = Modifier,
@@ -65,13 +66,11 @@ fun EventDetailScreen(
     onRemoveExpense: (String) -> Unit,
     onApplyCalculation: (CalculationResult) -> Unit,
     onInviteMember: (String) -> Unit,
-    onRemoveMember: (String) -> Unit,
+    _onRemoveMember: (String) -> Unit,
     currentRole: EventRole = EventRole.OWNER,
     canDo: (EventAction) -> Boolean = { true },
     onOpenEvent: (() -> Unit)? = null,
 ) {
-    val colors = LocalNeoFintechColors.current
-    val themeColors = MaterialTheme.colorScheme
     val profileById = profiles.associateBy { it.id }
     val eventParticipants = profiles.filter { it.id in event.effectiveMemberIds }
     val pendingTotal = eventDebts.filter { !it.paid }.sumOf { it.amountEuros }
@@ -96,8 +95,8 @@ fun EventDetailScreen(
             HeaderSection(
                 event = event,
                 totalExpenses = eventExpenseTotal,
-                totalPending = pendingTotal,
-                expenseCount = eventExpenses.size,
+                _totalPending = pendingTotal,
+                _expenseCount = eventExpenses.size,
                 onBack = onBack,
                 isWide = isWide,
                 currentRole = currentRole,
@@ -121,7 +120,7 @@ fun EventDetailScreen(
                     ) {
                         ExpensesList(
                             eventExpenses = eventExpenses,
-                            profiles = profiles,
+                            _profiles = profiles,
                             currentUid = currentUid,
                             profileById = profileById,
                             currentRole = currentRole,
@@ -146,11 +145,11 @@ fun EventDetailScreen(
                             .verticalScroll(rememberScrollState()),
                     ) {
                         SettlementPanel(
-                            event = event,
+                            _event = event,
                             debts = eventDebts,
                             profiles = profiles,
-                            pendingTotal = pendingTotal,
-                            expenseTotal = eventExpenseTotal,
+                            _pendingTotal = pendingTotal,
+                            _expenseTotal = eventExpenseTotal,
                             currentUserUid = currentUid,
                             onCalculateTotals = { showQuickSplitDialog = true },
                             onTogglePaid = onTogglePaid,
@@ -181,7 +180,7 @@ fun EventDetailScreen(
 
                     ExpensesList(
                         eventExpenses = eventExpenses,
-                        profiles = profiles,
+                        _profiles = profiles,
                         currentUid = currentUid,
                         profileById = profileById,
                         currentRole = currentRole,
@@ -199,11 +198,11 @@ fun EventDetailScreen(
                     )
 
                     SettlementPanel(
-                        event = event,
+                        _event = event,
                         debts = eventDebts,
                         profiles = profiles,
-                        pendingTotal = pendingTotal,
-                        expenseTotal = eventExpenseTotal,
+                        _pendingTotal = pendingTotal,
+                        _expenseTotal = eventExpenseTotal,
                         currentUserUid = currentUid,
                         onCalculateTotals = { showQuickSplitDialog = true },
                         onTogglePaid = onTogglePaid,
@@ -312,8 +311,8 @@ fun EventDetailScreen(
                 showQuickSplitDialog = false
                 onApplyCalculation(calculationResult)
             },
-            deletedProfileIds = deletedProfileIds,
-            priorSnapshot = null, // Prior snapshot not yet persisted — future enhancement
+            _deletedProfileIds = deletedProfileIds,
+            _priorSnapshot = null, // Prior snapshot not yet persisted — future enhancement
         )
     }
 
@@ -331,12 +330,13 @@ fun EventDetailScreen(
 
 // ── HeaderSection ─────────────────────────────────────────────────────────────
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 private fun HeaderSection(
     event: EventItem,
     totalExpenses: Double,
-    totalPending: Double,
-    expenseCount: Int,
+    _totalPending: Double,
+    _expenseCount: Int,
     onBack: () -> Unit,
     isWide: Boolean,
     currentRole: EventRole = EventRole.OWNER,
@@ -449,10 +449,11 @@ private fun HeaderSection(
 
 // ── ExpensesList ──────────────────────────────────────────────────────────────
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 private fun ExpensesList(
     eventExpenses: List<EventExpenseItem>,
-    profiles: List<ProfileItem>,
+    _profiles: List<ProfileItem>,
     currentUid: String,
     profileById: Map<String, ProfileItem>,
     currentRole: EventRole,
@@ -703,7 +704,6 @@ private fun ExpenseEditorDialog(
                         Text("Yo")
                     }
                     profiles.forEach { profile ->
-                        val isSelected = selectedPaidByProfileId == profile.id
                         OutlinedButton(
                             onClick = { selectedPaidByProfileId = profile.id },
                             modifier = Modifier.weight(1f),

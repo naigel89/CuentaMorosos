@@ -22,10 +22,11 @@ object IntegrityGuard {
      * Returns false if the event is not in OPEN state.
      * Expenses can only be deleted while the event is still being configured.
      */
+    @Suppress("UNUSED_PARAMETER")
     fun canDeleteExpense(
         eventState: EventState,
-        expenseId: String,
-        allExpenses: List<EventExpenseItem>,
+        _expenseId: String,
+        _allExpenses: List<EventExpenseItem>,
     ): Boolean = eventState == EventState.OPEN
 
     /**
@@ -33,7 +34,8 @@ object IntegrityGuard {
      * at any state. All expenses, calculations, and audit entries cascade with it.
      * Profiles are preserved (they belong to the account).
      */
-    fun canDeleteEvent(cascadeSummary: CascadeSummary): Boolean = true
+    @Suppress("UNUSED_PARAMETER")
+    fun canDeleteEvent(_cascadeSummary: CascadeSummary): Boolean = true
 
     /**
      * Returns false if the debt has already been marked as paid.

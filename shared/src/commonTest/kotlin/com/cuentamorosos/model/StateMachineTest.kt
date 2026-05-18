@@ -1,3 +1,5 @@
+@file:Suppress("USELESS_CAST")
+
 package com.cuentamorosos.model
 
 import kotlin.test.Test
@@ -160,7 +162,7 @@ class StateMachineTest {
         val ctx = defaultContext()
         val result = attemptTransition(EventState.CLOSED, EventState.DRAFT, ctx)
         assertTrue(result is StateTransitionResult.Blocked)
-        val reasons = (result as StateTransitionResult.Blocked).reasons
+        val reasons = result.reasons
         assertTrue(reasons.any { it.contains("cerrado") })
     }
 
@@ -185,7 +187,7 @@ class StateMachineTest {
         val ctx = defaultContext()
         val result = attemptTransition(EventState.DRAFT, EventState.CALCULATED, ctx)
         assertTrue(result is StateTransitionResult.Blocked)
-        val reasons = (result as StateTransitionResult.Blocked).reasons
+        val reasons = result.reasons
         assertTrue(reasons.any { it.contains("Transición no válida") })
     }
 

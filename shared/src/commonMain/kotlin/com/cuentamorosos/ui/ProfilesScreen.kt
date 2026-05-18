@@ -47,12 +47,13 @@ import com.cuentamorosos.model.validation.hasErrors
 
 // ── ProfilesScreen ────────────────────────────────────────────────────────────
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun ProfilesScreen(
     modifier: Modifier = Modifier,
     profiles: List<ProfileItem>,
     currentUid: String?,
-    eventCount: Int,
+    _eventCount: Int,
     pendingEventsByProfile: Map<String, List<String>>,
     onSaveProfile: (ProfileItem) -> Unit,
     onDeleteProfile: (ProfileItem) -> Unit,
@@ -188,7 +189,7 @@ fun ProfilesScreen(
 
     profileToDelete?.let { profile ->
         val deleteWarnings = ProfileValidator.checkDeleteWarning(
-            profile = profile,
+            _profile = profile,
             activeEventIds = emptySet(), // TODO: thread active event membership from parent
         )
         val warningText = deleteWarnings.joinToString("\n") { it.message }

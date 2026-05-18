@@ -66,6 +66,7 @@ private fun List<String>.updateAt(index: Int, value: String): List<String> = map
 
 // ── CalculatorSheet ───────────────────────────────────────────────────────────
 
+@Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalculatorSheet(
@@ -74,8 +75,8 @@ fun CalculatorSheet(
     eventExpenses: List<EventExpenseItem>,
     onDismiss: () -> Unit,
     onApply: (CalculationResult) -> Unit,
-    deletedProfileIds: Set<String> = emptySet(),
-    priorSnapshot: CalculationSnapshot? = null,
+    _deletedProfileIds: Set<String> = emptySet(),
+    _priorSnapshot: CalculationSnapshot? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -88,7 +89,6 @@ fun CalculatorSheet(
     var percentageInputs by remember(profiles.size) { mutableStateOf(defaultPercentageInputs(profiles.size)) }
     var exactAmountInputs by remember(profiles.size) { mutableStateOf(List(profiles.size) { "" }) }
     var partsInputs by remember(profiles.size) { mutableStateOf(List(profiles.size) { "1" }) }
-    var showComparison by remember { mutableStateOf(false) }
 
     // Calculation state
     var isCalculating by remember { mutableStateOf(false) }

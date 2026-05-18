@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class EventDetailViewModel(
     private val eventRepository: EventRepository,
     private val debtRepository: DebtRepository,

@@ -1,3 +1,5 @@
+@file:Suppress("UNUSED_VARIABLE")
+
 package com.cuentamorosos.ui
 
 import androidx.compose.animation.AnimatedContent
@@ -127,7 +129,7 @@ fun CuentaMorososApp(
 
     val events by eventsViewModel.events.collectAsState()
     val profiles by profilesViewModel.profiles.collectAsState()
-    val pendingInvitations by invitationsViewModel.pendingInvitations.collectAsState()
+    val _pendingInvitations by invitationsViewModel.pendingInvitations.collectAsState() // TODO: use in UI
     val dashboardState by dashboardViewModel.state.collectAsState()
 
     val eventId by eventDetailViewModel.eventId.collectAsState()
@@ -346,7 +348,7 @@ fun CuentaMorososApp(
                                     feedbackMessage = "Invitación enviada a $email."
                                 }
                             },
-                            onRemoveMember = { uid ->
+                            _onRemoveMember = { uid ->
                                 eventsViewModel.removeMember(currentEvent.id, uid)
                                 feedbackMessage = "Miembro eliminado del evento."
                             },
@@ -450,7 +452,7 @@ fun CuentaMorososApp(
                                 expenseCountByEvent = events.associate { event ->
                                     event.id to expenses.filter { it.eventId == event.id }.size
                                 },
-                                reminders = reminderMessages,
+                                _reminders = reminderMessages,
                                 currentUserUid = currentUserUid,
                                 onOpenEvent = { event ->
                                     eventDetailViewModel.setEventId(event.id)
@@ -465,7 +467,7 @@ fun CuentaMorososApp(
                                 },
                                 transitionWarning = transitionWarning,
                                 onConfirmTransition = {
-                                    selectedEvent?.let { event ->
+                                    selectedEvent?.let {
                                         eventDetailViewModel.confirmTransition(
                                             com.cuentamorosos.model.EventState.OPEN
                                         )
@@ -485,7 +487,7 @@ fun CuentaMorososApp(
                                     profile.copy(totalPendingEuros = activeTotalsByProfile[profile.id] ?: 0.0)
                                 },
                                 currentUid = currentUserUid,
-                                eventCount = events.size,
+                                _eventCount = events.size,
                                 pendingEventsByProfile = pendingEventsByProfile,
                                 onSaveProfile = { profile ->
                                     profilesViewModel.saveProfile(profile)

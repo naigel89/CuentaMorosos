@@ -20,14 +20,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.model.formatEuros
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun BalanceSummaryCard(
     totalPending: Double,
     activeEventCount: Int,
     totalSpent: Double,
-    owedEventCount: Int = 0,
-    onSettleUp: (() -> Unit)? = null,
-    onRequest: (() -> Unit)? = null,
+    _owedEventCount: Int = 0,
+    _onSettleUp: (() -> Unit)? = null,
+    _onRequest: (() -> Unit)? = null,
 ) {
     val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme

@@ -23,13 +23,14 @@ class RepositoryCurrencyMappingTest {
      * Simulates the toEventItem() mapping from CachedEvent row.
      * Mirrors the logic in OfflineFirstEventRepository.toEventItem().
      */
+    @Suppress("UNUSED_PARAMETER")
     private fun mockCachedEventToEventItem(
         id: String,
         name: String,
         dateMillis: Long,
         ownerId: String,
         memberIds: String,
-        participants: String,
+        _participants: String,
         baseCurrency: String,
         lastCalculationMode: String?,
         lastCalculationTotal: Double?,
@@ -61,7 +62,7 @@ class RepositoryCurrencyMappingTest {
             dateMillis = 1000L,
             ownerId = "owner-1",
             memberIds = "a,b",
-            participants = "",
+            _participants = "",
             baseCurrency = "EUR",
             lastCalculationMode = null,
             lastCalculationTotal = null,
@@ -79,7 +80,7 @@ class RepositoryCurrencyMappingTest {
             dateMillis = 2000L,
             ownerId = "owner-2",
             memberIds = "x,y,z",
-            participants = "",
+            _participants = "",
             baseCurrency = "EUR",
             lastCalculationMode = "BY_CATEGORY",
             lastCalculationTotal = 150.0,

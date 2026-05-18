@@ -78,7 +78,7 @@ fun CalendarScreen(
                     map.getOrPut(day) { mutableListOf() }.add(event)
                 }
             }
-            map as Map<Int, List<EventItem>>
+            map.toMap()
         }
     }
 

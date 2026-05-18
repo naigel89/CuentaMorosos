@@ -128,7 +128,6 @@ fun SettingsScreen(
                 onSavePreferences(
                     UserPreferences(
                         themeMode = selectedThemeMode,
-                        accentColorId = preferences.accentColorId,
                         reminderDays = parsedDays,
                         remindersEnabled = remindersEnabled,
                     )

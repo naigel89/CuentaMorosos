@@ -49,11 +49,11 @@ object ProfileValidator {
      * @param activeEventIds set of event IDs that are currently active
      * @return list of warning messages (empty if no warnings)
      */
+    @Suppress("UNUSED_PARAMETER")
     fun checkDeleteWarning(
-        profile: ProfileItem,
+        _profile: ProfileItem,
         activeEventIds: Set<String>,
     ): List<ValidationError> {
-        @Suppress("UNUSED_PARAMETER") // profile is kept for API consistency; caller may use it for context
         val warnings = mutableListOf<ValidationError>()
 
         // PV-03: Profile participates in active events

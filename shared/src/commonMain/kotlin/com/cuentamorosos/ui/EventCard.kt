@@ -17,7 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -40,11 +40,12 @@ import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun EventCard(
     event: EventItem,
-    participantCount: Int,
-    pendingTotal: Double,
+    _participantCount: Int,
+    _pendingTotal: Double,
     totalExpense: Double = 0.0,
     yourShare: Double = 0.0,
     youAreOwed: Double = 0.0,
@@ -153,7 +154,7 @@ fun EventCard(
             }
 
             // Divider + Your Share row
-            Divider(color = colors.outlineVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.5f))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

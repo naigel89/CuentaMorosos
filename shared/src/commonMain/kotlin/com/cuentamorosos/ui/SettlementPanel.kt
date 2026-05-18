@@ -31,13 +31,14 @@ import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun SettlementPanel(
-    event: EventItem,
+    _event: EventItem,
     debts: List<EventDebtItem>,
     profiles: List<ProfileItem>,
-    pendingTotal: Double,
-    expenseTotal: Double,
+    _pendingTotal: Double,
+    _expenseTotal: Double,
     currentUserUid: String = "",
     onCalculateTotals: () -> Unit,
     onTogglePaid: (EventDebtItem) -> Unit,

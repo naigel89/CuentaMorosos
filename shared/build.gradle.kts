@@ -6,7 +6,12 @@ plugins {
 }
 
 kotlin {
+    jvmToolchain(17)
     jvm()
+
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
 
     androidTarget {
         compilations.all {

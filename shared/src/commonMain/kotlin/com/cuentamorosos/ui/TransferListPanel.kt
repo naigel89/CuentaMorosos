@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -100,7 +99,7 @@ fun TransferListPanel(
                         transfer = transfer,
                         profileNameResolver = profileNameResolver,
                         isPaid = isPaid,
-                        onTogglePaid = { onTogglePaid(index) },
+                        _onTogglePaid = { onTogglePaid(index) },
                         typography = typography,
                         themeColors = themeColors,
                         monoFont = monoFont,
@@ -179,12 +178,13 @@ private fun StatusBanner(
  * Single transfer row: "Perfil A → Perfil B: XX,XX €"
  * Paid transfers show checkmark + muted styling.
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 private fun TransferRow(
     transfer: com.cuentamorosos.model.SettlementTransfer,
     profileNameResolver: (String) -> String,
     isPaid: Boolean,
-    onTogglePaid: () -> Unit,
+    _onTogglePaid: () -> Unit,
     typography: Typography,
     themeColors: androidx.compose.material3.ColorScheme,
     monoFont: androidx.compose.ui.text.font.FontFamily,

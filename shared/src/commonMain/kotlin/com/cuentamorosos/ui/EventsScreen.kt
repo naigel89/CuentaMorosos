@@ -62,6 +62,7 @@ import com.cuentamorosos.model.validation.hasWarnings
 
 // ── EventsScreen ──────────────────────────────────────────────────────────────
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun EventsScreen(
     modifier: Modifier = Modifier,
@@ -74,7 +75,7 @@ fun EventsScreen(
     yourShareByEvent: Map<String, Double> = emptyMap(),
     youAreOwedByEvent: Map<String, Double> = emptyMap(),
     expenseCountByEvent: Map<String, Int> = emptyMap(),
-    reminders: List<ReminderMessage>,
+    _reminders: List<ReminderMessage>,
     currentUserUid: String?,
     onOpenEvent: (EventItem) -> Unit,
     onSaveEvent: (EventItem) -> Unit,
@@ -141,7 +142,7 @@ fun EventsScreen(
                 totalPending = totalPending,
                 activeEventCount = activeEventCount,
                 totalSpent = totalSpent,
-                owedEventCount = owedEventCount,
+                _owedEventCount = owedEventCount,
             )
 
             // Header row: title + create button
@@ -250,8 +251,8 @@ fun EventsScreen(
                             val canDelete = PermissionEngine.hasPermission(role, EventAction.DeleteEvent)
                             EventCard(
                                 event = event,
-                                participantCount = participantCountByEvent[event.id] ?: 0,
-                                pendingTotal = pendingTotalsByEvent[event.id] ?: 0.0,
+                                _participantCount = participantCountByEvent[event.id] ?: 0,
+                                _pendingTotal = pendingTotalsByEvent[event.id] ?: 0.0,
                                 totalExpense = totalExpensesByEvent[event.id] ?: 0.0,
                                 yourShare = yourShareByEvent[event.id] ?: 0.0,
                                 youAreOwed = youAreOwedByEvent[event.id] ?: 0.0,
