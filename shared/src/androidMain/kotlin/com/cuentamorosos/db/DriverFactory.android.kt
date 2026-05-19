@@ -11,9 +11,30 @@ actual class DriverFactory(private val context: Context) {
 
         if (dbPath.exists()) {
             addMissingExpenseColumns(dbPath)
+            addMissingEventColumns(dbPath)
         }
 
         return AndroidSqliteDriver(CuentaMorososDatabase.Schema, context, "cuentamorosos.db")
+    }
+
+    /**
+     * Safely adds the `state` column to CachedEvent for existing databases.
+     * Wrapped in try-catch so the app never crashes if the column already exists.
+     */
+    private fun addMissingEventColumns(dbPath: java.io.File) {
+        runCatching {
+            SQLiteDatabase.openDatabase(dbPath.absolutePath, null, SQLiteDatabase.OPEN_READWRITE).use { db ->
+                val existingColumns = mutableSetOf<String>()
+                db.rawQuery("PRAGMA table_info(CachedEvent)", null).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        existingColumns.add(cursor.getString(1))
+                    }
+                }
+                if ("state" !in existingColumns) {
+                    db.execSQL("ALTER TABLE CachedEvent ADD COLUMN state TEXT NOT NULL DEFAULT 'DRAFT'")
+                }
+            }
+        }
     }
 
     /**
