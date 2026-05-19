@@ -90,6 +90,9 @@ class EventDetailViewModel(
         if (id == null) flowOf(emptyList()) else expenseRepository.observeExpenses(id)
     }
 
+    val allExpenses: StateFlow<List<EventExpenseItem>> = expenseRepository.observeAllExpenses()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun setEventId(id: String?) {
         _eventId.value = id
     }

@@ -148,6 +148,7 @@ fun CuentaMorososApp(
     val debts by eventDetailViewModel.debts.collectAsState(initial = emptyList())
     val allDebts by eventDetailViewModel.allDebts.collectAsState()
     val expenses by eventDetailViewModel.expenses.collectAsState(initial = emptyList())
+    val allExpenses by eventDetailViewModel.allExpenses.collectAsState()
     val currentRole by eventDetailViewModel.currentRole.collectAsState(initial = EventRole.READER)
     val transitionWarning by eventDetailViewModel.transitionWarning.collectAsState()
     val validationErrors by eventDetailViewModel.validationErrors.collectAsState()
@@ -175,28 +176,48 @@ fun CuentaMorososApp(
         }
     }
 
-    val pendingTotalsByEvent by remember(debts) {
+    val pendingTotalsByEvent by remember(allDebts) {
         derivedStateOf {
-            debts
+            allDebts
                 .filter { !it.paid }
                 .groupBy { it.eventId }
                 .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
         }
     }
 
-    val totalSpent by remember(expenses) {
-        derivedStateOf { expenses.sumOf { it.amountEuros } }
+    val totalSpent by remember(allExpenses) {
+        derivedStateOf { allExpenses.sumOf { it.amountEuros } }
     }
 
-    val participantCountByEvent by remember(debts) {
+    val participantCountByEvent by remember(allDebts) {
         derivedStateOf {
-            debts.groupBy { it.eventId }.mapValues { it.value.size }
+            allDebts.groupBy { it.eventId }.mapValues { it.value.size }
         }
     }
 
-    val pendingEventsByProfile by remember(debts, events) {
+    val yourShareByEvent by remember(allDebts) {
         derivedStateOf {
-            debts
+            val uid = currentUserUid ?: ""
+            allDebts
+                .filter { !it.paid && it.profileId == uid }
+                .groupBy { it.eventId }
+                .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
+        }
+    }
+
+    val youAreOwedByEvent by remember(allDebts) {
+        derivedStateOf {
+            val uid = currentUserUid ?: ""
+            allDebts
+                .filter { !it.paid && it.profileId != uid }
+                .groupBy { it.eventId }
+                .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
+        }
+    }
+
+    val pendingEventsByProfile by remember(allDebts, events) {
+        derivedStateOf {
+            allDebts
                 .filter { !it.paid }
                 .groupBy { it.profileId }
                 .mapValues { (_, values) ->
@@ -488,12 +509,12 @@ fun CuentaMorososApp(
                                 pendingTotalsByEvent = pendingTotalsByEvent,
                                 totalSpent = totalSpent,
                                 totalExpensesByEvent = events.associate { event ->
-                                    event.id to expenses.filter { it.eventId == event.id }.sumOf { it.amountEuros }
+                                    event.id to allExpenses.filter { it.eventId == event.id }.sumOf { it.amountEuros }
                                 },
-                                yourShareByEvent = emptyMap(),
-                                youAreOwedByEvent = emptyMap(),
+                                yourShareByEvent = yourShareByEvent,
+                                youAreOwedByEvent = youAreOwedByEvent,
                                 expenseCountByEvent = events.associate { event ->
-                                    event.id to expenses.filter { it.eventId == event.id }.size
+                                    event.id to allExpenses.filter { it.eventId == event.id }.size
                                 },
                                 _reminders = reminderMessages,
                                 currentUserUid = currentUserUid,
