@@ -37,6 +37,7 @@ actual class DriverFactory(private val context: Context) {
                     }
                 }
                 if ("state" !in existingColumns) {
+                    println("[Migration] Adding state column to CachedEvent")
                     db.execSQL("ALTER TABLE CachedEvent ADD COLUMN state TEXT NOT NULL DEFAULT 'DRAFT'")
                 }
                 // Always backfill — safe because it only upgrades DRAFT → OPEN/CALCULATED
@@ -45,13 +46,25 @@ actual class DriverFactory(private val context: Context) {
                         "WHERE state = 'DRAFT' " +
                         "AND lastCalculationMode IS NOT NULL AND lastCalculationMode != ''"
                 )
+                val calculatedCount = db.rawQuery("SELECT COUNT(*) FROM CachedEvent WHERE state = 'CALCULATED'", null).use {
+                    if (it.moveToNext()) it.getLong(0) else 0
+                }
                 db.execSQL(
                     "UPDATE CachedEvent SET state = 'OPEN' " +
                         "WHERE state = 'DRAFT' " +
                         "AND (participants IS NOT NULL AND participants != '' AND participants != '[]' " +
                         "     OR memberIds IS NOT NULL AND memberIds != '' AND memberIds != '[]')"
                 )
+                val openCount = db.rawQuery("SELECT COUNT(*) FROM CachedEvent WHERE state = 'OPEN'", null).use {
+                    if (it.moveToNext()) it.getLong(0) else 0
+                }
+                val draftCount = db.rawQuery("SELECT COUNT(*) FROM CachedEvent WHERE state = 'DRAFT'", null).use {
+                    if (it.moveToNext()) it.getLong(0) else 0
+                }
+                println("[Migration] Event state backfill complete: CALCULATED=$calculatedCount, OPEN=$openCount, DRAFT=$draftCount")
             }
+        }.onFailure { e ->
+            println("[Migration] Event state backfill failed: ${e.message}")
         }
     }
 

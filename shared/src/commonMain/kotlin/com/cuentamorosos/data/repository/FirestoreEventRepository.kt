@@ -178,9 +178,17 @@ class FirestoreEventRepository : EventRepository {
         val hasParticipants = participants.isNotEmpty()
         val memberIds = (data["memberIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
         val hasMembers = memberIds.isNotEmpty()
+        val participantIds = (data["participantIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+        val hasParticipantIds = participantIds.isNotEmpty()
+
+        println("[FirestoreEventRepo] State heuristic for '${data["name"]}': " +
+            "hasCalculation=$hasCalculation, hasParticipants=$hasParticipants, " +
+            "hasMembers=$hasMembers (count=${memberIds.size}), " +
+            "hasParticipantIds=$hasParticipantIds (count=${participantIds.size})")
+
         return when {
             hasCalculation -> EventState.CALCULATED
-            hasParticipants || hasMembers -> EventState.OPEN
+            hasParticipants || hasMembers || hasParticipantIds -> EventState.OPEN
             else -> EventState.DRAFT
         }
     }
