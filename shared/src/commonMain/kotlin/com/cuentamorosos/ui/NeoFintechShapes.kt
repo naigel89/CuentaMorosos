@@ -10,5 +10,6 @@ object NeoFintechShapes {
     val md: CornerBasedShape = RoundedCornerShape(8.dp)
     val lg: CornerBasedShape = RoundedCornerShape(12.dp)
     val xl: CornerBasedShape = RoundedCornerShape(16.dp)
+    val pill: CornerBasedShape = RoundedCornerShape(24.dp)
     val full: CornerBasedShape = CircleShape
 }

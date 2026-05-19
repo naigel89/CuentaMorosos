@@ -91,12 +91,7 @@ fun ProfilesScreen(
             }
         }
 
-        item {
-            ProfileBalanceSummary(
-                profiles = profiles,
-                currentUid = currentUid,
-            )
-        }
+        // ProfileBalanceSummary removed — redundant with dashboard indicators
 
         item {
             Row(

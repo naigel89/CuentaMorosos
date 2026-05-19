@@ -19,7 +19,10 @@ actual class DriverFactory(private val context: Context) {
 
     /**
      * Safely adds the `state` column to CachedEvent for existing databases.
-     * Wrapped in try-catch so the app never crashes if the column already exists.
+     * Also backfills state for existing events based on heuristic:
+     * - lastCalculationMode IS NOT NULL → 'CALCULATED'
+     * - participants IS NOT empty → 'OPEN'
+     * - Otherwise → 'DRAFT'
      */
     private fun addMissingEventColumns(dbPath: java.io.File) {
         runCatching {
@@ -30,8 +33,19 @@ actual class DriverFactory(private val context: Context) {
                         existingColumns.add(cursor.getString(1))
                     }
                 }
-                if ("state" !in existingColumns) {
+                val needsColumn = "state" !in existingColumns
+                if (needsColumn) {
                     db.execSQL("ALTER TABLE CachedEvent ADD COLUMN state TEXT NOT NULL DEFAULT 'DRAFT'")
+                    // Backfill state for existing events
+                    db.execSQL(
+                        "UPDATE CachedEvent SET state = 'CALCULATED' " +
+                            "WHERE lastCalculationMode IS NOT NULL AND lastCalculationMode != ''"
+                    )
+                    db.execSQL(
+                        "UPDATE CachedEvent SET state = 'OPEN' " +
+                            "WHERE (state = 'DRAFT' OR state IS NULL) " +
+                            "AND participants IS NOT NULL AND participants != '' AND participants != '[]'"
+                    )
                 }
             }
         }

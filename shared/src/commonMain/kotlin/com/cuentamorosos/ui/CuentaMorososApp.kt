@@ -1,4 +1,5 @@
 @file:Suppress("UNUSED_VARIABLE")
+@file:OptIn(ExperimentalFoundationApi::class)
 
 package com.cuentamorosos.ui
 
@@ -6,11 +7,16 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.sizeIn
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +40,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -44,8 +54,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.CardDefaults
@@ -63,7 +71,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
@@ -71,7 +79,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModelProvider.Factory
 import com.cuentamorosos.calendarFieldsForYearMonth
 import com.cuentamorosos.currentTimeMillis
@@ -102,11 +110,15 @@ import com.cuentamorosos.model.EventInvitation
 import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.TransitionContext
 
-private enum class MainSection(val title: String, val emoji: String) {
-    DASHBOARD("Panel", "📊"),
-    EVENTS("Eventos", "📅"),
-    PROFILES("Perfiles", "👤"),
-    SETTINGS("Ajustes", "🎨")
+private enum class MainSection(
+    val title: String,
+    val icon: ImageVector,
+    val contentDescription: String,
+) {
+    DASHBOARD("Panel", Icons.Default.Dashboard, "Panel"),
+    EVENTS("Eventos", Icons.Default.CalendarMonth, "Eventos"),
+    PROFILES("Perfiles", Icons.Default.People, "Perfiles"),
+    SETTINGS("Ajustes", Icons.Default.Settings, "Ajustes"),
 }
 
 @Composable
@@ -142,7 +154,8 @@ fun CuentaMorososApp(
 
     val isOnline by networkMonitor.isOnline.collectAsState(initial = true)
 
-    var currentSection by rememberSaveable { mutableStateOf(MainSection.DASHBOARD.name) }
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 4 })
+    val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
 
@@ -224,14 +237,30 @@ fun CuentaMorososApp(
                     snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                     bottomBar = {
                         if (selectedEvent == null) {
-                            NavigationBar {
-                                MainSection.entries.forEach { section ->
-                                    NavigationBarItem(
-                                        selected = currentSection == section.name,
-                                        onClick = { currentSection = section.name },
-                                        icon = { Text(text = section.emoji) },
-                                        label = { Text(text = section.title) }
-                                    )
+                            Surface(
+                                shape = NeoFintechShapes.pill,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                ) {
+                                    MainSection.entries.forEachIndexed { index, section ->
+                                        PillNavItem(
+                                            icon = section.icon,
+                                            label = section.title,
+                                            contentDescription = section.contentDescription,
+                                            selected = pagerState.currentPage == index,
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    pagerState.animateScrollToPage(index)
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -431,15 +460,11 @@ fun CuentaMorososApp(
                             )
                         }
                         } else {
-                            AnimatedContent(
-                                targetState = MainSection.valueOf(currentSection),
-                                transitionSpec = {
-                                    fadeIn(animationSpec = tween(200)) togetherWith
-                                    fadeOut(animationSpec = tween(200))
-                                },
-                                label = "screen-transition"
-                            ) { section ->
-                                when (section) {
+                            HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier.fillMaxSize(),
+                            ) { page ->
+                                when (MainSection.entries[page]) {
                                     MainSection.DASHBOARD -> DashboardScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -563,6 +588,36 @@ private fun OfflineBanner() {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onErrorContainer,
             textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun PillNavItem(
+    icon: ImageVector,
+    label: String,
+    contentDescription: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+            .padding(vertical = 4.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = if (selected) colors.primaryContainer else colors.onSurfaceVariant,
+            modifier = Modifier.size(24.dp),
+        )
+        Text(
+            text = label,
+            color = if (selected) colors.onSurface else colors.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
         )
     }
 }

@@ -150,12 +150,36 @@ class FirestoreEventRepository : EventRepository {
                 lastCalculationTotal = (data["lastCalculationTotal"] as? Number)?.toDouble(),
                 lastCalculationTimestamp = (data["lastCalculationTimestamp"] as? Number)?.toLong(),
                 lastCalculationSummary = data["lastCalculationSummary"] as? String,
-                state = (data["state"] as? String)?.let {
-                    runCatching { EventState.valueOf(it) }.getOrDefault(EventState.DRAFT)
-                } ?: EventState.DRAFT
+                state = computeStateFromFirestore(data, participants)
             )
         } catch (e: Exception) {
             null
+        }
+    }
+
+    /**
+     * Computes event state from Firestore data, handling old events that lack the `state` field.
+     *
+     * Heuristic for missing state:
+     * - If `lastCalculationMode` is set → CALCULATED (event was calculated)
+     * - If participants exist but no calculation → OPEN (event was opened)
+     * - Otherwise → DRAFT (new or untouched event)
+     */
+    private fun computeStateFromFirestore(
+        data: Map<String, Any?>,
+        participants: List<EventParticipant>,
+    ): EventState {
+        val stateStr = data["state"] as? String
+        if (!stateStr.isNullOrBlank()) {
+            return runCatching { EventState.valueOf(stateStr) }.getOrDefault(EventState.DRAFT)
+        }
+        // Heuristic for old events without state field
+        val hasCalculation = data["lastCalculationMode"] != null
+        val hasParticipants = participants.isNotEmpty()
+        return when {
+            hasCalculation -> EventState.CALCULATED
+            hasParticipants -> EventState.OPEN
+            else -> EventState.DRAFT
         }
     }
 

@@ -23,6 +23,10 @@ object NeoFintechAnimations {
     const val DURATION_MS = 300
     const val DURATION_SHORT_MS = 150
 
+    // Navigation pager transition token (HorizontalPager uses ease-out snap by default)
+    const val EASING = "ease-out"
+    const val NAV_TRANSITION_DURATION_MS = 300
+
     // Button press scale factor (subtle press feedback)
     const val BUTTON_PRESS_SCALE = 0.98f
 }
