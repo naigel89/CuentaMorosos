@@ -19,10 +19,13 @@ actual class DriverFactory(private val context: Context) {
 
     /**
      * Safely adds the `state` column to CachedEvent for existing databases.
-     * Also backfills state for existing events based on heuristic:
+     * Always backfills state for existing events based on heuristic:
      * - lastCalculationMode IS NOT NULL → 'CALCULATED'
-     * - participants IS NOT empty → 'OPEN'
+     * - participants OR memberIds IS NOT empty → 'OPEN'
      * - Otherwise → 'DRAFT'
+     *
+     * Backfill runs on every launch until all events have a non-DRAFT state
+     * where appropriate (safe because CALCULATED/OPEN are idempotent).
      */
     private fun addMissingEventColumns(dbPath: java.io.File) {
         runCatching {
@@ -33,20 +36,21 @@ actual class DriverFactory(private val context: Context) {
                         existingColumns.add(cursor.getString(1))
                     }
                 }
-                val needsColumn = "state" !in existingColumns
-                if (needsColumn) {
+                if ("state" !in existingColumns) {
                     db.execSQL("ALTER TABLE CachedEvent ADD COLUMN state TEXT NOT NULL DEFAULT 'DRAFT'")
-                    // Backfill state for existing events
-                    db.execSQL(
-                        "UPDATE CachedEvent SET state = 'CALCULATED' " +
-                            "WHERE lastCalculationMode IS NOT NULL AND lastCalculationMode != ''"
-                    )
-                    db.execSQL(
-                        "UPDATE CachedEvent SET state = 'OPEN' " +
-                            "WHERE (state = 'DRAFT' OR state IS NULL) " +
-                            "AND participants IS NOT NULL AND participants != '' AND participants != '[]'"
-                    )
                 }
+                // Always backfill — safe because it only upgrades DRAFT → OPEN/CALCULATED
+                db.execSQL(
+                    "UPDATE CachedEvent SET state = 'CALCULATED' " +
+                        "WHERE state = 'DRAFT' " +
+                        "AND lastCalculationMode IS NOT NULL AND lastCalculationMode != ''"
+                )
+                db.execSQL(
+                    "UPDATE CachedEvent SET state = 'OPEN' " +
+                        "WHERE state = 'DRAFT' " +
+                        "AND (participants IS NOT NULL AND participants != '' AND participants != '[]' " +
+                        "     OR memberIds IS NOT NULL AND memberIds != '' AND memberIds != '[]')"
+                )
             }
         }
     }

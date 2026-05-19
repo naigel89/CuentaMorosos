@@ -162,7 +162,7 @@ class FirestoreEventRepository : EventRepository {
      *
      * Heuristic for missing state:
      * - If `lastCalculationMode` is set → CALCULATED (event was calculated)
-     * - If participants exist but no calculation → OPEN (event was opened)
+     * - If participants exist OR memberIds is non-empty → OPEN (event was opened)
      * - Otherwise → DRAFT (new or untouched event)
      */
     private fun computeStateFromFirestore(
@@ -176,9 +176,11 @@ class FirestoreEventRepository : EventRepository {
         // Heuristic for old events without state field
         val hasCalculation = data["lastCalculationMode"] != null
         val hasParticipants = participants.isNotEmpty()
+        val memberIds = (data["memberIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+        val hasMembers = memberIds.isNotEmpty()
         return when {
             hasCalculation -> EventState.CALCULATED
-            hasParticipants -> EventState.OPEN
+            hasParticipants || hasMembers -> EventState.OPEN
             else -> EventState.DRAFT
         }
     }
