@@ -7,6 +7,7 @@ import com.cuentamorosos.db.CuentaMorososDatabase
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.SUPPORTED_CURRENCY
 import com.cuentamorosos.model.deserializeParticipants
 import com.cuentamorosos.model.serializeParticipants
@@ -80,7 +81,8 @@ class OfflineFirstEventRepository(
                                     lastCalculationTotal = event.lastCalculationTotal,
                                     lastCalculationTimestamp = event.lastCalculationTimestamp,
                                     lastCalculationSummary = event.lastCalculationSummary,
-                                    updatedAt = currentTimeMillis()
+                                    updatedAt = currentTimeMillis(),
+                                    state = event.state.name
                                 )
                             }
                         }
@@ -114,7 +116,8 @@ class OfflineFirstEventRepository(
             lastCalculationTotal = event.lastCalculationTotal,
             lastCalculationTimestamp = event.lastCalculationTimestamp,
             lastCalculationSummary = event.lastCalculationSummary,
-            updatedAt = currentTimeMillis()
+            updatedAt = currentTimeMillis(),
+            state = event.state.name
         )
         // Try remote, enqueue on failure
         try {
@@ -170,6 +173,7 @@ class OfflineFirstEventRepository(
         lastCalculationMode = lastCalculationMode,
         lastCalculationTotal = lastCalculationTotal,
         lastCalculationTimestamp = lastCalculationTimestamp,
-        lastCalculationSummary = lastCalculationSummary
+        lastCalculationSummary = lastCalculationSummary,
+        state = runCatching { EventState.valueOf(state) }.getOrDefault(EventState.DRAFT)
     )
 }

@@ -134,6 +134,7 @@ fun CuentaMorososApp(
 
     val eventId by eventDetailViewModel.eventId.collectAsState()
     val debts by eventDetailViewModel.debts.collectAsState(initial = emptyList())
+    val allDebts by eventDetailViewModel.allDebts.collectAsState()
     val expenses by eventDetailViewModel.expenses.collectAsState(initial = emptyList())
     val currentRole by eventDetailViewModel.currentRole.collectAsState(initial = EventRole.READER)
     val transitionWarning by eventDetailViewModel.transitionWarning.collectAsState()
@@ -152,9 +153,9 @@ fun CuentaMorososApp(
         }
     }
 
-    val activeTotalsByProfile by remember(debts) {
+    val activeTotalsByProfile by remember(allDebts) {
         derivedStateOf {
-            debts
+            allDebts
                 .filter { !it.paid }
                 .groupBy { it.profileId }
                 .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
@@ -313,6 +314,7 @@ fun CuentaMorososApp(
                                 val eventEntries = debts.filter { it.eventId == currentEvent.id }
                                 val balances = result.snapshot?.participantBalances ?: emptyMap()
 
+                                // Pass 1: update existing debts
                                 eventEntries.forEach { debt ->
                                     val balance = balances[debt.profileId] ?: 0.0
                                     val amount = if (balance < 0) -balance else 0.0
@@ -322,6 +324,22 @@ fun CuentaMorososApp(
                                             calculationMode = currentEvent.lastCalculationMode ?: "real_consumption"
                                         )
                                     )
+                                }
+
+                                // Pass 2: create debts for profiles in balances without existing entries
+                                val existingProfileIds = eventEntries.map { it.profileId }.toSet()
+                                balances.forEach { (profileId, balance) ->
+                                    if (profileId !in existingProfileIds) {
+                                        val amount = if (balance < 0) -balance else 0.0
+                                        eventDetailViewModel.saveDebt(
+                                            EventDebtItem(
+                                                eventId = currentEvent.id,
+                                                profileId = profileId,
+                                                amountEuros = amount,
+                                                calculationMode = currentEvent.lastCalculationMode ?: "real_consumption"
+                                            )
+                                        )
+                                    }
                                 }
 
                                 eventsViewModel.saveEvent(

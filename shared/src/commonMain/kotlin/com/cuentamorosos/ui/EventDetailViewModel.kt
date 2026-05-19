@@ -83,6 +83,9 @@ class EventDetailViewModel(
         if (id == null) flowOf(emptyList()) else debtRepository.observeDebts(id)
     }
 
+    val allDebts: StateFlow<List<EventDebtItem>> = debtRepository.observeAllDebts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val expenses: Flow<List<EventExpenseItem>> = _eventId.flatMapLatest { id ->
         if (id == null) flowOf(emptyList()) else expenseRepository.observeExpenses(id)
     }

@@ -3,6 +3,7 @@ package com.cuentamorosos.data.repository
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.SUPPORTED_CURRENCY
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
@@ -129,7 +130,8 @@ class FirestoreEventRepository : EventRepository {
         "lastCalculationMode" to lastCalculationMode,
         "lastCalculationTotal" to lastCalculationTotal,
         "lastCalculationTimestamp" to lastCalculationTimestamp,
-        "lastCalculationSummary" to lastCalculationSummary
+        "lastCalculationSummary" to lastCalculationSummary,
+        "state" to state.name
     )
 
     private fun dev.gitlive.firebase.firestore.DocumentSnapshot.toEventItem(): EventItem? {
@@ -147,7 +149,10 @@ class FirestoreEventRepository : EventRepository {
                 lastCalculationMode = data["lastCalculationMode"] as? String,
                 lastCalculationTotal = (data["lastCalculationTotal"] as? Number)?.toDouble(),
                 lastCalculationTimestamp = (data["lastCalculationTimestamp"] as? Number)?.toLong(),
-                lastCalculationSummary = data["lastCalculationSummary"] as? String
+                lastCalculationSummary = data["lastCalculationSummary"] as? String,
+                state = (data["state"] as? String)?.let {
+                    runCatching { EventState.valueOf(it) }.getOrDefault(EventState.DRAFT)
+                } ?: EventState.DRAFT
             )
         } catch (e: Exception) {
             null

@@ -21,7 +21,7 @@ class DashboardViewModel(
     private val debtRepository: DebtRepository,
     private val expenseRepository: ExpenseRepository,
     private val profileRepository: ProfileRepository,
-    @Suppress("UNUSED_PARAMETER") private val currentUserUid: String,
+    private val currentUserUid: String,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardState())
@@ -52,7 +52,9 @@ class DashboardViewModel(
             .filter { !it.paid }
             .sumOf { it.amountEuros }
 
-        val totalYouOwe = 0.0
+        val totalYouOwe = debts
+            .filter { !it.paid && it.profileId == currentUserUid }
+            .sumOf { it.amountEuros }
 
         val smartAlerts = computeSmartAlerts(events, expenses)
         val allEvents = buildAllEvents(events, debts, expenses)
