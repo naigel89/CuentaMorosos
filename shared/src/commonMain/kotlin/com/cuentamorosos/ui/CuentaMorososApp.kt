@@ -621,7 +621,7 @@ private fun PillNavItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
+    val neoColors = LocalNeoFintechColors.current
     Column(
         modifier = Modifier
             .clickable(onClick = onClick)
@@ -632,12 +632,12 @@ private fun PillNavItem(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (selected) colors.primaryContainer else colors.onSurfaceVariant,
+            tint = if (selected) neoColors.primaryContainer else neoColors.onSurfaceVariant,
             modifier = Modifier.size(24.dp),
         )
         Text(
             text = label,
-            color = if (selected) colors.onSurface else colors.onSurfaceVariant,
+            color = if (selected) neoColors.onSurface else neoColors.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall,
         )
     }
