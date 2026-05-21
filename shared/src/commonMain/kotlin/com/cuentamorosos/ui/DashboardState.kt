@@ -24,9 +24,17 @@ data class DashboardEventRow(
     val dateMillis: Long,
 )
 
+data class DebtBreakdownItem(
+    val profileId: String,
+    val profileName: String,
+    val amount: Double,
+)
+
 data class DashboardState(
     val totalOwedToYou: Double = 0.0,
     val totalYouOwe: Double = 0.0,
     val smartAlerts: List<SmartAlert> = emptyList(),
     val allEvents: List<DashboardEventRow> = emptyList(),
+    val owedToYouBreakdown: List<DebtBreakdownItem> = emptyList(),
+    val youOweBreakdown: List<DebtBreakdownItem> = emptyList(),
 )

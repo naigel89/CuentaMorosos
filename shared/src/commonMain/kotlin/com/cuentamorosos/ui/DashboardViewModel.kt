@@ -46,7 +46,7 @@ class DashboardViewModel(
         events: List<EventItem>,
         debts: List<EventDebtItem>,
         expenses: List<EventExpenseItem>,
-        @Suppress("UNUSED_PARAMETER") profiles: List<ProfileItem>,
+        profiles: List<ProfileItem>,
     ): DashboardState {
         val totalOwedToYou = debts
             .filter { !it.paid }
@@ -58,12 +58,15 @@ class DashboardViewModel(
 
         val smartAlerts = computeSmartAlerts(events, expenses)
         val allEvents = buildAllEvents(events, debts, expenses)
+        val breakdown = computeProfileBreakdown(debts, profiles, currentUserUid)
 
         return DashboardState(
             totalOwedToYou = totalOwedToYou,
             totalYouOwe = totalYouOwe,
             smartAlerts = smartAlerts,
             allEvents = allEvents,
+            owedToYouBreakdown = breakdown.owedToYouBreakdown,
+            youOweBreakdown = breakdown.youOweBreakdown,
         )
     }
 

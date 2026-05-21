@@ -1,39 +1,45 @@
 package com.cuentamorosos.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.model.formatEuros
 
@@ -69,25 +75,27 @@ fun DashboardScreen(
             )
         }
 
-        // Resumen: indicator cards
+        // Resumen: accordion cards
         item {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                IndicatorCard(
-                    modifier = Modifier.weight(1f),
+                DebtAccordionCard(
+                    modifier = Modifier.fillMaxWidth(),
                     title = "Te deben",
-                    amount = state.totalOwedToYou,
-                    borderColor = colors.primaryContainer,
-                    icon = "\uD83D\uDCC8",
+                    totalAmount = state.totalOwedToYou,
+                    breakdown = state.owedToYouBreakdown,
+                    accentColor = colors.primaryContainer,
+                    trendIcon = { TrendLineUp(color = colors.primaryContainer) },
                 )
-                IndicatorCard(
-                    modifier = Modifier.weight(1f),
+                DebtAccordionCard(
+                    modifier = Modifier.fillMaxWidth(),
                     title = "Debes",
-                    amount = state.totalYouOwe,
-                    borderColor = colors.error,
-                    icon = "\uD83D\uDCC9",
+                    totalAmount = state.totalYouOwe,
+                    breakdown = state.youOweBreakdown,
+                    accentColor = colors.error,
+                    trendIcon = { TrendLineDown(color = colors.error) },
                 )
             }
         }
@@ -116,7 +124,6 @@ fun DashboardScreen(
                     fontWeight = FontWeight.SemiBold,
                     color = colors.primaryContainer,
                     modifier = Modifier.clickable {
-                        // Toggle all alerts at once
                         if (expandedAlertIds.isEmpty()) {
                             expandedAlertIds = state.smartAlerts.map { it.eventId }.toSet()
                         } else {
@@ -165,63 +172,6 @@ fun DashboardScreen(
     }
 }
 
-// ── IndicatorCard with top accent bar ─────────────────────────────────────────
-
-@Composable
-private fun IndicatorCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    amount: Double,
-    borderColor: androidx.compose.ui.graphics.Color,
-    icon: String,
-) {
-    val colors = LocalNeoFintechColors.current
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
-            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
-        colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
-        shape = NeoFintechShapes.lg,
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Top accent bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .background(borderColor),
-            )
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.onSurfaceVariant,
-                    )
-                    Text(text = icon, style = MaterialTheme.typography.headlineMedium)
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = formatEuros(amount),
-                    style = MaterialTheme.typography.displayLarge,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = JetBrainsMonoFontFamily(),
-                    color = colors.onSurface,
-                )
-            }
-        }
-    }
-}
-
 // ── AlertCard with icon circles ───────────────────────────────────────────────
 
 @Composable
@@ -251,7 +201,6 @@ private fun AlertCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Left: icon circle
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -264,10 +213,7 @@ private fun AlertCard(
                     color = iconColor,
                 )
             }
-            // Center: alert text
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = alert.message,
                     style = MaterialTheme.typography.bodyMedium,
@@ -280,7 +226,6 @@ private fun AlertCard(
                     color = colors.onSurfaceVariant,
                 )
             }
-            // Right: chevron
             Text(
                 text = "\u25B6",
                 style = MaterialTheme.typography.bodySmall,
@@ -346,5 +291,103 @@ private fun DashboardEventRow(
                 StateBadge(state = row.state)
             }
         }
+    }
+}
+
+// ── Animated sparkline trend lines ────────────────────────────────────────────
+
+@Composable
+private fun TrendLineUp(color: Color) {
+    var animate by remember { mutableStateOf(false) }
+    val progress by animateFloatAsState(
+        targetValue = if (animate) 1f else 0f,
+        animationSpec = tween(durationMillis = 1200),
+        label = "trendLineUp",
+    )
+
+    LaunchedEffect(Unit) { animate = true }
+
+    Canvas(modifier = Modifier.size(24.dp)) {
+        val strokeWidth = 1.5f
+        val w = size.width
+        val h = size.height
+
+        // Zigzag path trending upward with peaks
+        val path = Path().apply {
+            moveTo(0f, h * 0.85f)
+            lineTo(w * 0.15f, h * 0.65f)  // up
+            lineTo(w * 0.25f, h * 0.75f)  // dip
+            lineTo(w * 0.40f, h * 0.45f)  // up
+            lineTo(w * 0.50f, h * 0.55f)  // dip
+            lineTo(w * 0.65f, h * 0.30f)  // up
+            lineTo(w * 0.75f, h * 0.40f)  // dip
+            lineTo(w * 0.90f, h * 0.15f)  // up to peak
+            lineTo(w, 0f)                  // arrow tip
+        }
+
+        val pathMeasure = PathMeasure()
+        pathMeasure.setPath(path, false)
+        val length = pathMeasure.length
+
+        val animatedPath = Path()
+        pathMeasure.getSegment(0f, length * progress, animatedPath, true)
+
+        drawPath(
+            path = animatedPath,
+            color = color,
+            style = Stroke(
+                width = strokeWidth,
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun TrendLineDown(color: Color) {
+    var animate by remember { mutableStateOf(false) }
+    val progress by animateFloatAsState(
+        targetValue = if (animate) 1f else 0f,
+        animationSpec = tween(durationMillis = 1200),
+        label = "trendLineDown",
+    )
+
+    LaunchedEffect(Unit) { animate = true }
+
+    Canvas(modifier = Modifier.size(24.dp)) {
+        val strokeWidth = 1.5f
+        val w = size.width
+        val h = size.height
+
+        // Zigzag path trending downward with peaks
+        val path = Path().apply {
+            moveTo(0f, h * 0.15f)
+            lineTo(w * 0.15f, h * 0.35f)   // down
+            lineTo(w * 0.25f, h * 0.25f)   // up
+            lineTo(w * 0.40f, h * 0.55f)   // down
+            lineTo(w * 0.50f, h * 0.45f)   // up
+            lineTo(w * 0.65f, h * 0.70f)   // down
+            lineTo(w * 0.75f, h * 0.60f)   // up
+            lineTo(w * 0.90f, h * 0.85f)   // down to bottom
+            lineTo(w, h)                    // arrow tip
+        }
+
+        val pathMeasure = PathMeasure()
+        pathMeasure.setPath(path, false)
+        val length = pathMeasure.length
+
+        val animatedPath = Path()
+        pathMeasure.getSegment(0f, length * progress, animatedPath, true)
+
+        drawPath(
+            path = animatedPath,
+            color = color,
+            style = Stroke(
+                width = strokeWidth,
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round,
+            ),
+        )
     }
 }
