@@ -15,6 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class OfflineFirstDebtRepository(
     private val remoteRepository: DebtRepository,
@@ -25,21 +26,21 @@ class OfflineFirstDebtRepository(
 ) : DebtRepository {
 
     private val queries = database.cachedDebtQueries
-    private var syncJob: Job? = null
+    private var syncAllJob: Job? = null
+    private var started = false
 
-    override fun observeDebts(eventId: String): Flow<List<EventDebtItem>> {
-        // Observe network state and control sync
+    fun startSync() {
+        if (started) return
+        started = true
         networkMonitor.isOnline
             .onEach { isOnline ->
-                if (isOnline) {
-                    startSync(eventId)
-                } else {
-                    stopSync()
-                }
+                println("[OfflineFirstDebtRepo] network state: $isOnline")
+                if (isOnline) startSyncAll() else stopSyncAll()
             }
             .launchIn(syncScope)
+    }
 
-        // Single Source of Truth: Local cache
+    override fun observeDebts(eventId: String): Flow<List<EventDebtItem>> {
         return queries.selectByEvent(eventId)
             .asFlow()
             .mapToList(Dispatchers.Default)
@@ -49,17 +50,6 @@ class OfflineFirstDebtRepository(
     }
 
     override fun observeAllDebts(): Flow<List<EventDebtItem>> {
-        // Observe network state and control sync
-        networkMonitor.isOnline
-            .onEach { isOnline ->
-                if (isOnline) {
-                    startSyncAll()
-                } else {
-                    stopSync()
-                }
-            }
-            .launchIn(syncScope)
-
         return queries.selectAll()
             .asFlow()
             .mapToList(Dispatchers.Default)
@@ -68,61 +58,27 @@ class OfflineFirstDebtRepository(
             }
     }
 
-    private fun startSync(eventId: String) {
-        syncJob?.cancel()
-        syncJob = syncScope.launch(Dispatchers.Default) {
-            var backoffMs = 1000L
-            val maxBackoffMs = 30000L
-            while (isActive) {
-                try {
-                    remoteRepository.observeDebts(eventId).collect { remoteDebts ->
-                        queries.transaction {
-                            remoteDebts.forEach { debt ->
-                                queries.upsert(
-                                    id = debt.id,
-                                    eventId = debt.eventId,
-                                    profileId = debt.profileId,
-                                    amountEuros = debt.amountEuros,
-                                    paid = if (debt.paid) 1 else 0,
-                                    notes = debt.notes,
-                                    calculationMode = debt.calculationMode,
-                                    updatedAt = currentTimeMillis()
-                                )
-                            }
-                        }
-                    }
-                    backoffMs = 1000L
-                } catch (e: Exception) {
-                    println("[OfflineFirstDebtRepo] Sync error: ${e.message}")
-                    delay(backoffMs)
-                    backoffMs = minOf(backoffMs * 2, maxBackoffMs)
-                }
-            }
-        }
-    }
-
     private fun startSyncAll() {
-        syncJob?.cancel()
-        syncJob = syncScope.launch(Dispatchers.Default) {
+        println("[OfflineFirstDebtRepo] startSyncAll called")
+        syncAllJob?.cancel()
+        syncAllJob = syncScope.launch(Dispatchers.Default) {
             var backoffMs = 1000L
             val maxBackoffMs = 30000L
             while (isActive) {
                 try {
+                    println("[OfflineFirstDebtRepo] calling observeAllDebts...")
+                    val firstEmission = withTimeoutOrNull(15_000) {
+                        remoteRepository.observeAllDebts().first()
+                    }
+                    if (firstEmission != null) {
+                        println("[OfflineFirstDebtRepo] received ${firstEmission.size} debts from Firestore (first)")
+                        upsertDebts(firstEmission)
+                    } else {
+                        println("[OfflineFirstDebtRepo] Sync timeout after 15s, retrying with backoff")
+                    }
                     remoteRepository.observeAllDebts().collect { remoteDebts ->
-                        queries.transaction {
-                            remoteDebts.forEach { debt ->
-                                queries.upsert(
-                                    id = debt.id,
-                                    eventId = debt.eventId,
-                                    profileId = debt.profileId,
-                                    amountEuros = debt.amountEuros,
-                                    paid = if (debt.paid) 1 else 0,
-                                    notes = debt.notes,
-                                    calculationMode = debt.calculationMode,
-                                    updatedAt = currentTimeMillis()
-                                )
-                            }
-                        }
+                        println("[OfflineFirstDebtRepo] received ${remoteDebts.size} debts from Firestore")
+                        upsertDebts(remoteDebts)
                     }
                     backoffMs = 1000L
                 } catch (e: Exception) {
@@ -134,9 +90,26 @@ class OfflineFirstDebtRepository(
         }
     }
 
-    private fun stopSync() {
-        syncJob?.cancel()
-        syncJob = null
+    private fun stopSyncAll() {
+        syncAllJob?.cancel()
+        syncAllJob = null
+    }
+
+    private fun upsertDebts(debts: List<EventDebtItem>) {
+        queries.transaction {
+            debts.forEach { debt ->
+                queries.upsert(
+                    id = debt.id,
+                    eventId = debt.eventId,
+                    profileId = debt.profileId,
+                    amountEuros = debt.amountEuros,
+                    paid = if (debt.paid) 1 else 0,
+                    notes = debt.notes,
+                    calculationMode = debt.calculationMode,
+                    updatedAt = currentTimeMillis()
+                )
+            }
+        }
     }
 
     override suspend fun saveDebt(debt: EventDebtItem) {

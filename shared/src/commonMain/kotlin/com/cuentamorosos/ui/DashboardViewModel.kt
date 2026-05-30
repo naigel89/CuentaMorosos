@@ -9,7 +9,9 @@ import com.cuentamorosos.data.repository.ProfileRepository
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,8 +39,13 @@ class DashboardViewModel(
             ) { events, debts, expenses, profiles ->
                 computeState(events, debts, expenses, profiles)
             }.collect { newState ->
-                _state.value = newState
+                _state.value = newState.copy(isLoading = false)
             }
+        }
+
+        viewModelScope.launch {
+            delay(8_000)
+            _state.value = _state.value.copy(isLoading = false)
         }
     }
 
@@ -83,6 +90,8 @@ class DashboardViewModel(
             .toSet()
 
         events.forEach { event ->
+            if (event.state == EventState.CLOSED) return@forEach
+
             if (event.effectiveMemberIds.isEmpty()) {
                 alerts.add(
                     SmartAlert(
@@ -124,7 +133,9 @@ class DashboardViewModel(
         events: List<EventItem>,
         debts: List<EventDebtItem>,
         expenses: List<EventExpenseItem>,
-    ): List<DashboardEventRow> = events.map { event ->
+    ): List<DashboardEventRow> = events
+        .filter { it.state != EventState.CLOSED }
+        .map { event ->
         val eventExpenses = expenses.filter { it.eventId == event.id }
         val eventDebts = debts.filter { it.eventId == event.id }
         val totalExpenses = eventExpenses.sumOf { it.amountEuros }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -41,14 +42,17 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.formatEuros
 
 @Composable
 fun DashboardScreen(
     modifier: Modifier = Modifier,
     state: DashboardState,
+    events: List<EventItem> = emptyList(),
     onAlertTap: (SmartAlert) -> Unit = {},
     onEventTap: (DashboardEventRow) -> Unit = {},
+    onOpenCalendar: () -> Unit = {},
 ) {
     val colors = LocalNeoFintechColors.current
     var expandedAlertIds by remember { mutableStateOf(setOf<String>()) }
@@ -61,18 +65,38 @@ fun DashboardScreen(
         }
     }
 
+    if (state.isLoading) {
+        LoadingSkeleton(modifier = modifier)
+        return
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Title
+        // Title + Calendar button
         item {
-            Text(
-                text = "Panel",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Panel",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(colors.primaryContainer, RoundedCornerShape(12.dp))
+                        .clickable(onClick = onOpenCalendar),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("\uD83D\uDCC5", style = MaterialTheme.typography.bodyLarge)
+                }
+            }
         }
 
         // Resumen: accordion cards
@@ -110,7 +134,7 @@ fun DashboardScreen(
                     color = colors.primaryContainer,
                 )
                 Text(
-                    text = "\u2705 Todo en orden",
+                    text = "No hay nada de lo que preocuparse… por ahora",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.primaryContainer,
                 )
@@ -118,28 +142,27 @@ fun DashboardScreen(
         } else {
             item {
                 val alertCount = state.smartAlerts.size
+                val allExpanded = expandedAlertIds.size == state.smartAlerts.size
                 Text(
                     text = "ALERTAS INTELIGENTES ($alertCount)",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = colors.primaryContainer,
                     modifier = Modifier.clickable {
-                        if (expandedAlertIds.isEmpty()) {
-                            expandedAlertIds = state.smartAlerts.map { it.eventId }.toSet()
-                        } else {
+                        if (allExpanded) {
                             expandedAlertIds = emptySet()
+                        } else {
+                            expandedAlertIds = state.smartAlerts.map { it.eventId }.toSet()
                         }
                     },
                 )
             }
             items(state.smartAlerts) { alert ->
-                val isExpanded = alert.eventId in expandedAlertIds
-                AnimatedVisibility(visible = isExpanded) {
-                    AlertCard(
-                        alert = alert,
-                        onTap = { onAlertTap(alert) },
-                    )
-                }
+                AlertAccordionCard(
+                    alert = alert,
+                    onTap = { onAlertTap(alert) },
+                    initiallyExpanded = alert.eventId in expandedAlertIds,
+                )
             }
         }
 
@@ -156,7 +179,7 @@ fun DashboardScreen(
         if (state.allEvents.isEmpty()) {
             item {
                 Text(
-                    text = "No tienes eventos aún",
+                    text = "No tienes aún eventos disponibles",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -230,6 +253,54 @@ private fun AlertCard(
                 text = "\u25B6",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LoadingSkeleton(modifier: Modifier = Modifier) {
+    val colors = LocalNeoFintechColors.current
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(32.dp)
+                    .background(colors.surfaceContainerHigh, NeoFintechShapes.sm),
+            )
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                repeat(2) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .background(colors.surfaceContainerHigh, NeoFintechShapes.lg),
+                    )
+                }
+            }
+        }
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(24.dp)
+                    .background(colors.surfaceContainerHigh, NeoFintechShapes.sm),
+            )
+        }
+        items(3) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .background(colors.surfaceContainerHigh, NeoFintechShapes.md),
             )
         }
     }

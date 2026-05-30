@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -70,6 +71,7 @@ fun EventDetailScreen(
     currentRole: EventRole = EventRole.OWNER,
     canDo: (EventAction) -> Boolean = { true },
     onOpenEvent: (() -> Unit)? = null,
+    onCloseEvent: (() -> Unit)? = null,
 ) {
     val profileById = profiles.associateBy { it.id }
     val eventParticipants = profiles.filter { it.id in event.effectiveMemberIds }
@@ -78,6 +80,8 @@ fun EventDetailScreen(
     val availableProfiles = profiles.filter { profile ->
         eventDebts.none { it.profileId == profile.id }
     }
+    val canClose = event.state == EventState.CALCULATED &&
+        canDo(EventAction.Close) && eventDebts.all { it.paid }
 
     var editableDebt by remember { mutableStateOf<EventDebtItem?>(null) }
     var editableExpense by remember { mutableStateOf<EventExpenseItem?>(null) }
@@ -158,6 +162,9 @@ fun EventDetailScreen(
                             canCalculate = canDo(EventAction.Calculate),
                             canManageParticipants = canDo(EventAction.ManageParticipants),
                             canInvite = canDo(EventAction.ManageParticipants),
+                            eventState = event.state,
+                            canClose = canClose,
+                            onCloseEvent = onCloseEvent,
                         )
                     }
                 }
@@ -211,6 +218,9 @@ fun EventDetailScreen(
                         canCalculate = canDo(EventAction.Calculate),
                         canManageParticipants = canDo(EventAction.ManageParticipants),
                         canInvite = canDo(EventAction.ManageParticipants),
+                        eventState = event.state,
+                        canClose = canClose,
+                        onCloseEvent = onCloseEvent,
                     )
                 }
             }
@@ -601,7 +611,11 @@ private fun AddProfileToEventDialog(
                             onClick = { onAddProfile(profile) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("${profile.icon} ${profile.name}")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl, size = 28.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(profile.name)
+                            }
                         }
                     }
                 }
@@ -708,7 +722,9 @@ private fun ExpenseEditorDialog(
                             onClick = { selectedPaidByProfileId = profile.id },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("${profile.icon} ${profile.name}")
+                            ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl, size = 24.dp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(profile.name)
                         }
                     }
                 }
@@ -782,7 +798,9 @@ private fun ExpenseEditorDialog(
                                     updateSelectedProfiles(newSelection)
                                 }
                             )
-                            Text("${profile.icon} ${profile.name}")
+                            ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl, size = 24.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text(profile.name)
                         }
                     }
 

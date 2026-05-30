@@ -1,15 +1,19 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -19,12 +23,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -92,7 +101,7 @@ fun EventsScreen(
     var eventToDelete by remember { mutableStateOf<EventItem?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Filtro: 0 = Todos, 1 = Con deuda, 2 = Sin deuda
+    // Filtro: 0 = Todos, 1 = Con deuda, 2 = Sin deuda, 3 = Cerrados
     var activeFilter by remember { mutableStateOf(0) }
 
     val totalPending by remember(pendingTotalsByEvent) {
@@ -108,6 +117,12 @@ fun EventsScreen(
     val filteredEvents by remember(events, searchQuery, activeFilter, pendingTotalsByEvent) {
         derivedStateOf {
             events
+                .filter { event ->
+                    when (activeFilter) {
+                        3 -> event.state == EventState.CLOSED
+                        else -> event.state != EventState.CLOSED
+                    }
+                }
                 .filter { event ->
                     searchQuery.isBlank() ||
                         event.name.contains(searchQuery.trim(), ignoreCase = true)
@@ -125,6 +140,7 @@ fun EventsScreen(
     val filterLabel = when (activeFilter) {
         1 -> "con deuda"
         2 -> "sin deuda"
+        3 -> "cerrados"
         else -> ""
     }
 
@@ -201,10 +217,12 @@ fun EventsScreen(
 
             // Filter chips row (separate row below search)
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                listOf("Todos", "Con deuda", "Sin deuda").forEachIndexed { index, label ->
+                listOf("Todos", "Con deuda", "Sin deuda", "Cerrados").forEachIndexed { index, label ->
                     FilterChip(
                         selected = activeFilter == index,
                         onClick = { activeFilter = index },
@@ -218,7 +236,7 @@ fun EventsScreen(
                 if (events.isEmpty()) {
                     EmptyStateMessage(
                         title = "No tenés eventos aún",
-                        message = "Pulsa en \"+ Nuevo perfil\" para registrar el primero con nombre y fecha.",
+                        message = "Pulsá \"Crear nuevo evento\" para registrar el primero con nombre y fecha.",
                     )
                 } else if (filteredEvents.isEmpty()) {
                     EmptyStateMessage(
@@ -276,6 +294,8 @@ fun EventsScreen(
         val itemCount = expenseCountByEvent[event.id] ?: 0
         EventEditorDialog(
             initialEvent = event,
+            profiles = profiles,
+            currentUserUid = currentUserUid,
             itemCount = itemCount,
             onDismiss = { editableEvent = null },
             onSave = { savedEvent ->
@@ -394,65 +414,195 @@ private fun EmptyStateMessage(
 @Composable
 private fun EventEditorDialog(
     initialEvent: EventItem,
+    profiles: List<ProfileItem>,
+    currentUserUid: String?,
     itemCount: Int = 0,
     onDismiss: () -> Unit,
     onSave: (EventItem) -> Unit,
 ) {
     val colors = LocalNeoFintechColors.current
+    val uid = currentUserUid ?: ""
+    val isNew = initialEvent.name.isBlank()
+
     var name by remember(initialEvent.id) { mutableStateOf(initialEvent.name) }
-    var dateText by remember(initialEvent.id) { mutableStateOf(initialEvent.formattedDate().ifBlank { currentDateText() }) }
+    var startDateText by remember(initialEvent.id) {
+        mutableStateOf(initialEvent.formattedDate().ifBlank { currentDateText() })
+    }
+    var endDateText by remember(initialEvent.id) {
+        mutableStateOf(
+            if (initialEvent.endDateMillis != initialEvent.startDateMillis) {
+                com.cuentamorosos.formatDateMillis(initialEvent.endDateMillis)
+            } else {
+                ""
+            }
+        )
+    }
+    var useDateRange by remember(initialEvent.id) {
+        mutableStateOf(initialEvent.endDateMillis != initialEvent.startDateMillis)
+    }
+
+    val existingParticipantIds = initialEvent.participants.map { it.profileId }.toSet()
+    var selectedProfileIds by remember(initialEvent.id) {
+        mutableStateOf(existingParticipantIds)
+    }
+    // Ensure owner is always selected
+    if (uid.isNotBlank() && uid !in selectedProfileIds) {
+        selectedProfileIds = selectedProfileIds + uid
+    }
+
     var validationErrors by remember(initialEvent.id) { mutableStateOf<List<ValidationError>>(emptyList()) }
     var validationWarnings by remember(initialEvent.id) { mutableStateOf<List<ValidationError>>(emptyList()) }
+    var activeTab by remember { mutableStateOf(0) }
+    val tabTitles = listOf("Datos", "Participantes")
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(if (initialEvent.name.isBlank()) "Nuevo evento" else "Editar evento")
+            Text(if (isNew) "Nuevo evento" else "Editar evento")
         },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.width(340.dp),
             ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = {
-                        name = it
-                        validationErrors = emptyList()
-                        validationWarnings = emptyList()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Nombre del evento") },
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = dateText,
-                    onValueChange = {
-                        dateText = it
-                        validationErrors = emptyList()
-                        validationWarnings = emptyList()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Fecha") },
-                    supportingText = { Text("Usa el formato dd/MM/yyyy") },
-                    singleLine = true
-                )
-                if (validationErrors.isNotEmpty()) {
-                    validationErrors.forEach { error ->
-                        Text(
-                            text = "• ${error.message}",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
+                TabRow(
+                    selectedTabIndex = activeTab,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = colors.primaryContainer,
+                ) {
+                    tabTitles.forEachIndexed { index, title ->
+                        Tab(
+                            selected = activeTab == index,
+                            onClick = { activeTab = index },
+                            text = { Text(title) },
                         )
                     }
                 }
-                if (validationWarnings.isNotEmpty()) {
-                    validationWarnings.forEach { warning ->
-                        Text(
-                            text = "⚠ ${warning.message}",
-                            color = colors.warning,
-                            style = MaterialTheme.typography.bodySmall
+
+                when (activeTab) {
+                    0 -> Column(
+                        modifier = Modifier
+                            .verticalScroll(rememberScrollState())
+                            .padding(top = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = {
+                                name = it
+                                validationErrors = emptyList()
+                                validationWarnings = emptyList()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Nombre del evento") },
+                            singleLine = true,
                         )
+                        OutlinedTextField(
+                            value = startDateText,
+                            onValueChange = {
+                                startDateText = it
+                                validationErrors = emptyList()
+                                validationWarnings = emptyList()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(if (useDateRange) "Fecha inicio" else "Fecha") },
+                            supportingText = { Text("Formato dd/MM/yyyy") },
+                            singleLine = true,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = useDateRange,
+                                onCheckedChange = {
+                                    useDateRange = it
+                                    validationErrors = emptyList()
+                                    validationWarnings = emptyList()
+                                },
+                            )
+                            Text(
+                                text = "Rango de fechas",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.clickable { useDateRange = !useDateRange },
+                            )
+                        }
+                        if (useDateRange) {
+                            OutlinedTextField(
+                                value = endDateText,
+                                onValueChange = {
+                                    endDateText = it
+                                    validationErrors = emptyList()
+                                    validationWarnings = emptyList()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Fecha fin") },
+                                supportingText = { Text("Formato dd/MM/yyyy") },
+                                singleLine = true,
+                            )
+                        }
+                        if (validationErrors.isNotEmpty()) {
+                            validationErrors.forEach { error ->
+                                Text(
+                                    text = "• ${error.message}",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                        if (validationWarnings.isNotEmpty()) {
+                            validationWarnings.forEach { warning ->
+                                Text(
+                                    text = "⚠ ${warning.message}",
+                                    color = colors.warning,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                    1 -> Column(
+                        modifier = Modifier
+                            .verticalScroll(rememberScrollState())
+                            .padding(top = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = "Selecciona los perfiles que participan",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        profiles.forEach { profile ->
+                            val isOwner = profile.id == uid
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable(enabled = !isOwner) {
+                                    selectedProfileIds = if (profile.id in selectedProfileIds) {
+                                        selectedProfileIds - profile.id
+                                    } else {
+                                        selectedProfileIds + profile.id
+                                    }
+                                },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Checkbox(
+                                    checked = profile.id in selectedProfileIds,
+                                    onCheckedChange = {
+                                        if (!isOwner) {
+                                            selectedProfileIds = if (profile.id in selectedProfileIds) {
+                                                selectedProfileIds - profile.id
+                                            } else {
+                                                selectedProfileIds + profile.id
+                                            }
+                                        }
+                                    },
+                                    enabled = !isOwner,
+                                )
+                                ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl, size = 24.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "${profile.name}${if (isOwner) " (vos)" else ""}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -460,15 +610,40 @@ private fun EventEditorDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val parsedDate = parseEventDate(dateText)
-                    if (parsedDate == null) {
-                        validationErrors = listOf(ValidationError("Selecciona una fecha válida", "date"))
+                    val parsedStart = parseEventDate(startDateText)
+                    if (parsedStart == null) {
+                        validationErrors = listOf(ValidationError("Fecha de inicio inválida", "date"))
                         return@TextButton
+                    }
+                    var parsedEnd = parsedStart
+                    if (useDateRange && endDateText.isNotBlank()) {
+                        parsedEnd = parseEventDate(endDateText)
+                        if (parsedEnd == null) {
+                            validationErrors = listOf(ValidationError("Fecha de fin inválida", "date"))
+                            return@TextButton
+                        }
+                    }
+
+                    val ownerId = initialEvent.ownerId.ifBlank { uid }
+                    val newParticipants = selectedProfileIds.map { profileId ->
+                        val existingRole = initialEvent.participants
+                            .find { it.profileId == profileId }?.role
+                        EventParticipant(
+                            profileId = profileId,
+                            role = if (profileId == ownerId) EventRole.OWNER else (existingRole ?: EventRole.CONTRIBUTOR),
+                            joinedAtMillis = initialEvent.participants
+                                .find { it.profileId == profileId }?.joinedAtMillis ?: if (isNew) currentTimeMillis() else 0L,
+                        )
                     }
 
                     val draftEvent = initialEvent.copy(
                         name = name.trim(),
-                        dateMillis = parsedDate
+                        dateMillis = parsedStart,
+                        startDateMillis = parsedStart,
+                        endDateMillis = parsedEnd,
+                        memberIds = selectedProfileIds.toList(),
+                        participants = newParticipants,
+                        ownerId = ownerId,
                     )
                     val result = EventValidator.validate(draftEvent, itemCount)
 
@@ -478,7 +653,6 @@ private fun EventEditorDialog(
                         return@TextButton
                     }
 
-                    // Warnings are shown but save proceeds
                     validationErrors = emptyList()
                     validationWarnings = result.allWarnings()
                     onSave(draftEvent)
@@ -491,6 +665,6 @@ private fun EventEditorDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancelar")
             }
-        }
+        },
     )
 }

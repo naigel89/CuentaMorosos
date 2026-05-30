@@ -1,9 +1,15 @@
 package com.cuentamorosos
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -14,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import com.cuentamorosos.data.CuentaMorososLocalStore
 import com.cuentamorosos.data.FirebaseUserSyncManager
@@ -24,11 +31,17 @@ import com.cuentamorosos.db.DriverFactory
 import com.cuentamorosos.model.UserPreferences
 import com.cuentamorosos.ui.CuentaMorososApp
 import com.cuentamorosos.ui.CuentaMorososTheme
+import com.cuentamorosos.ui.OnPhotoReady
 import com.cuentamorosos.ui.auth.ForgotPasswordScreen
 import com.cuentamorosos.ui.auth.LoginScreen
 import com.cuentamorosos.ui.auth.RegisterScreen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
@@ -40,6 +53,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Prevent Firebase Firestore permission errors from crashing the app
+        // while Firestore rules are being configured
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            if (throwable is com.google.firebase.firestore.FirebaseFirestoreException &&
+                throwable.message?.contains("PERMISSION_DENIED") == true
+            ) {
+                println("[MainActivity] Firestore PERMISSION_DENIED caught: ${throwable.message}")
+                println("[MainActivity] Check Firestore Database rules in Firebase Console")
+                // Don't crash — the Flow's catch operator will emit emptyList()
+            } else {
+                defaultHandler?.uncaughtException(thread, throwable)
+            }
+        }
 
         // Ensure notification channel exists
         NotificationScheduler.ensureChannel(this)
@@ -114,6 +142,72 @@ private fun MainAppContent(
     }
     var preferences by remember { mutableStateOf(localStore.loadPreferences()) }
 
+    // Start staggered sync after first render
+    val syncScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
+    LaunchedEffect(Unit) {
+        repositoryProvider.startSyncStaggered(syncScope)
+    }
+
+    // ── Photo picker bridge ───────────────────────────────────────────────────
+    // Capture context for image compression
+    val context = LocalContext.current
+
+    // Holds the callback that will receive the download URL after upload
+    var pendingPhotoCallback by remember { mutableStateOf<OnPhotoReady?>(null) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri: Uri? ->
+            println("[MainActivity] Photo picker onResult: uri=$uri, hasCallback=${pendingPhotoCallback != null}")
+            val callback = pendingPhotoCallback
+            pendingPhotoCallback = null
+            if (uri != null && callback != null) {
+                val currentUid = user.uid
+
+                // 1. Compress image to 256x256 JPEG 85%, read as bytes
+                val imageBytes = compressImageToBytes(context, uri)
+                if (imageBytes == null) {
+                    println("[MainActivity] Failed to compress image, aborting")
+                    return@rememberLauncherForActivityResult
+                }
+                println("[MainActivity] Image compressed: ${imageBytes.size} bytes")
+
+                // 2. Upload to Firebase Storage
+                val storageRef = FirebaseStorage.getInstance().reference
+                    .child("avatars/$currentUid/profile.jpg")
+                val metadata = StorageMetadata.Builder()
+                    .setContentType("image/jpeg")
+                    .build()
+
+                storageRef.putBytes(imageBytes, metadata)
+                    .addOnSuccessListener {
+                        storageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
+                            println("[MainActivity] Photo uploaded successfully: $downloadUrl")
+
+                            // 3. Update FirebaseAuth profile photo
+                            FirebaseAuth.getInstance().currentUser?.updateProfile(
+                                UserProfileChangeRequest.Builder()
+                                    .setPhotoUri(downloadUrl)
+                                    .build()
+                            )?.addOnSuccessListener {
+                                println("[MainActivity] FirebaseAuth profile photo updated")
+                            }?.addOnFailureListener { e ->
+                                println("[MainActivity] FirebaseAuth profile photo update failed: ${e.message}")
+                            }
+
+                            // 4. Pass download URL to ViewModel
+                            callback(downloadUrl.toString())
+                        }.addOnFailureListener { e ->
+                            println("[MainActivity] Failed to get download URL: ${e.message}")
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        println("[MainActivity] Failed to upload photo to Storage: ${e.message}")
+                    }
+            }
+        }
+    )
+
     CuentaMorososApp(
         viewModelFactory = viewModelFactory,
         currentUserUid = user.uid,
@@ -134,6 +228,11 @@ private fun MainAppContent(
         networkMonitor = networkMonitor,
         onSignOut = {
             FirebaseAuth.getInstance().signOut()
+        },
+        onPickPhoto = { onPhotoReady ->
+            println("[MainActivity] Photo picker requested, launching image/* picker")
+            pendingPhotoCallback = onPhotoReady
+            photoPickerLauncher.launch("image/*")
         }
     )
 }
@@ -213,7 +312,7 @@ private fun AuthFlow(
                     }
             }
         )
-    } else if (showForgotPassword) {
+            } else if (showForgotPassword) {
         ForgotPasswordScreen(
             onNavigateToLogin = {
                 showForgotPassword = false
@@ -229,3 +328,29 @@ private fun AuthFlow(
         )
     }
 }
+
+private const val TAG = "MainActivity"
+
+/**
+ * Compresses an image from a content URI to a 256x256 JPEG at 85% quality.
+ * Returns the compressed bytes, or null if compression fails.
+ */
+private fun compressImageToBytes(context: android.content.Context, uri: Uri): ByteArray? {
+    return try {
+        val bitmap = BitmapFactory.decodeStream(context.contentResolver.openInputStream(uri))
+            ?: return null
+        val scaled = Bitmap.createScaledBitmap(bitmap, MAX_PHOTO_SIZE, MAX_PHOTO_SIZE, true)
+        if (scaled != bitmap) bitmap.recycle()
+
+        val output = java.io.ByteArrayOutputStream()
+        scaled.compress(Bitmap.CompressFormat.JPEG, 85, output)
+        scaled.recycle()
+
+        output.toByteArray()
+    } catch (e: Exception) {
+        println("[MainActivity] Image compression failed: ${e.message}")
+        null
+    }
+}
+
+private const val MAX_PHOTO_SIZE = 256

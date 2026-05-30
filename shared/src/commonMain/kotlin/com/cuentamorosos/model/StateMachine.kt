@@ -108,14 +108,12 @@ private fun guardCalculatedToClosed(context: TransitionContext): StateTransition
             listOf("Solo el propietario puede cerrar el evento"),
         )
     }
-    return if (context.pendingPayments > 0) {
-        StateTransitionResult.AllowedWithWarning(
-            EventState.CLOSED,
-            "Hay pagos pendientes de cobrar",
+    if (context.pendingPayments > 0) {
+        return StateTransitionResult.Blocked(
+            listOf("Hay pagos pendientes de cobrar"),
         )
-    } else {
-        StateTransitionResult.Allowed(EventState.CLOSED)
     }
+    return StateTransitionResult.Allowed(EventState.CLOSED)
 }
 
 private fun guardFromClosed(): StateTransitionResult =

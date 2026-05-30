@@ -31,6 +31,7 @@ data class DebtBreakdownItem(
 )
 
 data class DashboardState(
+    val isLoading: Boolean = true,
     val totalOwedToYou: Double = 0.0,
     val totalYouOwe: Double = 0.0,
     val smartAlerts: List<SmartAlert> = emptyList(),

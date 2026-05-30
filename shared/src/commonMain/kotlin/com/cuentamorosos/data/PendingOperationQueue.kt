@@ -62,7 +62,6 @@ class PendingOperationQueue(
             try {
                 when (op.operation) {
                     "save" -> {
-                        // Re-read from local cache and push to remote
                         when (op.entityType) {
                             "event" -> remoteOps.saveEvent(op.entityId)
                             "debt" -> remoteOps.saveDebt(op.entityId)
@@ -78,6 +77,10 @@ class PendingOperationQueue(
                             "profile" -> remoteOps.deleteProfile(op.entityId)
                         }
                     }
+                    "updatePhoto" -> remoteOps.updateProfilePhoto(op.entityId, op.payload)
+                    "updateUsername" -> remoteOps.updateProfileUsername(op.entityId, op.payload)
+                    "updateDisplayName" -> remoteOps.updateProfileDisplayName(op.entityId, op.payload)
+                    "deletePhoto" -> remoteOps.deleteProfilePhoto(op.entityId)
                 }
                 markComplete(op.id)
             } catch (e: Exception) {
@@ -100,4 +103,8 @@ interface RemoteOperations {
     suspend fun deleteExpense(entityId: String)
     suspend fun saveProfile(entityId: String)
     suspend fun deleteProfile(entityId: String)
+    suspend fun updateProfilePhoto(profileId: String, photoUrl: String)
+    suspend fun updateProfileUsername(profileId: String, username: String)
+    suspend fun updateProfileDisplayName(profileId: String, displayName: String)
+    suspend fun deleteProfilePhoto(profileId: String)
 }

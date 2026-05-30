@@ -137,13 +137,21 @@ class StateMachineTest {
     }
 
     @Test
-    fun `ST-04 CALCULATED to CLOSED with warning — pending payments`() {
+    fun `ST-04 CALCULATED to CLOSED blocked — pending payments`() {
         val ctx = defaultContext(isOwner = true, pendingPayments = 3)
         val result = attemptTransition(EventState.CALCULATED, EventState.CLOSED, ctx)
-        assertTrue(result is StateTransitionResult.AllowedWithWarning)
-        val warning = result as StateTransitionResult.AllowedWithWarning
-        assertEquals(EventState.CLOSED, warning.newState)
-        assertTrue(warning.warning.contains("pendientes"))
+        assertTrue(result is StateTransitionResult.Blocked)
+        val reasons = (result as StateTransitionResult.Blocked).reasons
+        assertTrue(reasons.any { it.contains("pendientes") })
+    }
+
+    @Test
+    fun `ST-04b CALCULATED to CLOSED blocked — single pending payment`() {
+        val ctx = defaultContext(isOwner = true, pendingPayments = 1)
+        val result = attemptTransition(EventState.CALCULATED, EventState.CLOSED, ctx)
+        assertTrue(result is StateTransitionResult.Blocked)
+        val reasons = (result as StateTransitionResult.Blocked).reasons
+        assertTrue(reasons.any { it.contains("pendientes") })
     }
 
     @Test

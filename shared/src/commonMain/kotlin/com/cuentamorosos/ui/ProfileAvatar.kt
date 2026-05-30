@@ -10,19 +10,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.draw.clip
 import kotlin.math.abs
 
 /**
- * Circular avatar component displaying the first letter of a name on a colored background.
- * Falls back to emoji if no name is provided.
+ * Circular avatar component displaying the profile photo (via Coil AsyncImage),
+ * or the first letter of a name on a colored background, or an emoji fallback.
  *
  * @param name The profile name used to derive the initial and background color.
- * @param emoji Fallback emoji to display when name is blank.
+ * @param emoji Fallback emoji to display when no photo and no name.
+ * @param photoUrl Optional URL for the profile photo. When non-null, loads via Coil AsyncImage.
  * @param size Diameter of the avatar (default 48dp).
  * @param modifier Optional modifier for layout positioning.
  */
@@ -30,26 +36,46 @@ import kotlin.math.abs
 fun ProfileAvatar(
     name: String = "",
     emoji: String = "",
+    photoUrl: String? = null,
     size: Dp = 48.dp,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalNeoFintechColors.current
     val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
     val avatarColor = if (initial.isNotBlank()) colorForName(name) else colors.surfaceContainerHigh
+    val circleShape = NeoFintechShapes.full
 
     Surface(
-        shape = NeoFintechShapes.full,
-        color = avatarColor,
+        shape = circleShape,
+        color = if (photoUrl != null) colors.surfaceContainerHigh else avatarColor,
         modifier = modifier
             .size(size)
             .border(
                 width = 1.dp,
                 color = colors.outlineVariant,
-                shape = NeoFintechShapes.full,
+                shape = circleShape,
             ),
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            if (initial.isNotBlank()) {
+        if (photoUrl != null) {
+            println("[ProfileAvatar] Loading photo from url=$photoUrl")
+            AsyncImage(
+                model = photoUrl,
+                contentDescription = "Foto de perfil",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(circleShape),
+                contentScale = ContentScale.Crop,
+                onState = { state ->
+                    when (state) {
+                        is AsyncImagePainter.State.Loading -> println("[ProfileAvatar] Coil: loading...")
+                        is AsyncImagePainter.State.Success -> println("[ProfileAvatar] Coil: success")
+                        is AsyncImagePainter.State.Error -> println("[ProfileAvatar] Coil: ERROR ${state.result.throwable.message}")
+                        is AsyncImagePainter.State.Empty -> println("[ProfileAvatar] Coil: empty")
+                    }
+                },
+            )
+        } else if (initial.isNotBlank()) {
+            Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = initial,
                     style = MaterialTheme.typography.headlineMedium.copy(
@@ -59,7 +85,9 @@ fun ProfileAvatar(
                     ),
                     textAlign = TextAlign.Center,
                 )
-            } else {
+            }
+        } else {
+            Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = emoji,
                     style = MaterialTheme.typography.headlineMedium,

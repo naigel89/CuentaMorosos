@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.isValidEmail
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.displayNameFor
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.validation.ProfileValidator
 import com.cuentamorosos.model.validation.ValidationError
@@ -145,6 +146,7 @@ fun ProfilesScreen(
                 ProfileCard(
                     profile = profile,
                     isOwnProfile = isOwnProfile,
+                    currentUid = currentUid ?: "",
                     onClick = { selectedProfile = profile },
                     modifier = Modifier.then(if (isSettled) Modifier.alpha(0.75f) else Modifier),
                 )
@@ -466,7 +468,7 @@ private fun ProfileDetailDialog(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ProfileAvatar(name = profile.name, emoji = profile.icon, size = 32.dp)
+                ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl, size = 32.dp)
                 Text(
                     text = profile.name,
                     style = MaterialTheme.typography.titleMedium,

@@ -137,7 +137,11 @@ class CuentaMorososLocalStore(context: Context) {
                 totalPendingEuros = item.optDouble("totalPendingEuros", 0.0),
                 isGhost = item.optBoolean("isGhost", false),
                 linkedEmail = item.optString("linkedEmail", ""),
-                ownerId = item.optString("ownerId", "")
+                ownerId = item.optString("ownerId", ""),
+                photoUrl = item.optString("photoUrl").takeIf { it.isNotBlank() },
+                username = item.optString("username").takeIf { it.isNotBlank() },
+                displayName = item.optString("displayName").takeIf { it.isNotBlank() },
+                customNames = loadCustomNames(item),
             )
         }
     }.sortedBy { it.name.lowercase() }
@@ -154,6 +158,12 @@ class CuentaMorososLocalStore(context: Context) {
                         .put("isGhost", profile.isGhost)
                         .put("linkedEmail", profile.linkedEmail)
                         .put("ownerId", profile.ownerId)
+                        .put("photoUrl", profile.photoUrl)
+                        .put("username", profile.username)
+                        .put("displayName", profile.displayName)
+                        .put("customNames", JSONObject().apply {
+                            profile.customNames.forEach { (k, v) -> put(k, v) }
+                        })
                 )
             }
         }
@@ -327,6 +337,15 @@ class CuentaMorososLocalStore(context: Context) {
                 if (value != null) {
                     add(value)
                 }
+            }
+        }
+    }
+
+    private fun loadCustomNames(item: JSONObject): Map<String, String> {
+        val obj = item.optJSONObject("customNames") ?: return emptyMap()
+        return buildMap {
+            obj.keys().forEach { key ->
+                put(key, obj.optString(key, ""))
             }
         }
     }

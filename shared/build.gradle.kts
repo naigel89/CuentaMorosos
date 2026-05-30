@@ -55,6 +55,10 @@ kotlin {
             implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
             implementation("org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
 
+            // Coil — KMP image loading
+            implementation("io.coil-kt.coil3:coil:3.0.4")
+            implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+
             // SQLDelight runtime (KMP)
             implementation("app.cash.sqldelight:coroutines-extensions:2.0.2")
         }
@@ -64,6 +68,8 @@ kotlin {
             implementation("androidx.activity:activity-compose:1.9.1")
             // SQLDelight Android driver
             implementation("app.cash.sqldelight:android-driver:2.0.2")
+            // Coil network fetcher for loading images from URLs
+            implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
         }
         jvmMain.dependencies {
             // SQLDelight JVM (SQLite) driver

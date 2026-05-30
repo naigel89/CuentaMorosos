@@ -75,6 +75,9 @@ class EventDetailViewModel(
                 if (id == null) flowOf(null) else eventRepository.observeEvent(id)
             }.collect { event ->
                 _currentEvent.value = event
+                if (event != null && event.state == EventState.OPEN && event.lastCalculationTimestamp != null) {
+                    eventRepository.saveEvent(event.copy(state = EventState.CALCULATED))
+                }
             }
         }
     }

@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS CachedEvent (
     lastCalculationTimestamp INTEGER,
     lastCalculationSummary TEXT,
     updatedAt INTEGER NOT NULL,
-    state TEXT NOT NULL DEFAULT 'DRAFT'
+    state TEXT NOT NULL DEFAULT 'DRAFT',
+    startDateMillis INTEGER NOT NULL DEFAULT 0,
+    endDateMillis INTEGER NOT NULL DEFAULT 0
 );
 
 selectAll:
@@ -22,7 +24,7 @@ SELECT * FROM CachedEvent WHERE id = ?;
 
 upsert:
 INSERT OR REPLACE INTO CachedEvent
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteById:
 DELETE FROM CachedEvent WHERE id = ?;

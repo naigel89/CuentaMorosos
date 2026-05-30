@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.displayNameFor
 import com.cuentamorosos.model.formatEuros
 
 /**
@@ -30,6 +31,7 @@ import com.cuentamorosos.model.formatEuros
  *
  * @param profile The profile data to display.
  * @param isOwnProfile Whether this profile belongs to the current user.
+ * @param currentUid The current user's profile ID (used for display name resolution).
  * @param onClick Callback when the card is tapped.
  * @param modifier Optional modifier for layout positioning.
  */
@@ -37,10 +39,12 @@ import com.cuentamorosos.model.formatEuros
 fun ProfileCard(
     profile: ProfileItem,
     isOwnProfile: Boolean,
+    currentUid: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalNeoFintechColors.current
+    val displayName = profile.displayNameFor(currentUid)
     val balanceColor by remember(profile.totalPendingEuros) {
         derivedStateOf {
             if (profile.totalPendingEuros >= 0) colors.primaryContainer else colors.error
@@ -72,7 +76,7 @@ fun ProfileCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ProfileAvatar(name = profile.name, emoji = profile.icon)
+            ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl)
 
             Column(
                 modifier = Modifier.weight(1f),
@@ -83,12 +87,21 @@ fun ProfileCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = profile.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.onSurface,
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colors.onSurface,
+                        )
+                        if (!profile.username.isNullOrBlank()) {
+                            Text(
+                                text = "@${profile.username}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.onSurfaceVariant,
+                            )
+                        }
+                    }
                     BalanceBadges(
                         balance = profile.totalPendingEuros,
                         isOwnProfile = isOwnProfile,

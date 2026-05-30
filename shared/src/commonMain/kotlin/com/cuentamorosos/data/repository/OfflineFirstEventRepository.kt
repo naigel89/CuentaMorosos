@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class OfflineFirstEventRepository(
     private val remoteRepository: EventRepository,
@@ -32,20 +33,19 @@ class OfflineFirstEventRepository(
 
     private val queries = database.cachedEventQueries
     private var syncJob: Job? = null
+    private var started = false
 
-    override fun observeEvents(): Flow<List<EventItem>> {
-        // Observe network state and control sync
+    fun startSync() {
+        if (started) return
+        started = true
         networkMonitor.isOnline
             .onEach { isOnline ->
-                if (isOnline) {
-                    startSync()
-                } else {
-                    stopSync()
-                }
+                if (isOnline) startSyncLoop() else stopSyncLoop()
             }
             .launchIn(syncScope)
+    }
 
-        // Return the local cache as the Single Source of Truth
+    override fun observeEvents(): Flow<List<EventItem>> {
         return queries.selectAll()
             .asFlow()
             .mapToList(Dispatchers.Default)
@@ -59,33 +59,23 @@ class OfflineFirstEventRepository(
             events.find { it.id == eventId }
         }
 
-    private fun startSync() {
+    private fun startSyncLoop() {
         syncJob?.cancel()
         syncJob = syncScope.launch(Dispatchers.Default) {
             var backoffMs = 1000L
             val maxBackoffMs = 30000L
             while (isActive) {
                 try {
+                    val firstEmission = withTimeoutOrNull(15_000) {
+                        remoteRepository.observeEvents().first()
+                    }
+                    if (firstEmission != null) {
+                        upsertEvents(firstEmission)
+                    } else {
+                        println("[OfflineFirstEventRepo] Sync timeout after 15s, retrying with backoff")
+                    }
                     remoteRepository.observeEvents().collect { remoteEvents ->
-                        queries.transaction {
-                            remoteEvents.forEach { event ->
-                                queries.upsert(
-                                    id = event.id,
-                                    name = event.name,
-                                    dateMillis = event.dateMillis,
-                                    ownerId = event.ownerId,
-                                    memberIds = event.memberIds.joinToString(","),
-                                    participants = event.participants.serializeParticipants(),
-                                    base_currency = event.baseCurrency,
-                                    lastCalculationMode = event.lastCalculationMode,
-                                    lastCalculationTotal = event.lastCalculationTotal,
-                                    lastCalculationTimestamp = event.lastCalculationTimestamp,
-                                    lastCalculationSummary = event.lastCalculationSummary,
-                                    updatedAt = currentTimeMillis(),
-                                    state = event.state.name
-                                )
-                            }
-                        }
+                        upsertEvents(remoteEvents)
                     }
                     backoffMs = 1000L
                 } catch (e: Exception) {
@@ -97,9 +87,33 @@ class OfflineFirstEventRepository(
         }
     }
 
-    private fun stopSync() {
+    private fun stopSyncLoop() {
         syncJob?.cancel()
         syncJob = null
+    }
+
+    private fun upsertEvents(events: List<com.cuentamorosos.model.EventItem>) {
+        queries.transaction {
+            events.forEach { event ->
+                queries.upsert(
+                    id = event.id,
+                    name = event.name,
+                    dateMillis = event.dateMillis,
+                    ownerId = event.ownerId,
+                    memberIds = event.memberIds.joinToString(","),
+                    participants = event.participants.serializeParticipants(),
+                    base_currency = event.baseCurrency,
+                    lastCalculationMode = event.lastCalculationMode,
+                    lastCalculationTotal = event.lastCalculationTotal,
+                    lastCalculationTimestamp = event.lastCalculationTimestamp,
+                    lastCalculationSummary = event.lastCalculationSummary,
+                    updatedAt = currentTimeMillis(),
+                    state = event.state.name,
+                    startDateMillis = event.startDateMillis,
+                    endDateMillis = event.endDateMillis,
+                )
+            }
+        }
     }
 
     override suspend fun saveEvent(event: EventItem) {
@@ -117,7 +131,9 @@ class OfflineFirstEventRepository(
             lastCalculationTimestamp = event.lastCalculationTimestamp,
             lastCalculationSummary = event.lastCalculationSummary,
             updatedAt = currentTimeMillis(),
-            state = event.state.name
+            state = event.state.name,
+            startDateMillis = event.startDateMillis,
+            endDateMillis = event.endDateMillis,
         )
         // Try remote, enqueue on failure
         try {
@@ -174,6 +190,8 @@ class OfflineFirstEventRepository(
         lastCalculationTotal = lastCalculationTotal,
         lastCalculationTimestamp = lastCalculationTimestamp,
         lastCalculationSummary = lastCalculationSummary,
+        startDateMillis = if (startDateMillis == 0L) dateMillis else startDateMillis,
+        endDateMillis = if (endDateMillis == 0L) dateMillis else endDateMillis,
         state = runCatching { EventState.valueOf(state) }.getOrDefault(EventState.DRAFT)
     )
 }

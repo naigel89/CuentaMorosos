@@ -24,12 +24,23 @@ class FirestoreExpenseRepository : ExpenseRepository {
             }
 
     override fun observeAllExpenses(): Flow<List<EventExpenseItem>> = flow {
-        val eventsSnapshot = db.collection("events").get()
-        val allExpenses = mutableListOf<EventExpenseItem>()
+        val uid = auth.currentUser?.uid ?: run {
+            emit(emptyList())
+            return@flow
+        }
 
-        for (eventDoc in eventsSnapshot.documents) {
+        val ownerSnapshot = db.collection("events").where { "ownerId" equalTo uid }.get()
+        val memberSnapshot = db.collection("events").where { "memberIds" contains uid }.get()
+        val participantSnapshot = db.collection("events").where { "participantIds" contains uid }.get()
+
+        val eventIds = (ownerSnapshot.documents + memberSnapshot.documents + participantSnapshot.documents)
+            .map { it.id }
+            .distinct()
+
+        val allExpenses = mutableListOf<EventExpenseItem>()
+        for (eventId in eventIds) {
             val expensesSnapshot = db.collection("events")
-                .document(eventDoc.id)
+                .document(eventId)
                 .collection("expenses")
                 .get()
 

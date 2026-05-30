@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cuentamorosos.data.ReminderMessage
+import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.UserPreferences
 
 // ── SegmentedControl ──────────────────────────────────────────────────────────
@@ -87,6 +88,8 @@ fun SettingsScreen(
     onSavePreferences: (UserPreferences) -> Unit,
     onPostReminders: (List<ReminderMessage>) -> Unit,
     onSignOut: (() -> Unit)? = null,
+    currentProfile: ProfileItem? = null,
+    onOpenAccountSettings: () -> Unit = {},
 ) {
     var selectedThemeMode by remember(preferences.themeMode) { mutableStateOf(preferences.themeMode) }
     var reminderDaysText by remember(preferences.reminderDays) { mutableStateOf(preferences.reminderDays.toString()) }
@@ -211,6 +214,8 @@ fun SettingsScreen(
                 reminders = reminders,
                 onPostReminders = onPostReminders,
                 onSignOut = onSignOut,
+                currentProfile = currentProfile,
+                onOpenAccountSettings = onOpenAccountSettings,
             )
         }
     } else {
@@ -235,6 +240,8 @@ fun SettingsScreen(
             reminders = reminders,
             onPostReminders = onPostReminders,
             onSignOut = onSignOut,
+            currentProfile = currentProfile,
+            onOpenAccountSettings = onOpenAccountSettings,
         )
     }
     }
@@ -264,6 +271,8 @@ private fun SettingsContent(
     reminders: List<ReminderMessage>,
     onPostReminders: (List<ReminderMessage>) -> Unit,
     onSignOut: (() -> Unit)?,
+    currentProfile: ProfileItem? = null,
+    onOpenAccountSettings: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier,
@@ -283,6 +292,17 @@ private fun SettingsContent(
                     text = "Personaliza la apariencia y los recordatorios de la app.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
+                )
+            }
+        }
+
+        // Mi perfil section (visible when a profile is available)
+        if (currentProfile != null) {
+            item {
+                ProfileSettingsSection(
+                    profile = currentProfile!!,
+                    onClick = onOpenAccountSettings,
+                    colors = colors,
                 )
             }
         }
@@ -475,7 +495,7 @@ private fun SettingsContent(
 // ── SectionHeader ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun SectionHeader(text: String, colors: NeoFintechColorSet) {
+internal fun SectionHeader(text: String, colors: NeoFintechColorSet) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelSmall,
@@ -643,6 +663,63 @@ private fun DensityRow(
         }
         if (showDivider) {
             DividerLine(colors = colors)
+        }
+    }
+}
+
+// ── ProfileSettingsSection ─────────────────────────────────────────────────────
+
+/**
+ * Profile card shown at the top of Settings when a current profile is available.
+ * Tapping navigates to the account settings screen.
+ */
+@Composable
+private fun ProfileSettingsSection(
+    profile: ProfileItem,
+    onClick: () -> Unit,
+    colors: NeoFintechColorSet,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
+            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        shape = NeoFintechShapes.lg,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ProfileAvatar(
+                name = profile.name,
+                emoji = profile.icon,
+                photoUrl = profile.photoUrl,
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Mi perfil",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface,
+                )
+                Text(
+                    text = "Toque para editar tu nombre, foto y más",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+
+            Text(
+                text = "›",
+                style = MaterialTheme.typography.titleLarge,
+                color = colors.onSurfaceVariant,
+            )
         }
     }
 }

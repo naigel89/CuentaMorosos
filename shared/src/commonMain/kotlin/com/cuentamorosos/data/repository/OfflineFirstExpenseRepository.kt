@@ -15,6 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class OfflineFirstExpenseRepository(
     private val remoteRepository: ExpenseRepository,
@@ -25,20 +26,20 @@ class OfflineFirstExpenseRepository(
 ) : ExpenseRepository {
 
     private val queries = database.cachedExpenseQueries
-    private var syncJob: Job? = null
+    private var syncAllJob: Job? = null
+    private var started = false
 
-    override fun observeExpenses(eventId: String): Flow<List<EventExpenseItem>> {
-        // Observe network state and control sync
+    fun startSync() {
+        if (started) return
+        started = true
         networkMonitor.isOnline
             .onEach { isOnline ->
-                if (isOnline) {
-                    startSync(eventId)
-                } else {
-                    stopSync()
-                }
+                if (isOnline) startSyncAll() else stopSyncAll()
             }
             .launchIn(syncScope)
+    }
 
+    override fun observeExpenses(eventId: String): Flow<List<EventExpenseItem>> {
         return queries.selectByEvent(eventId)
             .asFlow()
             .mapToList(Dispatchers.Default)
@@ -48,17 +49,6 @@ class OfflineFirstExpenseRepository(
     }
 
     override fun observeAllExpenses(): Flow<List<EventExpenseItem>> {
-        // Observe network state and control sync
-        networkMonitor.isOnline
-            .onEach { isOnline ->
-                if (isOnline) {
-                    startSyncAll()
-                } else {
-                    stopSync()
-                }
-            }
-            .launchIn(syncScope)
-
         return queries.selectAll()
             .asFlow()
             .mapToList(Dispatchers.Default)
@@ -67,71 +57,23 @@ class OfflineFirstExpenseRepository(
             }
     }
 
-    private fun startSync(eventId: String) {
-        syncJob?.cancel()
-        syncJob = syncScope.launch(Dispatchers.Default) {
-            var backoffMs = 1000L
-            val maxBackoffMs = 30000L
-            while (isActive) {
-                try {
-                    remoteRepository.observeExpenses(eventId).collect { remoteExpenses ->
-                        queries.transaction {
-                            remoteExpenses.forEach { expense ->
-                                queries.upsert(
-                                    id = expense.id,
-                                    eventId = expense.eventId,
-                                    description = expense.name,
-                                    amountEuros = expense.amountEuros,
-                                    category = expense.category,
-                                    paidByProfileId = expense.paidByProfileId,
-                                    dateMillis = expense.createdAtMillis,
-                                    updatedAt = currentTimeMillis(),
-                                    debtor_ids = expense.debtorIds.toJsonArray(),
-                                    payer_contributions = expense.payerContributions.toJsonObject(),
-                                    assigned_profile_ids = expense.assignedProfileIds.toJsonArray(),
-                                    profile_weights = expense.profileWeights.toJsonObject(),
-                                    split_mode = expense.splitMode
-                                )
-                            }
-                        }
-                    }
-                    backoffMs = 1000L
-                } catch (e: Exception) {
-                    println("[OfflineFirstExpenseRepo] Sync error: ${e.message}")
-                    delay(backoffMs)
-                    backoffMs = minOf(backoffMs * 2, maxBackoffMs)
-                }
-            }
-        }
-    }
-
     private fun startSyncAll() {
-        syncJob?.cancel()
-        syncJob = syncScope.launch(Dispatchers.Default) {
+        syncAllJob?.cancel()
+        syncAllJob = syncScope.launch(Dispatchers.Default) {
             var backoffMs = 1000L
             val maxBackoffMs = 30000L
             while (isActive) {
                 try {
+                    val firstEmission = withTimeoutOrNull(15_000) {
+                        remoteRepository.observeAllExpenses().first()
+                    }
+                    if (firstEmission != null) {
+                        upsertExpenses(firstEmission)
+                    } else {
+                        println("[OfflineFirstExpenseRepo] Sync timeout after 15s, retrying with backoff")
+                    }
                     remoteRepository.observeAllExpenses().collect { remoteExpenses ->
-                        queries.transaction {
-                            remoteExpenses.forEach { expense ->
-                                queries.upsert(
-                                    id = expense.id,
-                                    eventId = expense.eventId,
-                                    description = expense.name,
-                                    amountEuros = expense.amountEuros,
-                                    category = expense.category,
-                                    paidByProfileId = expense.paidByProfileId,
-                                    dateMillis = expense.createdAtMillis,
-                                    updatedAt = currentTimeMillis(),
-                                    debtor_ids = expense.debtorIds.toJsonArray(),
-                                    payer_contributions = expense.payerContributions.toJsonObject(),
-                                    assigned_profile_ids = expense.assignedProfileIds.toJsonArray(),
-                                    profile_weights = expense.profileWeights.toJsonObject(),
-                                    split_mode = expense.splitMode
-                                )
-                            }
-                        }
+                        upsertExpenses(remoteExpenses)
                     }
                     backoffMs = 1000L
                 } catch (e: Exception) {
@@ -143,9 +85,31 @@ class OfflineFirstExpenseRepository(
         }
     }
 
-    private fun stopSync() {
-        syncJob?.cancel()
-        syncJob = null
+    private fun stopSyncAll() {
+        syncAllJob?.cancel()
+        syncAllJob = null
+    }
+
+    private fun upsertExpenses(expenses: List<EventExpenseItem>) {
+        queries.transaction {
+            expenses.forEach { expense ->
+                queries.upsert(
+                    id = expense.id,
+                    eventId = expense.eventId,
+                    description = expense.name,
+                    amountEuros = expense.amountEuros,
+                    category = expense.category,
+                    paidByProfileId = expense.paidByProfileId,
+                    dateMillis = expense.createdAtMillis,
+                    updatedAt = currentTimeMillis(),
+                    debtor_ids = expense.debtorIds.toJsonArray(),
+                    payer_contributions = expense.payerContributions.toJsonObject(),
+                    assigned_profile_ids = expense.assignedProfileIds.toJsonArray(),
+                    profile_weights = expense.profileWeights.toJsonObject(),
+                    split_mode = expense.splitMode
+                )
+            }
+        }
     }
 
     override suspend fun saveExpense(expense: EventExpenseItem) {
@@ -196,8 +160,6 @@ class OfflineFirstExpenseRepository(
         remoteRepository.replaceProfileId(oldId, newId)
     }
 
-    // ── JSON serialization helpers ──────────────────────────────────────────────
-
     private fun List<String>.toJsonArray(): String =
         joinToString(prefix = "[", postfix = "]", separator = ",") { "\"$it\"" }
 
@@ -220,8 +182,6 @@ class OfflineFirstExpenseRepository(
                 key to value
             }
         }
-
-    // ── Mapping ─────────────────────────────────────────────────────────────────
 
     private fun com.cuentamorosos.db.CachedExpense.toExpenseItem(): EventExpenseItem = EventExpenseItem(
         id = id,

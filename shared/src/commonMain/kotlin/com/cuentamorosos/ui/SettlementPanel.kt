@@ -28,7 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.displayNameFor
 import com.cuentamorosos.model.formatEuros
 
 @Suppress("UNUSED_PARAMETER")
@@ -47,6 +49,9 @@ fun SettlementPanel(
     canCalculate: Boolean = true,
     canManageParticipants: Boolean = true,
     canInvite: Boolean = true,
+    eventState: EventState = EventState.DRAFT,
+    canClose: Boolean = false,
+    onCloseEvent: (() -> Unit)? = null,
 ) {
     val profileById = profiles.associateBy { it.id }
     val pendingDebts = debts.filter { !it.paid }
@@ -93,6 +98,26 @@ fun SettlementPanel(
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelSmall,
                     )
+                }
+
+                // Close Event button — visible only for CALCULATED events
+                if (eventState == EventState.CALCULATED && canClose && onCloseEvent != null) {
+                    Button(
+                        onClick = onCloseEvent,
+                        enabled = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ),
+                        shape = NeoFintechShapes.lg,
+                    ) {
+                        Text(
+                            text = "Cerrar evento",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
                 }
 
                 HorizontalDivider(color = themeColors.outlineVariant.copy(alpha = 0.3f))
@@ -180,7 +205,7 @@ private fun DebtRow(
     val themeColors = MaterialTheme.colorScheme
     val isCurrentUser = debt.profileId == currentUserUid && currentUserUid.isNotBlank()
     val displayName = when {
-        profile != null -> profile.name
+        profile != null -> profile.displayNameFor(currentUserUid)
         isCurrentUser -> "Vos"
         else -> "Desconocido"
     }
@@ -202,24 +227,13 @@ private fun DebtRow(
                 checked = debt.paid,
                 onCheckedChange = { onTogglePaid(debt) },
             )
-            // Avatar with initials
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(NeoFintechShapes.full)
-                    .background(
-                        if (isPaid) themeColors.secondary.copy(alpha = 0.3f)
-                        else colors.primaryContainer.copy(alpha = 0.2f)
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = initials,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = themeColors.onSurface,
-                )
-            }
+            // Avatar with photo or initials
+            ProfileAvatar(
+                name = profile?.name ?: "",
+                emoji = "",
+                photoUrl = profile?.photoUrl,
+                size = 32.dp,
+            )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,

@@ -102,7 +102,18 @@ data class ProfileItem(
     val isGhost: Boolean = false,
     val linkedEmail: String? = null,
     val ownerId: String = "",
+    val photoUrl: String? = null,
+    val username: String? = null,
+    val displayName: String? = null,
+    val customNames: Map<String, String> = emptyMap(),
 )
+
+/**
+ * Resolves the visible display name for a given viewer.
+ * Priority: viewer-specific customName > profile displayName > original name.
+ */
+fun ProfileItem.displayNameFor(viewerId: String): String =
+    customNames[viewerId] ?: displayName ?: name
 
 data class UserPreferences(
     val themeMode: String = "system",

@@ -10,6 +10,9 @@ local.properties
 app/build/
 shared/build/
 
+# SDD artifacts (local, not shareable)
+.atl/
+
 # Firebase config files (sensitive — added via GitHub Secrets in CI)
 app/google-services.json
 iosApp/GoogleService-Info.plist

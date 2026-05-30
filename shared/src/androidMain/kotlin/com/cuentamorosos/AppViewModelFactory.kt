@@ -2,6 +2,7 @@ package com.cuentamorosos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.cuentamorosos.ui.AccountViewModel
 import com.cuentamorosos.ui.DashboardViewModel
 import com.cuentamorosos.ui.EventDetailViewModel
 import com.cuentamorosos.ui.EventsViewModel
@@ -52,6 +53,12 @@ class AppViewModelFactory(
                     expenseRepository = repositoryProvider.expenseRepository,
                     profileRepository = repositoryProvider.profileRepository,
                     currentUserUid = currentProfileId,
+                ) as T
+            }
+            modelClass.isAssignableFrom(AccountViewModel::class.java) -> {
+                AccountViewModel(
+                    profileRepository = repositoryProvider.profileRepository,
+                    currentProfileId = currentProfileId,
                 ) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

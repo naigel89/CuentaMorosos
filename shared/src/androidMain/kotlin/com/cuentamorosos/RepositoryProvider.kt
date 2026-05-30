@@ -21,6 +21,8 @@ import com.cuentamorosos.db.CuentaMorososDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Provides all repositories for the app.
@@ -78,4 +80,33 @@ class RepositoryProvider(
 
     // Invitations are online-only (no offline cache needed)
     val invitationRepository: InvitationRepository = remoteInvitationRepository
+
+    /**
+     * Start sync for all offline-first repositories with 500ms staggered delays.
+     * Call this from MainActivity after first render.
+     */
+    fun startSyncStaggered(scope: CoroutineScope) {
+        scope.launch(Dispatchers.Default) {
+            try {
+                println("[RepositoryProvider] Starting event sync...")
+                (eventRepository as OfflineFirstEventRepository).startSync()
+                println("[RepositoryProvider] Event sync started, waiting 500ms...")
+                delay(500)
+                println("[RepositoryProvider] Starting debt sync...")
+                (debtRepository as OfflineFirstDebtRepository).startSync()
+                println("[RepositoryProvider] Debt sync started, waiting 500ms...")
+                delay(500)
+                println("[RepositoryProvider] Starting expense sync...")
+                (expenseRepository as OfflineFirstExpenseRepository).startSync()
+                println("[RepositoryProvider] Expense sync started, waiting 500ms...")
+                delay(500)
+                println("[RepositoryProvider] Starting profile sync...")
+                (profileRepository as OfflineFirstProfileRepository).startSync()
+                println("[RepositoryProvider] All offline-first syncs started")
+            } catch (e: Exception) {
+                println("[RepositoryProvider] Sync start error: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+    }
 }

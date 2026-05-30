@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -132,6 +134,7 @@ fun CuentaMorososApp(
     onPostReminders: (List<ReminderMessage>) -> Unit,
     networkMonitor: NetworkMonitor,
     onSignOut: (() -> Unit)? = null,
+    onPickPhoto: ((OnPhotoReady) -> Unit)? = null,
 ) {
     val eventsViewModel: EventsViewModel = viewModel(factory = viewModelFactory)
     val eventDetailViewModel: EventDetailViewModel = viewModel(factory = viewModelFactory)
@@ -159,6 +162,10 @@ fun CuentaMorososApp(
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
+    var showCalendar by remember { mutableStateOf(false) }
+    var showAccountScreen by remember { mutableStateOf(false) }
+
+    val accountViewModel: AccountViewModel = viewModel(factory = viewModelFactory)
 
     LaunchedEffect(feedbackMessage) {
         feedbackMessage?.let { message ->
@@ -245,6 +252,14 @@ fun CuentaMorososApp(
                 reminderDays = preferences.reminderDays,
                 remindersEnabled = preferences.remindersEnabled,
             )
+        }
+    }
+
+    val currentProfile by remember(profiles, currentUserUid) {
+        derivedStateOf {
+            val found = profiles.firstOrNull { it.id == currentUserUid }
+            println("[CuentaMorososApp] profiles=${profiles.size}, looking for uid=$currentUserUid, found=${found?.name}")
+            found
         }
     }
 
@@ -401,6 +416,13 @@ fun CuentaMorososApp(
                                     )
                                 )
                                 feedbackMessage = "Cálculo aplicado al evento."
+
+                                val ctx = TransitionContext(
+                                    memberCount = currentEvent.effectiveMemberIds.size,
+                                    expenseCount = expenses.filter { it.eventId == currentEvent.id }.size,
+                                    isOwner = currentRole == EventRole.OWNER,
+                                )
+                                eventDetailViewModel.calculateEvent(ctx)
                             },
                             onInviteMember = { email ->
                                 if (currentUserUid != null) {
@@ -431,6 +453,14 @@ fun CuentaMorososApp(
                                     isOwner = currentRole == EventRole.OWNER,
                                 )
                                 eventDetailViewModel.openEvent(ctx)
+                            },
+                            onCloseEvent = {
+                                val eventDebts = debts.filter { it.eventId == currentEvent.id }
+                                val ctx = TransitionContext(
+                                    pendingPayments = eventDebts.count { !it.paid },
+                                    isOwner = currentRole == EventRole.OWNER,
+                                )
+                                eventDetailViewModel.closeEvent(ctx)
                             },
                         )
 
@@ -496,6 +526,9 @@ fun CuentaMorososApp(
                                 },
                                 onEventTap = { eventRow ->
                                     eventDetailViewModel.setEventId(eventRow.eventId)
+                                },
+                                onOpenCalendar = {
+                                    showCalendar = true
                                 },
                             )
 
@@ -579,7 +612,9 @@ fun CuentaMorososApp(
                                     feedbackMessage = "Preferencias actualizadas."
                                 },
                                 onPostReminders = onPostReminders,
-                                onSignOut = onSignOut
+                                onSignOut = onSignOut,
+                                currentProfile = currentProfile,
+                                onOpenAccountSettings = { showAccountScreen = true },
                             )
                                 }
                             }
@@ -589,6 +624,43 @@ fun CuentaMorososApp(
 
                 if (!isOnline) {
                     OfflineBanner()
+                }
+            }
+
+            if (showCalendar) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .background(MaterialTheme.colorScheme.background),
+                ) {
+                    CalendarScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        events = events,
+                        pendingTotalsByEvent = pendingTotalsByEvent,
+                        onOpenEvent = { event ->
+                            showCalendar = false
+                            eventDetailViewModel.setEventId(event.id)
+                        },
+                        onClose = { showCalendar = false },
+                    )
+                }
+            }
+
+            if (showAccountScreen) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .background(MaterialTheme.colorScheme.background),
+                ) {
+                    AccountScreen(
+                        viewModel = accountViewModel,
+                        currentProfile = currentProfile,
+                        onBack = { showAccountScreen = false },
+                        onPickPhoto = onPickPhoto,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
             }
         }
