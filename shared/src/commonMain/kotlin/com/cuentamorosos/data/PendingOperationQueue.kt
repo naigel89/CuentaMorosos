@@ -89,6 +89,18 @@ class PendingOperationQueue(
             }
         }
     }
+
+    /**
+     * Drains all pending operations in a loop until the queue is empty.
+     * Processes operations in batches of 10 until getAllPending() returns 0.
+     */
+    suspend fun drainAll(
+        remoteOps: RemoteOperations,
+    ) {
+        while (getAllPending() > 0) {
+            drain(remoteOps)
+        }
+    }
 }
 
 /**

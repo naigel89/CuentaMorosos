@@ -3,6 +3,7 @@ package com.cuentamorosos.data.repository
 import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.data.NetworkMonitor
 import com.cuentamorosos.data.PendingOperationQueue
+import com.cuentamorosos.data.RemoteOperations
 import com.cuentamorosos.db.CuentaMorososDatabase
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventParticipant
@@ -33,12 +34,32 @@ class OfflineFirstEventRepository(
 
     private val queries = database.cachedEventQueries
     private var syncJob: Job? = null
-    private var started = false
+
+    private val eventRemoteOps = object : RemoteOperations {
+        override suspend fun saveEvent(entityId: String) {
+            val events = remoteRepository.fetchEvents()
+            events.find { it.id == entityId }?.let { remoteRepository.saveEvent(it) }
+        }
+        override suspend fun deleteEvent(entityId: String) = remoteRepository.deleteEvent(entityId)
+        override suspend fun saveDebt(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteDebt(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun saveExpense(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteExpense(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun saveProfile(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteProfile(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun updateProfilePhoto(profileId: String, photoUrl: String) = throw UnsupportedOperationException()
+        override suspend fun updateProfileUsername(profileId: String, username: String) = throw UnsupportedOperationException()
+        override suspend fun updateProfileDisplayName(profileId: String, displayName: String) = throw UnsupportedOperationException()
+        override suspend fun deleteProfilePhoto(profileId: String) = throw UnsupportedOperationException()
+    }
 
     fun startSync() {
-        if (started) return
-        started = true
+        stopSyncLoop()
+        // Start sync loop IMMEDIATELY — don't wait for network monitor
+        startSyncLoop()
+        // Also subscribe to reconnection events
         networkMonitor.isOnline
+            .drop(1) // Skip initial emission (already handled above)
             .onEach { isOnline ->
                 if (isOnline) startSyncLoop() else stopSyncLoop()
             }
@@ -50,7 +71,9 @@ class OfflineFirstEventRepository(
             .asFlow()
             .mapToList(Dispatchers.Default)
             .map { cachedEvents ->
-                cachedEvents.map { it.toEventItem() }
+                val items = cachedEvents.map { it.toEventItem() }
+                println("[OfflineFirstEventRepo] observeEvents: SQLDelight emitted ${items.size} events")
+                items
             }
     }
 
@@ -66,14 +89,20 @@ class OfflineFirstEventRepository(
             val maxBackoffMs = 30000L
             while (isActive) {
                 try {
-                    val firstEmission = withTimeoutOrNull(15_000) {
-                        remoteRepository.observeEvents().first()
+                    // 0. Drain pending operations FIRST
+                    pendingQueue.drainAll(eventRemoteOps)
+
+                    // 1. One-shot fetch — loads data immediately via get(), not snapshot listeners
+                    val initialEvents = withTimeoutOrNull(15_000) {
+                        remoteRepository.fetchEvents()
                     }
-                    if (firstEmission != null) {
-                        upsertEvents(firstEmission)
+                    if (initialEvents != null) {
+                        upsertEvents(initialEvents)
+                        println("[OfflineFirstEventRepo] Initial fetch: ${initialEvents.size} events")
                     } else {
-                        println("[OfflineFirstEventRepo] Sync timeout after 15s, retrying with backoff")
+                        println("[OfflineFirstEventRepo] Initial fetch timed out after 15s")
                     }
+                    // 2. Then watch for realtime changes via snapshot listeners
                     remoteRepository.observeEvents().collect { remoteEvents ->
                         upsertEvents(remoteEvents)
                     }
@@ -93,6 +122,11 @@ class OfflineFirstEventRepository(
     }
 
     private fun upsertEvents(events: List<com.cuentamorosos.model.EventItem>) {
+        if (events.isEmpty()) {
+            println("[OfflineFirstEventRepo] upsertEvents: called with 0 events, skipping")
+            return
+        }
+        println("[OfflineFirstEventRepo] upsertEvents: writing ${events.size} events to SQLDelight")
         queries.transaction {
             events.forEach { event ->
                 queries.upsert(
@@ -114,7 +148,11 @@ class OfflineFirstEventRepository(
                 )
             }
         }
+        println("[OfflineFirstEventRepo] upsertEvents: transaction complete, ${events.size} events written")
     }
+
+    override suspend fun fetchEvents(): List<EventItem> =
+        remoteRepository.fetchEvents()
 
     override suspend fun saveEvent(event: EventItem) {
         // Update local immediately
@@ -165,8 +203,38 @@ class OfflineFirstEventRepository(
     }
 
     override suspend fun removeMember(eventId: String, memberUid: String) {
-        remoteRepository.removeMember(eventId, memberUid)
-        // Local cache updated via observeEvents() synchronization
+        // Update local cache immediately so the UI reflects the change
+        val cachedEvent = queries.selectById(eventId).executeAsOneOrNull()
+        if (cachedEvent != null) {
+            val parsedParticipants = deserializeParticipants(cachedEvent.participants)
+            val updatedParticipants = parsedParticipants.filter { it.profileId != memberUid }
+            val updatedMemberIds = (if (cachedEvent.memberIds.isBlank()) emptyList()
+            else cachedEvent.memberIds.split(",")).filter { it != memberUid }
+            queries.upsert(
+                id = cachedEvent.id,
+                name = cachedEvent.name,
+                dateMillis = cachedEvent.dateMillis,
+                ownerId = cachedEvent.ownerId,
+                memberIds = updatedMemberIds.joinToString(","),
+                participants = updatedParticipants.serializeParticipants(),
+                base_currency = cachedEvent.base_currency,
+                lastCalculationMode = cachedEvent.lastCalculationMode,
+                lastCalculationTotal = cachedEvent.lastCalculationTotal,
+                lastCalculationTimestamp = cachedEvent.lastCalculationTimestamp,
+                lastCalculationSummary = cachedEvent.lastCalculationSummary,
+                updatedAt = currentTimeMillis(),
+                state = cachedEvent.state,
+                startDateMillis = cachedEvent.startDateMillis,
+                endDateMillis = cachedEvent.endDateMillis,
+            )
+        }
+        // Then try remote — local is already updated, so on reconnect
+        // the sync loop will converge with Firestore state.
+        runCatching {
+            remoteRepository.removeMember(eventId, memberUid)
+        }.onFailure { e ->
+            println("[OfflineFirstEventRepo] removeMember remote failed: ${e.message}")
+        }
     }
 
     override suspend fun replaceMemberId(oldId: String, newId: String) {

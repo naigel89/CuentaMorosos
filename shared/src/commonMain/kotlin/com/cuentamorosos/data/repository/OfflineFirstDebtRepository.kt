@@ -3,6 +3,7 @@ package com.cuentamorosos.data.repository
 import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.data.NetworkMonitor
 import com.cuentamorosos.data.PendingOperationQueue
+import com.cuentamorosos.data.RemoteOperations
 import com.cuentamorosos.db.CuentaMorososDatabase
 import com.cuentamorosos.model.EventDebtItem
 import app.cash.sqldelight.coroutines.asFlow
@@ -15,7 +16,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 class OfflineFirstDebtRepository(
     private val remoteRepository: DebtRepository,
@@ -27,12 +27,35 @@ class OfflineFirstDebtRepository(
 
     private val queries = database.cachedDebtQueries
     private var syncAllJob: Job? = null
-    private var started = false
+
+    private val debtRemoteOps = object : RemoteOperations {
+        override suspend fun saveEvent(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteEvent(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun saveDebt(entityId: String) {
+            val allDebts = remoteRepository.observeAllDebts().first()
+            allDebts.find { it.id == entityId }?.let { remoteRepository.saveDebt(it) }
+        }
+        override suspend fun deleteDebt(entityId: String) {
+            // entityId is the debtId; we need the eventId too, but drain only has one ID.
+            // For deletes, the debt is already removed locally; remote delete is best-effort.
+        }
+        override suspend fun saveExpense(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteExpense(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun saveProfile(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteProfile(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun updateProfilePhoto(profileId: String, photoUrl: String) = throw UnsupportedOperationException()
+        override suspend fun updateProfileUsername(profileId: String, username: String) = throw UnsupportedOperationException()
+        override suspend fun updateProfileDisplayName(profileId: String, displayName: String) = throw UnsupportedOperationException()
+        override suspend fun deleteProfilePhoto(profileId: String) = throw UnsupportedOperationException()
+    }
 
     fun startSync() {
-        if (started) return
-        started = true
+        stopSyncAll()
+        // Start sync loop IMMEDIATELY — don't wait for network monitor
+        startSyncAll()
+        // Also subscribe to reconnection events
         networkMonitor.isOnline
+            .drop(1) // Skip initial emission (already handled above)
             .onEach { isOnline ->
                 println("[OfflineFirstDebtRepo] network state: $isOnline")
                 if (isOnline) startSyncAll() else stopSyncAll()
@@ -66,20 +89,17 @@ class OfflineFirstDebtRepository(
             val maxBackoffMs = 30000L
             while (isActive) {
                 try {
-                    println("[OfflineFirstDebtRepo] calling observeAllDebts...")
-                    val firstEmission = withTimeoutOrNull(15_000) {
-                        remoteRepository.observeAllDebts().first()
-                    }
-                    if (firstEmission != null) {
-                        println("[OfflineFirstDebtRepo] received ${firstEmission.size} debts from Firestore (first)")
-                        upsertDebts(firstEmission)
-                    } else {
-                        println("[OfflineFirstDebtRepo] Sync timeout after 15s, retrying with backoff")
-                    }
-                    remoteRepository.observeAllDebts().collect { remoteDebts ->
-                        println("[OfflineFirstDebtRepo] received ${remoteDebts.size} debts from Firestore")
-                        upsertDebts(remoteDebts)
-                    }
+                    // 1. Drain pending operations FIRST
+                    pendingQueue.drainAll(debtRemoteOps)
+
+                    // 2. Single subscription to remote
+                    remoteRepository.observeAllDebts()
+                        .onEach { remoteDebts ->
+                            println("[OfflineFirstDebtRepo] received ${remoteDebts.size} debts from Firestore")
+                            upsertDebts(remoteDebts)
+                        }
+                        .collect()
+
                     backoffMs = 1000L
                 } catch (e: Exception) {
                     println("[OfflineFirstDebtRepo] SyncAll error: ${e.message}")

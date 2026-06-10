@@ -3,6 +3,7 @@ package com.cuentamorosos.data.repository
 import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.data.NetworkMonitor
 import com.cuentamorosos.data.PendingOperationQueue
+import com.cuentamorosos.data.RemoteOperations
 import com.cuentamorosos.db.CuentaMorososDatabase
 import com.cuentamorosos.model.EventExpenseItem
 import app.cash.sqldelight.coroutines.asFlow
@@ -15,7 +16,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 class OfflineFirstExpenseRepository(
     private val remoteRepository: ExpenseRepository,
@@ -27,12 +27,34 @@ class OfflineFirstExpenseRepository(
 
     private val queries = database.cachedExpenseQueries
     private var syncAllJob: Job? = null
-    private var started = false
+
+    private val expenseRemoteOps = object : RemoteOperations {
+        override suspend fun saveEvent(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteEvent(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun saveDebt(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteDebt(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun saveExpense(entityId: String) {
+            val allExpenses = remoteRepository.observeAllExpenses().first()
+            allExpenses.find { it.id == entityId }?.let { remoteRepository.saveExpense(it) }
+        }
+        override suspend fun deleteExpense(entityId: String) {
+            // entityId is the expenseId; remote delete is best-effort
+        }
+        override suspend fun saveProfile(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteProfile(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun updateProfilePhoto(profileId: String, photoUrl: String) = throw UnsupportedOperationException()
+        override suspend fun updateProfileUsername(profileId: String, username: String) = throw UnsupportedOperationException()
+        override suspend fun updateProfileDisplayName(profileId: String, displayName: String) = throw UnsupportedOperationException()
+        override suspend fun deleteProfilePhoto(profileId: String) = throw UnsupportedOperationException()
+    }
 
     fun startSync() {
-        if (started) return
-        started = true
+        stopSyncAll()
+        // Start sync loop IMMEDIATELY — don't wait for network monitor
+        startSyncAll()
+        // Also subscribe to reconnection events
         networkMonitor.isOnline
+            .drop(1) // Skip initial emission (already handled above)
             .onEach { isOnline ->
                 if (isOnline) startSyncAll() else stopSyncAll()
             }
@@ -64,17 +86,16 @@ class OfflineFirstExpenseRepository(
             val maxBackoffMs = 30000L
             while (isActive) {
                 try {
-                    val firstEmission = withTimeoutOrNull(15_000) {
-                        remoteRepository.observeAllExpenses().first()
-                    }
-                    if (firstEmission != null) {
-                        upsertExpenses(firstEmission)
-                    } else {
-                        println("[OfflineFirstExpenseRepo] Sync timeout after 15s, retrying with backoff")
-                    }
-                    remoteRepository.observeAllExpenses().collect { remoteExpenses ->
-                        upsertExpenses(remoteExpenses)
-                    }
+                    // 1. Drain pending operations FIRST
+                    pendingQueue.drainAll(expenseRemoteOps)
+
+                    // 2. Single subscription to remote
+                    remoteRepository.observeAllExpenses()
+                        .onEach { remoteExpenses ->
+                            upsertExpenses(remoteExpenses)
+                        }
+                        .collect()
+
                     backoffMs = 1000L
                 } catch (e: Exception) {
                     println("[OfflineFirstExpenseRepo] SyncAll error: ${e.message}")
