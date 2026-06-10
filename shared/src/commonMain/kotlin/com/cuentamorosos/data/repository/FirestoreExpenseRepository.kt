@@ -5,6 +5,7 @@ import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
@@ -29,6 +30,7 @@ class FirestoreExpenseRepository : ExpenseRepository {
             return@flow
         }
 
+        // 1. Resolve event IDs (3 queries, constant cost)
         val ownerSnapshot = db.collection("events").where { "ownerId" equalTo uid }.get()
         val memberSnapshot = db.collection("events").where { "memberIds" contains uid }.get()
         val participantSnapshot = db.collection("events").where { "participantIds" contains uid }.get()
@@ -37,18 +39,24 @@ class FirestoreExpenseRepository : ExpenseRepository {
             .map { it.id }
             .distinct()
 
-        val allExpenses = mutableListOf<EventExpenseItem>()
-        for (eventId in eventIds) {
-            val expensesSnapshot = db.collection("events")
+        if (eventIds.isEmpty()) {
+            emit(emptyList())
+            return@flow
+        }
+
+        // 2. Create per-event snapshot listeners (long-lived, not polling)
+        val expenseFlows = eventIds.map { eventId ->
+            db.collection("events")
                 .document(eventId)
                 .collection("expenses")
-                .get()
-
-            for (expenseDoc in expensesSnapshot.documents) {
-                expenseDoc.toExpenseItem()?.let { allExpenses.add(it) }
-            }
+                .snapshots
+                .map { snapshot -> snapshot.documents.mapNotNull { it.toExpenseItem() } }
         }
-        emit(allExpenses)
+
+        // 3. Combine all flows into single emission
+        combine(expenseFlows) { expenseLists ->
+            expenseLists.flatMap { it }
+        }.collect { emit(it) }
     }
 
     override suspend fun saveExpense(expense: EventExpenseItem) {
@@ -85,7 +93,7 @@ class FirestoreExpenseRepository : ExpenseRepository {
             expensesSnapshot.documents.chunked(499).forEach { chunk ->
                 db.batch().apply {
                     chunk.forEach { doc ->
-                        val data = doc.data<Map<String, Any?>>()
+                        val data = doc.getRawData() ?: return@forEach
                         val assignedIds = (data["assignedProfileIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
                         val weights = (data["profileWeights"] as? Map<*, *>) ?: emptyMap<Any, Any>()
 
@@ -130,7 +138,7 @@ class FirestoreExpenseRepository : ExpenseRepository {
 
     private fun dev.gitlive.firebase.firestore.DocumentSnapshot.toExpenseItem(): EventExpenseItem? {
         return try {
-            val data = data<Map<String, Any?>>()
+            val data = this.getRawData() ?: return null
             EventExpenseItem(
                 id = data["id"] as? String ?: return null,
                 eventId = data["eventId"] as? String ?: return null,

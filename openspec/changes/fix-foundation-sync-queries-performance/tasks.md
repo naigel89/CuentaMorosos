@@ -40,10 +40,10 @@ Chain strategy: pending
 
 ## Phase 3: Query Optimization (H1, B1)
 
-- [ ] 3.1 Rewrite `FirestoreDebtRepository.observeAllDebts()` — replace one-shot `flow { emit(allDebts) }` with per-event snapshot listeners via `combine(eventId -> db.collection("events/$eventId/debts").snapshots)`; keep 3 initial event-ID queries (~30 lines, **Medium** risk — N listeners lifecycle)
-- [ ] 3.2 Rewrite `FirestoreExpenseRepository.observeAllExpenses()` — same pattern as 3.1 for expenses subcollection (~30 lines, **Medium** risk)
-- [ ] 3.3 Fix `FirestoreEventRepository.observeEvent()` — replace `observeEvents().map { find }` with `collection.document(eventId).snapshots.map { it.toEventItem() }`; handle non-existent docs with null emission (~10 lines, **Low** risk)
-- [ ] 3.4 Unit tests for query optimization — verify per-event snapshot listeners created (not one-shot), `observeEvent()` creates single doc listener, null handling for deleted docs (~60 lines, **Low** risk)
+- [x] 3.1 Rewrite `FirestoreDebtRepository.observeAllDebts()` — replace one-shot `flow { emit(allDebts) }` with per-event snapshot listeners via `combine(eventId -> db.collection("events/$eventId/debts").snapshots)`; keep 3 initial event-ID queries (~30 lines, **Medium** risk — N listeners lifecycle)
+- [x] 3.2 Rewrite `FirestoreExpenseRepository.observeAllExpenses()` — same pattern as 3.1 for expenses subcollection (~30 lines, **Medium** risk)
+- [x] 3.3 Fix `FirestoreEventRepository.observeEvent()` — replace `observeEvents().map { find }` with `collection.document(eventId).snapshots.map { it.toEventItem() }`; handle non-existent docs with null emission (~10 lines, **Low** risk)
+- [x] 3.4 Unit tests for query optimization — verify per-event snapshot listeners created (not one-shot), `observeEvent()` creates single doc listener, null handling for deleted docs (~60 lines, **Low** risk)
 
 ## Phase 4: UI Performance (H2, H3)
 
