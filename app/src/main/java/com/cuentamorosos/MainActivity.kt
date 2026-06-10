@@ -42,7 +42,6 @@ import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
 
@@ -79,12 +78,7 @@ class MainActivity : ComponentActivity() {
         localStore = CuentaMorososLocalStore(applicationContext)
 
         // Sync Firebase user on startup if already logged in
-        FirebaseAuth.getInstance().currentUser?.let {
-            runBlocking {
-                FirebaseUserSyncManager.syncCurrentUser()
-                FirebaseUserSyncManager.ensureOwnProfile()
-            }
-        }
+        // Profile sync happens in MainAppContent LaunchedEffect (non-blocking)
 
         setContent {
             val preferences = remember { localStore.loadPreferences() }
@@ -142,9 +136,16 @@ private fun MainAppContent(
     }
     var preferences by remember { mutableStateOf(localStore.loadPreferences()) }
 
-    // Start staggered sync after first render
+    // Start staggered sync after first render AND on user change
     val syncScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(user.uid) {
+        // Profile sync runs in background (non-blocking)
+        runCatching {
+            FirebaseUserSyncManager.syncCurrentUser()
+            FirebaseUserSyncManager.ensureOwnProfile()
+        }.onFailure { e ->
+            println("[MainActivity] Profile sync failed: ${e.message}")
+        }
         repositoryProvider.startSyncStaggered(syncScope)
     }
 
@@ -227,6 +228,8 @@ private fun MainAppContent(
         },
         networkMonitor = networkMonitor,
         onSignOut = {
+            repositoryProvider.clearLocalData()
+            localStore.clearAll()
             FirebaseAuth.getInstance().signOut()
         },
         onPickPhoto = { onPhotoReady ->
@@ -253,11 +256,8 @@ private fun AuthFlow(
         LoginScreen(
             onLoginSuccess = {
                 auth.currentUser?.let { user ->
-                    runBlocking {
-                        FirebaseUserSyncManager.syncCurrentUser()
-                        FirebaseUserSyncManager.ensureOwnProfile()
-                    }
-                    onAuthSuccess(user)
+                    onAuthSuccess(user)  // Auth succeeds immediately
+                    // Profile sync happens in MainAppContent LaunchedEffect
                 }
             },
             onNavigateToRegister = {
@@ -283,11 +283,8 @@ private fun AuthFlow(
         RegisterScreen(
             onRegisterSuccess = {
                 auth.currentUser?.let { user ->
-                    runBlocking {
-                        FirebaseUserSyncManager.syncCurrentUser(defaultMigrated = true)
-                        FirebaseUserSyncManager.ensureOwnProfile()
-                    }
-                    onAuthSuccess(user)
+                    onAuthSuccess(user)  // Auth succeeds immediately
+                    // Profile sync happens in MainAppContent LaunchedEffect
                 }
             },
             onNavigateToLogin = {

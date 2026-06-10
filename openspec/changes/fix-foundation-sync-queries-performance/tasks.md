@@ -47,9 +47,9 @@ Chain strategy: pending
 
 ## Phase 4: UI Performance (H2, H3)
 
-- [ ] 4.1 Replace 3 `runBlocking` calls in `MainActivity.kt` — lines 82-87 (onCreate), 257-261 (login), 288-291 (register) → wrap in `LaunchedEffect(user.uid)` + `runCatching { syncCurrentUser(); ensureOwnProfile() }`; show app immediately, sync in background (~15 lines, **Medium** risk — auth flow timing)
-- [ ] 4.2 Create `DashboardAggregates` data class + single-pass computation in `CuentaMorososApp.kt` — replace 7 `derivedStateOf` blocks (lines 179-240) with one `remember(allDebts, allExpenses, events, currentUserUid) { derivedStateOf { DashboardAggregates(...) } }`; destructure into local vals at call sites (~50 lines, **Medium** risk — must preserve all 7 output maps exactly)
-- [ ] 4.3 Unit tests for `DashboardAggregates` — input lists → verify all 7 output maps; test empty inputs, single-event, multi-profile scenarios (~50 lines, **Low** risk)
+- [x] 4.1 Replace 3 `runBlocking` calls in `MainActivity.kt` — lines 82-87 (onCreate), 257-261 (login), 288-291 (register) → wrap in `LaunchedEffect(user.uid)` + `runCatching { syncCurrentUser(); ensureOwnProfile() }`; show app immediately, sync in background (~15 lines, **Medium** risk — auth flow timing)
+- [x] 4.2 Create `DashboardAggregates` data class + single-pass computation in `CuentaMorososApp.kt` — replace 7 `derivedStateOf` blocks (lines 179-240) with one `remember(allDebts, allExpenses, events, currentUserUid) { derivedStateOf { DashboardAggregates(...) } }`; destructure into local vals at call sites (~50 lines, **Medium** risk — must preserve all 7 output maps exactly)
+- [x] 4.3 Unit tests for `DashboardAggregates` — input lists → verify all 7 output maps; test empty inputs, single-event, multi-profile scenarios (~50 lines, **Low** risk)
 
 ## Phase 5: Integration & Verification
 

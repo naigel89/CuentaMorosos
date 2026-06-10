@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -112,6 +113,20 @@ import com.cuentamorosos.model.EventInvitation
 import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.TransitionContext
 
+/**
+ * Consolidated dashboard aggregates computed in a single pass over allDebts/allExpenses.
+ * Replaces 7 independent derivedStateOf blocks that each iterated the same lists.
+ */
+data class DashboardAggregates(
+    val activeTotalsByProfile: Map<String, Double>,
+    val pendingTotalsByEvent: Map<String, Double>,
+    val totalSpent: Double,
+    val participantCountByEvent: Map<String, Int>,
+    val yourShareByEvent: Map<String, Double>,
+    val youAreOwedByEvent: Map<String, Double>,
+    val pendingEventsByProfile: Map<String, List<String>>,
+)
+
 private enum class MainSection(
     val title: String,
     val icon: ImageVector,
@@ -120,6 +135,7 @@ private enum class MainSection(
     DASHBOARD("Panel", Icons.Default.Dashboard, "Panel"),
     EVENTS("Eventos", Icons.Default.CalendarMonth, "Eventos"),
     PROFILES("Perfiles", Icons.Default.People, "Perfiles"),
+    INVITATIONS("Invit.", Icons.Default.MailOutline, "Invitaciones"),
     SETTINGS("Ajustes", Icons.Default.Settings, "Ajustes"),
 }
 
@@ -144,7 +160,7 @@ fun CuentaMorososApp(
 
     val events by eventsViewModel.events.collectAsState()
     val profiles by profilesViewModel.profiles.collectAsState()
-    val _pendingInvitations by invitationsViewModel.pendingInvitations.collectAsState() // TODO: use in UI
+    val pendingInvitations by invitationsViewModel.pendingInvitations.collectAsState()
     val dashboardState by dashboardViewModel.state.collectAsState()
 
     val eventId by eventDetailViewModel.eventId.collectAsState()
@@ -158,7 +174,7 @@ fun CuentaMorososApp(
 
     val isOnline by networkMonitor.isOnline.collectAsState(initial = true)
 
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 4 })
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
@@ -174,68 +190,70 @@ fun CuentaMorososApp(
         }
     }
 
-    val activeTotalsByProfile by remember(allDebts) {
-        derivedStateOf {
-            allDebts
-                .filter { !it.paid }
-                .groupBy { it.profileId }
-                .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
-        }
-    }
-
-    val pendingTotalsByEvent by remember(allDebts) {
-        derivedStateOf {
-            allDebts
-                .filter { !it.paid }
-                .groupBy { it.eventId }
-                .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
-        }
-    }
-
-    val totalSpent by remember(allExpenses) {
-        derivedStateOf { allExpenses.sumOf { it.amountEuros } }
-    }
-
-    val participantCountByEvent by remember(allDebts) {
-        derivedStateOf {
-            allDebts.groupBy { it.eventId }.mapValues { it.value.size }
-        }
-    }
-
-    val yourShareByEvent by remember(allDebts) {
+    val aggregates by remember(allDebts, allExpenses, events, currentUserUid) {
         derivedStateOf {
             val uid = currentUserUid ?: ""
-            allDebts
-                .filter { !it.paid && it.profileId == uid }
-                .groupBy { it.eventId }
-                .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
-        }
-    }
 
-    val youAreOwedByEvent by remember(allDebts) {
-        derivedStateOf {
-            val uid = currentUserUid ?: ""
-            allDebts
-                .filter { !it.paid && it.profileId != uid }
-                .groupBy { it.eventId }
-                .mapValues { (_, values) -> values.sumOf { it.amountEuros } }
-        }
-    }
+            // Single pass over allDebts
+            val activeTotalsByProfile = mutableMapOf<String, Double>()
+            val pendingTotalsByEvent = mutableMapOf<String, Double>()
+            val participantCountByEvent = mutableMapOf<String, Int>()
+            val yourShareByEvent = mutableMapOf<String, Double>()
+            val youAreOwedByEvent = mutableMapOf<String, Double>()
+            val pendingEventsByProfile = mutableMapOf<String, MutableList<String>>()
 
-    val pendingEventsByProfile by remember(allDebts, events) {
-        derivedStateOf {
-            allDebts
-                .filter { !it.paid }
-                .groupBy { it.profileId }
-                .mapValues { (_, values) ->
-                    values.mapNotNull { debt ->
-                        events.firstOrNull { it.id == debt.eventId }?.let { event ->
-                            "${event.name} · ${formatEuros(debt.amountEuros)}"
-                        }
+            allDebts.forEach { debt ->
+                // participantCountByEvent (includes paid)
+                participantCountByEvent[debt.eventId] =
+                    (participantCountByEvent[debt.eventId] ?: 0) + 1
+
+                if (!debt.paid) {
+                    // activeTotalsByProfile
+                    activeTotalsByProfile[debt.profileId] =
+                        (activeTotalsByProfile[debt.profileId] ?: 0.0) + debt.amountEuros
+
+                    // pendingTotalsByEvent
+                    pendingTotalsByEvent[debt.eventId] =
+                        (pendingTotalsByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
+
+                    // yourShareByEvent / youAreOwedByEvent
+                    if (debt.profileId == uid) {
+                        yourShareByEvent[debt.eventId] =
+                            (yourShareByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
+                    } else {
+                        youAreOwedByEvent[debt.eventId] =
+                            (youAreOwedByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
+                    }
+
+                    // pendingEventsByProfile
+                    val event = events.firstOrNull { it.id == debt.eventId }
+                    if (event != null) {
+                        pendingEventsByProfile.getOrPut(debt.profileId) { mutableListOf() }
+                            .add("${event.name} · ${formatEuros(debt.amountEuros)}")
                     }
                 }
+            }
+
+            DashboardAggregates(
+                activeTotalsByProfile = activeTotalsByProfile,
+                pendingTotalsByEvent = pendingTotalsByEvent,
+                totalSpent = allExpenses.sumOf { it.amountEuros },
+                participantCountByEvent = participantCountByEvent,
+                yourShareByEvent = yourShareByEvent,
+                youAreOwedByEvent = youAreOwedByEvent,
+                pendingEventsByProfile = pendingEventsByProfile,
+            )
         }
     }
+
+    // Destructure for call sites
+    val activeTotalsByProfile = aggregates.activeTotalsByProfile
+    val pendingTotalsByEvent = aggregates.pendingTotalsByEvent
+    val totalSpent = aggregates.totalSpent
+    val participantCountByEvent = aggregates.participantCountByEvent
+    val yourShareByEvent = aggregates.yourShareByEvent
+    val youAreOwedByEvent = aggregates.youAreOwedByEvent
+    val pendingEventsByProfile = aggregates.pendingEventsByProfile
 
     val selectedEvent by remember(events, eventId) {
         derivedStateOf {
@@ -431,7 +449,7 @@ fun CuentaMorososApp(
                                             eventId = currentEvent.id,
                                             eventName = currentEvent.name,
                                             invitedByUid = currentUserUid,
-                                            invitedByEmail = "",
+                                            invitedByEmail = currentProfile?.linkedEmail ?: "",
                                             invitedEmail = email,
                                         )
                                     )
@@ -594,6 +612,21 @@ fun CuentaMorososApp(
                                     profilesViewModel.deleteProfile(profile)
                                     feedbackMessage = "Perfil \"${profile.name}\" eliminado."
                                 }
+                            )
+
+                            MainSection.INVITATIONS -> InvitationsScreen(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(innerPadding),
+                                invitations = pendingInvitations,
+                                onAccept = { invitation ->
+                                    invitationsViewModel.acceptInvitation(invitation)
+                                    feedbackMessage = "Invitación aceptada. ¡Bienvenido a ${invitation.eventName}!"
+                                },
+                                onReject = { invitation ->
+                                    invitationsViewModel.rejectInvitation(invitation.id)
+                                    feedbackMessage = "Invitación rechazada."
+                                },
                             )
 
                             MainSection.SETTINGS -> SettingsScreen(
