@@ -53,5 +53,5 @@ Chain strategy: pending
 
 ## Phase 5: Integration & Verification
 
-- [ ] 5.1 Integration test: sync loop end-to-end — fake Firestore + real `PendingOperationQueue` + SQLDelight in-memory; verify enqueue → drain → fetch → upsert pipeline (~80 lines, **Medium** risk)
-- [ ] 5.2 Manual verification checklist — login without freeze (<1s to app), dashboard loads <3s, offline→online sync completes, `replaceMemberId` updates visible in Firestore console
+- [x] 5.1 Integration test: sync loop end-to-end — fake Firestore + real `PendingOperationQueue` + SQLDelight in-memory; verify enqueue → drain → fetch → upsert pipeline (~80 lines, **Medium** risk)
+- [x] 5.2 Manual verification checklist — login without freeze (<1s to app), dashboard loads <3s, offline→online sync completes, `replaceMemberId` updates visible in Firestore console
