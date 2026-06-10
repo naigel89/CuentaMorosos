@@ -58,9 +58,6 @@ fun SettlementPanel(
     onCloseEvent: (() -> Unit)? = null,
     onRemoveMember: ((String) -> Unit)? = null,
 ) {
-    val profileById = profiles.associateBy { it.id }
-    val pendingDebts = debts.filter { !it.paid }
-    val paidDebts = debts.filter { it.paid }
     val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
 
@@ -147,10 +144,18 @@ fun SettlementPanel(
                     eventMembers.forEach { profile ->
                         val profileDebts = debts.filter { it.profileId == profile.id }
                         val totalOwed = profileDebts.filter { !it.paid }.sumOf { it.amountEuros }
+                        val hasDebt = profileDebts.isNotEmpty()
+                        val isPaid = profileDebts.all { it.paid } && profileDebts.isNotEmpty()
+                        val debt = profileDebts.firstOrNull()
+                        
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = 4.dp)
+                                .then(
+                                    if (hasDebt) Modifier.clickable { debt?.let { onTogglePaid(it) } }
+                                    else Modifier
+                                ),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
@@ -158,6 +163,14 @@ fun SettlementPanel(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
+                                // Checkbox (only if has debt)
+                                if (hasDebt) {
+                                    Checkbox(
+                                        checked = isPaid,
+                                        onCheckedChange = { debt?.let { onTogglePaid(it) } },
+                                    )
+                                }
+                                
                                 ProfileAvatar(
                                     name = profile.name,
                                     emoji = profile.icon,
@@ -194,57 +207,40 @@ fun SettlementPanel(
                                             text = "Debe: ${formatEuros(totalOwed)}",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = colors.error,
+                                            fontWeight = FontWeight.Medium,
+                                            fontFamily = JetBrainsMonoFontFamily(),
+                                        )
+                                    } else if (isPaid) {
+                                        Text(
+                                            text = "Pagado ✓",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colors.primaryContainer,
+                                            fontWeight = FontWeight.Medium,
                                         )
                                     }
                                 }
                             }
-                            if (onRemoveMember != null && profile.id != currentUserUid) {
-                                IconButton(
-                                    onClick = { onRemoveMember(profile.id) },
-                                    modifier = Modifier.size(32.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Eliminar participante",
-                                        tint = colors.error,
-                                        modifier = Modifier.size(18.dp),
-                                    )
+                            
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                if (onRemoveMember != null && profile.id != currentUserUid) {
+                                    IconButton(
+                                        onClick = { onRemoveMember(profile.id) },
+                                        modifier = Modifier.size(32.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Eliminar participante",
+                                            tint = colors.error,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                    if (debts.isNotEmpty()) {
                         HorizontalDivider(color = themeColors.outlineVariant.copy(alpha = 0.2f))
-                    }
-                }
-
-                // Pending
-                if (pendingDebts.isNotEmpty()) {
-                    pendingDebts.forEach { debt ->
-                        val profile = profileById[debt.profileId]
-                        DebtRow(
-                            profile = profile,
-                            debt = debt,
-                            currentUserUid = currentUserUid,
-                            onTogglePaid = onTogglePaid,
-                            isPaid = false,
-                            onRemoveProfile = if (canManageParticipants) onRemoveMember else null,
-                        )
-                    }
-                }
-
-                // Paid
-                if (paidDebts.isNotEmpty()) {
-                    paidDebts.forEach { debt ->
-                        val profile = profileById[debt.profileId]
-                        DebtRow(
-                            profile = profile,
-                            debt = debt,
-                            currentUserUid = currentUserUid,
-                            onTogglePaid = onTogglePaid,
-                            isPaid = true,
-                            onRemoveProfile = if (canManageParticipants) onRemoveMember else null,
-                        )
                     }
                 }
 
@@ -281,100 +277,4 @@ fun SettlementPanel(
             }
         }
     }
-}
-
-@Composable
-private fun DebtRow(
-    profile: ProfileItem?,
-    debt: EventDebtItem,
-    currentUserUid: String,
-    onTogglePaid: (EventDebtItem) -> Unit,
-    isPaid: Boolean,
-    onRemoveProfile: ((String) -> Unit)? = null,
-) {
-    val colors = LocalNeoFintechColors.current
-    val themeColors = MaterialTheme.colorScheme
-    val isCurrentUser = debt.profileId == currentUserUid && currentUserUid.isNotBlank()
-    val displayName = when {
-        profile != null -> profile.displayNameFor(currentUserUid)
-        isCurrentUser -> "Vos"
-        else -> "Desconocido"
-    }
-    val initials = profile?.name?.take(2)?.uppercase() ?: if (isCurrentUser) "V" else "?"
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onTogglePaid(debt) }
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(
-                checked = debt.paid,
-                onCheckedChange = { onTogglePaid(debt) },
-            )
-            // Avatar with photo or initials
-            ProfileAvatar(
-                name = profile?.name ?: "",
-                emoji = "",
-                photoUrl = profile?.photoUrl,
-                size = 32.dp,
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = themeColors.onSurface,
-                )
-                if (isCurrentUser) {
-                    Surface(
-                        color = themeColors.primaryContainer.copy(alpha = 0.2f),
-                        shape = NeoFintechShapes.full,
-                    ) {
-                        Text(
-                            text = "Tú",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = themeColors.primary,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
-                        )
-                    }
-                }
-            }
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = formatEuros(debt.amountEuros),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                fontFamily = JetBrainsMonoFontFamily(),
-                color = if (isPaid) themeColors.onSurfaceVariant else colors.error,
-            )
-            if (onRemoveProfile != null && !isCurrentUser) {
-                IconButton(
-                    onClick = { onRemoveProfile(debt.profileId) },
-                    modifier = Modifier.size(28.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Eliminar participante",
-                        tint = colors.error,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
-        }
-    }
-    HorizontalDivider(color = themeColors.outlineVariant.copy(alpha = 0.2f))
 }
