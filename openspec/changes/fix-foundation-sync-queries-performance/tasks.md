@@ -35,8 +35,8 @@ Chain strategy: pending
 
 ## Phase 2: Data Integrity (A5)
 
-- [ ] 2.1 Fix `FirestoreEventRepository.replaceMemberId()` — add `participantIds` and `participants[].profileId` updates to existing batch; read `participants` as `List<Map>`, map replacements, write back; handle null/empty participants by deriving from `memberIds` (~35 lines, **High** risk — Firestore batch atomicity, array manipulation)
-- [ ] 2.2 Unit tests for `replaceMemberId()` — verify all 4 fields updated (`memberIds`, `ownerId`, `participantIds`, `participants[].profileId`); test null participants fallback (~50 lines, **Low** risk)
+- [x] 2.1 Fix `FirestoreEventRepository.replaceMemberId()` — add `participantIds` and `participants[].profileId` updates to existing batch; read `participants` as `List<Map>`, map replacements, write back; handle null/empty participants by deriving from `memberIds` (~35 lines, **High** risk — Firestore batch atomicity, array manipulation)
+- [x] 2.2 Unit tests for `replaceMemberId()` — verify all 4 fields updated (`memberIds`, `ownerId`, `participantIds`, `participants[].profileId`); test null participants fallback (~50 lines, **Low** risk)
 
 ## Phase 3: Query Optimization (H1, B1)
 
