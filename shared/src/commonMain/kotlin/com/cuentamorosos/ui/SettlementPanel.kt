@@ -9,12 +9,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -52,6 +56,7 @@ fun SettlementPanel(
     eventState: EventState = EventState.DRAFT,
     canClose: Boolean = false,
     onCloseEvent: (() -> Unit)? = null,
+    onRemoveMember: ((String) -> Unit)? = null,
 ) {
     val profileById = profiles.associateBy { it.id }
     val pendingDebts = debts.filter { !it.paid }
@@ -89,7 +94,7 @@ fun SettlementPanel(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = colors.primaryContainer,
-                        contentColor = colors.onSurface,
+                        contentColor = colors.onPrimaryContainer,
                     ),
                     shape = NeoFintechShapes.lg,
                 ) {
@@ -140,6 +145,7 @@ fun SettlementPanel(
                             currentUserUid = currentUserUid,
                             onTogglePaid = onTogglePaid,
                             isPaid = false,
+                            onRemoveProfile = if (canManageParticipants) onRemoveMember else null,
                         )
                     }
                 }
@@ -154,6 +160,7 @@ fun SettlementPanel(
                             currentUserUid = currentUserUid,
                             onTogglePaid = onTogglePaid,
                             isPaid = true,
+                            onRemoveProfile = if (canManageParticipants) onRemoveMember else null,
                         )
                     }
                 }
@@ -200,6 +207,7 @@ private fun DebtRow(
     currentUserUid: String,
     onTogglePaid: (EventDebtItem) -> Unit,
     isPaid: Boolean,
+    onRemoveProfile: ((String) -> Unit)? = null,
 ) {
     val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
@@ -259,13 +267,31 @@ private fun DebtRow(
                 }
             }
         }
-        Text(
-            text = formatEuros(debt.amountEuros),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            fontFamily = JetBrainsMonoFontFamily(),
-            color = if (isPaid) themeColors.onSurfaceVariant else colors.error,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = formatEuros(debt.amountEuros),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                fontFamily = JetBrainsMonoFontFamily(),
+                color = if (isPaid) themeColors.onSurfaceVariant else colors.error,
+            )
+            if (onRemoveProfile != null && !isCurrentUser) {
+                IconButton(
+                    onClick = { onRemoveProfile(debt.profileId) },
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Eliminar participante",
+                        tint = colors.error,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
     }
     HorizontalDivider(color = themeColors.outlineVariant.copy(alpha = 0.2f))
 }

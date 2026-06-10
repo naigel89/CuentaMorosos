@@ -51,6 +51,7 @@ class AccountViewModelTest {
                 return true
             }
             override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> = Result.success(Unit)
+            override suspend fun deleteProfilePhoto(): Result<Unit> = Result.success(Unit)
         }
 
         val vm = AccountViewModel(repo, "testUid")
@@ -85,6 +86,7 @@ class AccountViewModelTest {
                 return true
             }
             override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> = Result.success(Unit)
+            override suspend fun deleteProfilePhoto(): Result<Unit> = Result.success(Unit)
         }
 
         val vm = AccountViewModel(repo, "testUid")
@@ -113,6 +115,7 @@ class AccountViewModelTest {
             override suspend fun setCustomName(profileId: String, customName: String): Result<Unit> = Result.success(Unit)
             override suspend fun isUsernameAvailable(username: String): Boolean = true
             override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> = Result.success(Unit)
+            override suspend fun deleteProfilePhoto(): Result<Unit> = Result.success(Unit)
         }
 
         val vm = AccountViewModel(repo, "testUid")

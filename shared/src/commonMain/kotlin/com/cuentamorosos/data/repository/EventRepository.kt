@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.Flow
 interface EventRepository {
     fun observeEvents(): Flow<List<EventItem>>
     fun observeEvent(eventId: String): Flow<EventItem?>
+    /** One-shot fetch from remote, used for initial sync. */
+    suspend fun fetchEvents(): List<EventItem>
     suspend fun saveEvent(event: EventItem)
     suspend fun deleteEvent(eventId: String)
     suspend fun removeMember(eventId: String, memberUid: String)

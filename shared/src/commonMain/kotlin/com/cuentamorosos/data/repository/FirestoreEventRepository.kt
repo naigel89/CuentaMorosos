@@ -45,7 +45,7 @@ class FirestoreEventRepository : EventRepository {
 
     override fun observeEvent(eventId: String): Flow<EventItem?> =
         collection.document(eventId).snapshots.map { snapshot ->
-            if (!snapshot.exists()) null else snapshot.toEventItem()
+            if (!snapshot.exists) null else snapshot.toEventItem()
         }
 
     override suspend fun fetchEvents(): List<EventItem> {

@@ -109,4 +109,16 @@ class RepositoryProvider(
             }
         }
     }
+
+    /**
+     * Clears all local cached data (SQLDelight tables).
+     * Called on sign-out and before sync to prevent data leakage between users.
+     */
+    fun clearLocalData() {
+        database.cachedEventQueries.deleteAll()
+        database.cachedProfileQueries.deleteAll()
+        database.cachedDebtQueries.deleteAll()
+        database.cachedExpenseQueries.deleteAll()
+        database.pendingOperationQueries.deleteAll()
+    }
 }

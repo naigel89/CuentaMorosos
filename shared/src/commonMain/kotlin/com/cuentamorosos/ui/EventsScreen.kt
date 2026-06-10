@@ -32,10 +32,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberDateRangePickerState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -50,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.currentDateText
 import com.cuentamorosos.data.ReminderMessage
+import com.cuentamorosos.formatDateMillis
 import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventParticipant
@@ -411,6 +417,7 @@ private fun EmptyStateMessage(
 
 // ── EventEditorDialog ─────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EventEditorDialog(
     initialEvent: EventItem,
@@ -440,6 +447,8 @@ private fun EventEditorDialog(
     var useDateRange by remember(initialEvent.id) {
         mutableStateOf(initialEvent.endDateMillis != initialEvent.startDateMillis)
     }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
 
     val existingParticipantIds = initialEvent.participants.map { it.profileId }.toSet()
     var selectedProfileIds by remember(initialEvent.id) {
@@ -498,14 +507,11 @@ private fun EventEditorDialog(
                         )
                         OutlinedTextField(
                             value = startDateText,
-                            onValueChange = {
-                                startDateText = it
-                                validationErrors = emptyList()
-                                validationWarnings = emptyList()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
+                            onValueChange = {},
+                            modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
                             label = { Text(if (useDateRange) "Fecha inicio" else "Fecha") },
-                            supportingText = { Text("Formato dd/MM/yyyy") },
+                            readOnly = true,
+                            enabled = false,
                             singleLine = true,
                         )
                         Row(
@@ -529,14 +535,11 @@ private fun EventEditorDialog(
                         if (useDateRange) {
                             OutlinedTextField(
                                 value = endDateText,
-                                onValueChange = {
-                                    endDateText = it
-                                    validationErrors = emptyList()
-                                    validationWarnings = emptyList()
-                                },
-                                modifier = Modifier.fillMaxWidth(),
+                                onValueChange = {},
+                                modifier = Modifier.fillMaxWidth().clickable { showEndDatePicker = true },
                                 label = { Text("Fecha fin") },
-                                supportingText = { Text("Formato dd/MM/yyyy") },
+                                readOnly = true,
+                                enabled = false,
                                 singleLine = true,
                             )
                         }
@@ -667,4 +670,52 @@ private fun EventEditorDialog(
             }
         },
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = parseEventDate(startDateText) ?: currentTimeMillis(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        startDateText = formatDateMillis(millis)
+                    }
+                    showDatePicker = false
+                    validationErrors = emptyList()
+                    validationWarnings = emptyList()
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showEndDatePicker) {
+        val endDatePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = parseEventDate(endDateText),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showEndDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    endDatePickerState.selectedDateMillis?.let { millis ->
+                        endDateText = formatDateMillis(millis)
+                    }
+                    showEndDatePicker = false
+                    validationErrors = emptyList()
+                    validationWarnings = emptyList()
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEndDatePicker = false }) { Text("Cancelar") }
+            },
+        ) {
+            DatePicker(state = endDatePickerState)
+        }
+    }
 }

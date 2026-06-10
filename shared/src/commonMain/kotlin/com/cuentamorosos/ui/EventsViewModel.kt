@@ -71,7 +71,11 @@ class EventsViewModel(
 
     fun removeMember(eventId: String, memberUid: String) {
         viewModelScope.launch {
-            eventRepository.removeMember(eventId, memberUid)
+            runCatching {
+                eventRepository.removeMember(eventId, memberUid)
+            }.onFailure { e ->
+                println("[EventsViewModel] Failed to remove member: ${e.message}")
+            }
         }
     }
 

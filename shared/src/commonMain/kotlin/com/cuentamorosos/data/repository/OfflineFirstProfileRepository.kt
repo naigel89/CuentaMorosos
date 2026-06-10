@@ -42,10 +42,18 @@ class OfflineFirstProfileRepository(
             profiles.find { it.id == entityId }?.let { remoteRepository.saveProfile(it) }
         }
         override suspend fun deleteProfile(entityId: String) = remoteRepository.deleteProfile(entityId)
-        override suspend fun updateProfilePhoto(profileId: String, photoUrl: String) = remoteRepository.updateProfilePhoto(photoUrl)
-        override suspend fun updateProfileUsername(profileId: String, username: String) = remoteRepository.updateUsername(username)
-        override suspend fun updateProfileDisplayName(profileId: String, displayName: String) = remoteRepository.updateDisplayName(displayName)
-        override suspend fun deleteProfilePhoto(profileId: String) = remoteRepository.deleteProfilePhoto()
+        override suspend fun updateProfilePhoto(profileId: String, photoUrl: String) {
+            remoteRepository.updateProfilePhoto(photoUrl)
+        }
+        override suspend fun updateProfileUsername(profileId: String, username: String) {
+            remoteRepository.updateUsername(username)
+        }
+        override suspend fun updateProfileDisplayName(profileId: String, displayName: String) {
+            remoteRepository.updateDisplayName(displayName)
+        }
+        override suspend fun deleteProfilePhoto(profileId: String) {
+            remoteRepository.deleteProfilePhoto()
+        }
     }
 
     fun startSync() {

@@ -43,6 +43,7 @@ import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.ExpenseCategory
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.displayNameFor
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEuroAmount
@@ -89,6 +90,7 @@ fun EventDetailScreen(
     var showQuickSplitDialog by remember { mutableStateOf(false) }
     var showInviteMemberDialog by remember { mutableStateOf(false) }
     var showRemoveOwnerConfirm by remember { mutableStateOf<EventDebtItem?>(null) }
+    var profileToRemove by remember { mutableStateOf<String?>(null) }
     val currentUid = currentUserUid ?: ""
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -165,6 +167,7 @@ fun EventDetailScreen(
                             eventState = event.state,
                             canClose = canClose,
                             onCloseEvent = onCloseEvent,
+                            onRemoveMember = { profileToRemove = it },
                         )
                     }
                 }
@@ -221,6 +224,7 @@ fun EventDetailScreen(
                         eventState = event.state,
                         canClose = canClose,
                         onCloseEvent = onCloseEvent,
+                        onRemoveMember = { profileToRemove = it },
                     )
                 }
             }
@@ -336,6 +340,33 @@ fun EventDetailScreen(
             }
         )
     }
+
+    // Dialog 7: RemoveParticipantConfirmation
+    if (profileToRemove != null) {
+        val profileName = profileById[profileToRemove]?.displayNameFor(currentUserUid ?: "") ?: "Este participante"
+        AlertDialog(
+            onDismissRequest = { profileToRemove = null },
+            title = { Text("Eliminar participante") },
+            text = {
+                Text("¿Estás seguro de que querés eliminar a $profileName del evento?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        _onRemoveMember(profileToRemove!!)
+                        profileToRemove = null
+                    }
+                ) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { profileToRemove = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
 // ── HeaderSection ─────────────────────────────────────────────────────────────
@@ -447,7 +478,7 @@ private fun HeaderSection(
                 modifier = Modifier.padding(top = 4.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = colors.primaryContainer,
-                    contentColor = colors.onSurface,
+                    contentColor = colors.onPrimaryContainer,
                 ),
                 shape = NeoFintechShapes.lg,
             ) {
@@ -492,7 +523,7 @@ private fun ExpensesList(
             enabled = canDo(EventAction.CreateExpense),
             colors = ButtonDefaults.buttonColors(
                 containerColor = colors.primaryContainer,
-                contentColor = colors.onSurface,
+                contentColor = colors.onPrimaryContainer,
             ),
             shape = NeoFintechShapes.lg,
         ) {

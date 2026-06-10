@@ -21,9 +21,19 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../keystore/CuentaMorosos.jks")
+            storePassword = "llevalatararaunvestidoblancollenodecascabeles"
+            keyAlias = "CuentaMorosos"
+            keyPassword = "llevalatararaunvestidoblancollenodecascabeles"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

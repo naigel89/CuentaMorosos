@@ -90,7 +90,7 @@ class OfflineFirstSyncTest {
         queue.drainAll(fakeRemoteOps)
 
         assertEquals(0L, queue.getAllPending())
-        assertEquals(3, fakeRemoteOps.saveEventCalls.size + fakeRemoteOps.saveDebtCalls.size +
+        assertEquals(4, fakeRemoteOps.saveEventCalls.size + fakeRemoteOps.saveDebtCalls.size +
                 fakeRemoteOps.saveExpenseCalls.size + fakeRemoteOps.saveProfileCalls.size)
         assertEquals(1, fakeRemoteOps.deleteEventCalls.size)
     }

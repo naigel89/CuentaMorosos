@@ -327,6 +327,10 @@ class CuentaMorososLocalStore(context: Context) {
         prefs.edit().putString(KEY_PREFERENCES, payload.toString()).apply()
     }
 
+    fun clearAll() {
+        prefs.edit().clear().apply()
+    }
+
     private fun <T> readArray(key: String, mapper: (JSONObject) -> T?): List<T> {
         val rawValue = prefs.getString(key, null) ?: return emptyList()
         val jsonArray = runCatching { JSONArray(rawValue) }.getOrElse { return emptyList() }

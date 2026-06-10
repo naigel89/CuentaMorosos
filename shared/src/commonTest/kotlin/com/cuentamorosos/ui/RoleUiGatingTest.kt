@@ -71,7 +71,7 @@ class RoleUiGatingTest {
         assertTrue(canDo(EventAction.EditExpense("bob")), "CONTRIBUTOR should edit own expenses")
         assertFalse(canDo(EventAction.EditExpense("charlie")), "CONTRIBUTOR should NOT edit others' expenses")
         assertFalse(canDo(EventAction.DeleteExpense("bob")), "CONTRIBUTOR should NOT delete expenses")
-        assertFalse(canDo(EventAction.ManageParticipants), "CONTRIBUTOR should NOT manage participants")
+        assertTrue(canDo(EventAction.ManageParticipants), "CONTRIBUTOR should manage participants")
         assertFalse(canDo(EventAction.Calculate), "CONTRIBUTOR should NOT calculate")
         assertFalse(canDo(EventAction.Close), "CONTRIBUTOR should NOT close event")
         assertFalse(canDo(EventAction.DeleteEvent), "CONTRIBUTOR should NOT delete event")
@@ -158,7 +158,7 @@ class RoleUiGatingTest {
     // ── E4-5/E4-6: SettlementPanel role gating ───────────────────────────────
 
     @Test
-    fun `SettlementPanel buttons — only OWNER can calculate, manage participants, invite`() {
+    fun `SettlementPanel buttons — OWNER and CONTRIBUTOR can manage participants, only OWNER can calculate and invite`() {
         val event = testEvent(
             ownerId = "alice",
             participants = listOf(
@@ -174,7 +174,7 @@ class RoleUiGatingTest {
 
         // ManageParticipants / Invite
         assertTrue(buildCanDo("alice", event)(EventAction.ManageParticipants))
-        assertFalse(buildCanDo("bob", event)(EventAction.ManageParticipants))
+        assertTrue(buildCanDo("bob", event)(EventAction.ManageParticipants))
         assertFalse(buildCanDo("charlie", event)(EventAction.ManageParticipants))
     }
 

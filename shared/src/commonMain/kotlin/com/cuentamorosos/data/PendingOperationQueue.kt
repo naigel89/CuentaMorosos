@@ -39,7 +39,7 @@ class PendingOperationQueue(
     }
 
     suspend fun dequeue(limit: Int): List<PendingOperation> = mutex.withLock {
-        queries.selectPending(limit.toLong()).executeAsList()
+        queries.selectPending(maxRetries.toLong(), limit.toLong()).executeAsList()
     }
 
     suspend fun markComplete(id: String) = mutex.withLock {
@@ -51,7 +51,7 @@ class PendingOperationQueue(
     }
 
     suspend fun getAllPending(): Long = mutex.withLock {
-        queries.countPending().executeAsOne()
+        queries.countPending(maxRetries.toLong()).executeAsOne()
     }
 
     suspend fun drain(
