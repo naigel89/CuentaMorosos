@@ -145,35 +145,69 @@ fun SettlementPanel(
                         color = themeColors.onSurface,
                     )
                     eventMembers.forEach { profile ->
+                        val profileDebts = debts.filter { it.profileId == profile.id }
+                        val totalOwed = profileDebts.filter { !it.paid }.sumOf { it.amountEuros }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            ProfileAvatar(
-                                name = profile.name,
-                                emoji = profile.icon,
-                                photoUrl = profile.photoUrl,
-                                size = 32.dp,
-                            )
-                            Text(
-                                text = profile.displayNameFor(currentUserUid),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = themeColors.onSurface,
-                            )
-                            if (profile.id == currentUserUid && currentUserUid.isNotBlank()) {
-                                Surface(
-                                    color = themeColors.primaryContainer.copy(alpha = 0.2f),
-                                    shape = NeoFintechShapes.full,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                ProfileAvatar(
+                                    name = profile.name,
+                                    emoji = profile.icon,
+                                    photoUrl = profile.photoUrl,
+                                    size = 32.dp,
+                                )
+                                Column {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        Text(
+                                            text = profile.displayNameFor(currentUserUid),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = themeColors.onSurface,
+                                        )
+                                        if (profile.id == currentUserUid && currentUserUid.isNotBlank()) {
+                                            Surface(
+                                                color = themeColors.primaryContainer.copy(alpha = 0.2f),
+                                                shape = NeoFintechShapes.full,
+                                            ) {
+                                                Text(
+                                                    text = "Tú",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = themeColors.primary,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (totalOwed > 0.0) {
+                                        Text(
+                                            text = "Debe: ${formatEuros(totalOwed)}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colors.error,
+                                        )
+                                    }
+                                }
+                            }
+                            if (onRemoveMember != null && profile.id != currentUserUid) {
+                                IconButton(
+                                    onClick = { onRemoveMember(profile.id) },
+                                    modifier = Modifier.size(32.dp),
                                 ) {
-                                    Text(
-                                        text = "Tú",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = themeColors.primary,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Eliminar participante",
+                                        tint = colors.error,
+                                        modifier = Modifier.size(18.dp),
                                     )
                                 }
                             }

@@ -72,6 +72,13 @@ class EventsViewModel(
     fun removeMember(eventId: String, memberUid: String) {
         viewModelScope.launch {
             runCatching {
+                // Delete all debts for this member in this event first
+                val memberDebts = debtRepository.fetchDebtsForEvent(eventId)
+                    .filter { it.profileId == memberUid }
+                memberDebts.forEach { debt ->
+                    debtRepository.deleteDebt(eventId, debt.id)
+                }
+                // Then remove from event participants
                 eventRepository.removeMember(eventId, memberUid)
             }.onFailure { e ->
                 println("[EventsViewModel] Failed to remove member: ${e.message}")
