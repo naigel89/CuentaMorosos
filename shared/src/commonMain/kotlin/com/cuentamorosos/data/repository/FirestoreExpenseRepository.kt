@@ -118,6 +118,16 @@ class FirestoreExpenseRepository : ExpenseRepository {
         }
     }
 
+    override suspend fun fetchExpensesForEvent(eventId: String): List<EventExpenseItem> {
+        return try {
+            db.collection("events").document(eventId).collection("expenses").get()
+                .documents.mapNotNull { it.toExpenseItem() }
+        } catch (e: Exception) {
+            println("[FirestoreExpenseRepo] fetchExpensesForEvent failed: ${e.message}")
+            emptyList()
+        }
+    }
+
     private fun EventExpenseItem.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
         "eventId" to eventId,

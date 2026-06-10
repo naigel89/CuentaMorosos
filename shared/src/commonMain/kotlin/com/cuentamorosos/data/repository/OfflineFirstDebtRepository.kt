@@ -190,6 +190,10 @@ class OfflineFirstDebtRepository(
         remoteRepository.replaceProfileId(oldId, newId)
     }
 
+    override suspend fun fetchDebtsForEvent(eventId: String): List<EventDebtItem> {
+        return remoteRepository.fetchDebtsForEvent(eventId)
+    }
+
     private fun com.cuentamorosos.db.CachedDebt.toDebtItem(): EventDebtItem = EventDebtItem(
         id = id,
         eventId = eventId,

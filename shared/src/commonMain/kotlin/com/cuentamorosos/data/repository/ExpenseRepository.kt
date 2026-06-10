@@ -9,4 +9,5 @@ interface ExpenseRepository {
     suspend fun saveExpense(expense: EventExpenseItem)
     suspend fun deleteExpense(eventId: String, expenseId: String)
     suspend fun replaceProfileId(oldId: String, newId: String)
+    suspend fun fetchExpensesForEvent(eventId: String): List<EventExpenseItem>
 }

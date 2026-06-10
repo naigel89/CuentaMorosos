@@ -135,6 +135,55 @@ fun SettlementPanel(
                     fontWeight = FontWeight.Medium,
                 )
 
+                // Participants list (from event.effectiveMemberIds)
+                val eventMembers = profiles.filter { it.id in _event.effectiveMemberIds }
+                if (eventMembers.isNotEmpty()) {
+                    Text(
+                        text = "Participantes (${eventMembers.size})",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = themeColors.onSurface,
+                    )
+                    eventMembers.forEach { profile ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            ProfileAvatar(
+                                name = profile.name,
+                                emoji = profile.icon,
+                                photoUrl = profile.photoUrl,
+                                size = 32.dp,
+                            )
+                            Text(
+                                text = profile.displayNameFor(currentUserUid),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = themeColors.onSurface,
+                            )
+                            if (profile.id == currentUserUid && currentUserUid.isNotBlank()) {
+                                Surface(
+                                    color = themeColors.primaryContainer.copy(alpha = 0.2f),
+                                    shape = NeoFintechShapes.full,
+                                ) {
+                                    Text(
+                                        text = "Tú",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = themeColors.primary,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (debts.isNotEmpty()) {
+                        HorizontalDivider(color = themeColors.outlineVariant.copy(alpha = 0.2f))
+                    }
+                }
+
                 // Pending
                 if (pendingDebts.isNotEmpty()) {
                     pendingDebts.forEach { debt ->
@@ -165,7 +214,7 @@ fun SettlementPanel(
                     }
                 }
 
-                if (debts.isEmpty()) {
+                if (debts.isEmpty() && eventMembers.isEmpty()) {
                     Text(
                         text = "Sin participantes aún",
                         style = MaterialTheme.typography.bodySmall,

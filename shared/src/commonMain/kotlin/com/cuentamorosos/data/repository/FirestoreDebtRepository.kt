@@ -132,6 +132,16 @@ class FirestoreDebtRepository : DebtRepository {
         }
     }
 
+    override suspend fun fetchDebtsForEvent(eventId: String): List<EventDebtItem> {
+        return try {
+            db.collection("events").document(eventId).collection("debts").get()
+                .documents.mapNotNull { it.toDebtItem() }
+        } catch (e: Exception) {
+            println("[FirestoreDebtRepo] fetchDebtsForEvent failed: ${e.message}")
+            emptyList()
+        }
+    }
+
     private fun EventDebtItem.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
         "eventId" to eventId,

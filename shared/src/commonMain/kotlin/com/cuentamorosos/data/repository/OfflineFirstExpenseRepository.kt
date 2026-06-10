@@ -181,6 +181,10 @@ class OfflineFirstExpenseRepository(
         remoteRepository.replaceProfileId(oldId, newId)
     }
 
+    override suspend fun fetchExpensesForEvent(eventId: String): List<EventExpenseItem> {
+        return remoteRepository.fetchExpensesForEvent(eventId)
+    }
+
     private fun List<String>.toJsonArray(): String =
         joinToString(prefix = "[", postfix = "]", separator = ",") { "\"$it\"" }
 

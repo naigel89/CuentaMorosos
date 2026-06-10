@@ -255,11 +255,7 @@ fun CuentaMorososApp(
     val youAreOwedByEvent = aggregates.youAreOwedByEvent
     val pendingEventsByProfile = aggregates.pendingEventsByProfile
 
-    val selectedEvent by remember(events, eventId) {
-        derivedStateOf {
-            events.firstOrNull { it.id == eventId }
-        }
-    }
+    val selectedEvent by eventDetailViewModel.currentEvent.collectAsState()
 
     val reminderMessages by remember(events, debts, expenses, preferences) {
         derivedStateOf {
