@@ -32,11 +32,11 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: NotificationDispatcher
 
-- [ ] 2.1 Create `app/src/main/java/com/cuentamorosos/notifications/NotificationDispatcher.kt` — constructor(Context), `dispatch(event)`, `ensureChannels()` (4 channels: ch_invitations HIGH, ch_calculations/ch_reminders/ch_upcoming_events DEFAULT), `notificationType()`, `channelIdFor()`, `smallIconResFor()`, `notificationTag()`, `notificationId()`.
-- [ ] 2.2 Implement `titleFor()`/`bodyFor()` — Spanish titles ("Invitación recibida", etc.), bodies with format strings, `String.format("%.2f")` for amounts.
-- [ ] 2.3 Implement `createLargeIcon()` — 48dp Bitmap, colored circle (NeoFintech colors per type), white 24dp icon centered. Cache via `ConcurrentHashMap<NotificationType, Bitmap>`.
-- [ ] 2.4 Implement `addActions()` — Invitation: "Aceptar"/"Rechazar" via `PendingIntent.getBroadcast()` with `ACTION_ACCEPT_INVITATION`/`ACTION_REJECT_INVITATION`. Others: "Ver detalles" via content intent. Flags: `FLAG_IMMUTABLE | FLAG_UPDATE_CURRENT`.
-- [ ] 2.5 Implement `createContentIntent()` — Intent to MainActivity with extras (`EXTRA_NOTIFICATION_TYPE`, `EXTRA_EVENT_ID`, `EXTRA_INVITATION_ID`, `EXTRA_PAGER_PAGE`). Mapping: INVITATION_RECEIVED→page 3, others→page 0.
+- [x] 2.1 Create `app/src/main/java/com/cuentamorosos/notifications/NotificationDispatcher.kt` — constructor(Context), `dispatch(event)`, `ensureChannels()` (4 channels: ch_invitations HIGH, ch_calculations/ch_reminders/ch_upcoming_events DEFAULT), `notificationType()`, `channelIdFor()`, `smallIconResFor()`, `notificationTag()`, `notificationId()`.
+- [x] 2.2 Implement `titleFor()`/`bodyFor()` — Spanish titles ("Invitación recibida", etc.), bodies with format strings, `String.format("%.2f")` for amounts.
+- [x] 2.3 Implement `createLargeIcon()` — 48dp Bitmap, colored circle (NeoFintech colors per type), white 24dp icon centered. Cache via `ConcurrentHashMap<NotificationType, Bitmap>`.
+- [x] 2.4 Implement `addActions()` — Invitation: "Aceptar"/"Rechazar" via `PendingIntent.getBroadcast()` with `ACTION_ACCEPT_INVITATION`/`ACTION_REJECT_INVITATION`. Others: "Ver detalles" via content intent. Flags: `FLAG_IMMUTABLE | FLAG_UPDATE_CURRENT`.
+- [x] 2.5 Implement `createContentIntent()` — Intent to MainActivity with extras (`EXTRA_NOTIFICATION_TYPE`, `EXTRA_EVENT_ID`, `EXTRA_INVITATION_ID`, `EXTRA_PAGER_PAGE`). Mapping: INVITATION_RECEIVED→page 3, others→page 0.
 
 ## Phase 3: Application + Manifest
 
