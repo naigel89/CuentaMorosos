@@ -146,6 +146,9 @@ class MainActivity : ComponentActivity() {
                             application = application,
                             notificationDispatcher = notificationDispatcher,
                             deepLinkEvent = deepLinkEvent,
+                            onTestNotification = { notificationEvent ->
+                                notificationDispatcher.dispatch(notificationEvent)
+                            },
                         )
                     } else {
                         AuthFlow(
@@ -197,6 +200,7 @@ private fun MainAppContent(
     application: android.app.Application,
     notificationDispatcher: NotificationDispatcher,
     deepLinkEvent: SharedFlow<DeepLinkTarget>,
+    onTestNotification: (com.cuentamorosos.notifications.NotificationEvent) -> Unit,
 ) {
     // Create NotificationCallbacks that dispatch via NotificationDispatcher
     val notificationCallbacks = remember {
@@ -318,6 +322,7 @@ private fun MainAppContent(
             photoPickerLauncher.launch("image/*")
         },
         deepLinkEvent = deepLinkEvent,
+        onTestNotification = onTestNotification,
     )
 }
 

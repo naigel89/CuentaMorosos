@@ -154,6 +154,7 @@ fun CuentaMorososApp(
     onSignOut: (() -> Unit)? = null,
     onPickPhoto: ((OnPhotoReady) -> Unit)? = null,
     deepLinkEvent: SharedFlow<DeepLinkTarget>? = null,
+    onTestNotification: ((com.cuentamorosos.notifications.NotificationEvent) -> Unit)? = null,
 ) {
     val eventsViewModel: EventsViewModel = viewModel(factory = viewModelFactory)
     val eventDetailViewModel: EventDetailViewModel = viewModel(factory = viewModelFactory)
@@ -659,6 +660,10 @@ fun CuentaMorososApp(
                                 onSignOut = onSignOut,
                                 currentProfile = currentProfile,
                                 onOpenAccountSettings = { showAccountScreen = true },
+                                onTestNotification = { notificationEvent ->
+                                    onTestNotification?.invoke(notificationEvent)
+                                    feedbackMessage = "Notificación de prueba enviada."
+                                },
                             )
                                 }
                             }

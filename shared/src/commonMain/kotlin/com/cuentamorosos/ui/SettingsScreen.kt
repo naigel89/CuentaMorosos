@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import com.cuentamorosos.data.ReminderMessage
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.UserPreferences
+import com.cuentamorosos.notifications.NotificationEvent
 
 // ── SegmentedControl ──────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ fun SettingsScreen(
     onSignOut: (() -> Unit)? = null,
     currentProfile: ProfileItem? = null,
     onOpenAccountSettings: () -> Unit = {},
+    onTestNotification: (NotificationEvent) -> Unit = {},
 ) {
     var selectedThemeMode by remember(preferences.themeMode) { mutableStateOf(preferences.themeMode) }
     var reminderDaysText by remember(preferences.reminderDays) { mutableStateOf(preferences.reminderDays.toString()) }
@@ -216,6 +218,7 @@ fun SettingsScreen(
                 onSignOut = onSignOut,
                 currentProfile = currentProfile,
                 onOpenAccountSettings = onOpenAccountSettings,
+                onTestNotification = onTestNotification,
             )
         }
     } else {
@@ -242,6 +245,7 @@ fun SettingsScreen(
             onSignOut = onSignOut,
             currentProfile = currentProfile,
             onOpenAccountSettings = onOpenAccountSettings,
+            onTestNotification = onTestNotification,
         )
     }
     }
@@ -273,6 +277,7 @@ private fun SettingsContent(
     onSignOut: (() -> Unit)?,
     currentProfile: ProfileItem? = null,
     onOpenAccountSettings: () -> Unit = {},
+    onTestNotification: (NotificationEvent) -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier,
@@ -452,6 +457,96 @@ private fun SettingsContent(
                             if (reminders.isEmpty()) "Sin recordatorios activos"
                             else "Enviar ahora (${reminders.size})"
                         )
+                    }
+                }
+            }
+        }
+
+        // Probar notificaciones
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth()
+                    .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
+                    .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
+                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                shape = NeoFintechShapes.lg,
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Probar notificaciones",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.onSurface,
+                    )
+                    Text(
+                        text = "Envía notificaciones de prueba para verificar que funcionan correctamente.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                    Button(
+                        onClick = {
+                            onTestNotification(
+                                NotificationEvent.InvitationReceived(
+                                    invitationId = "test-inv-001",
+                                    eventId = "test-event-001",
+                                    inviterName = "Ana García",
+                                    eventName = "Cena de viernes"
+                                )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = NeoFintechShapes.md,
+                    ) {
+                        Text("📨 Invitación recibida")
+                    }
+                    Button(
+                        onClick = {
+                            onTestNotification(
+                                NotificationEvent.InvitationAccepted(
+                                    eventId = "test-event-001",
+                                    inviteeName = "Luis Martínez",
+                                    eventName = "Cena de viernes"
+                                )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = NeoFintechShapes.md,
+                    ) {
+                        Text("✅ Invitación aceptada")
+                    }
+                    Button(
+                        onClick = {
+                            onTestNotification(
+                                NotificationEvent.CalculationCompleted(
+                                    eventId = "test-event-002",
+                                    eventName = "Viaje a la playa",
+                                    amountOwed = 25.50
+                                )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = NeoFintechShapes.md,
+                    ) {
+                        Text("💰 Cálculo completado")
+                    }
+                    Button(
+                        onClick = {
+                            onTestNotification(
+                                NotificationEvent.UpcomingEvent(
+                                    eventId = "test-event-003",
+                                    eventName = "Cumpleaños María",
+                                    daysUntil = 3,
+                                    dateFormatted = "15/06/2026"
+                                )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = NeoFintechShapes.md,
+                    ) {
+                        Text("📅 Evento próximo")
                     }
                 }
             }
