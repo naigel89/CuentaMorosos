@@ -40,8 +40,8 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Application + Manifest
 
-- [ ] 3.1 Create `app/src/main/java/com/cuentamorosos/CuentaMorososApp.kt` — Application subclass with `var repositoryProvider: RepositoryProvider?`, `@Volatile` singleton, `getInstance()`.
-- [ ] 3.2 Modify `app/src/main/AndroidManifest.xml` — add `android:name=".CuentaMorososApp"` to `<application>`, add `<service>` for `CuentaMorososFirebaseMessagingService` with `com.google.firebase.MESSAGING_EVENT` intent-filter.
+- [x] 3.1 Create `app/src/main/java/com/cuentamorosos/CuentaMorososApp.kt` — Application subclass with `var repositoryProvider: RepositoryProvider?`, `@Volatile` singleton, `getInstance()`.
+- [x] 3.2 Modify `app/src/main/AndroidManifest.xml` — add `android:name=".CuentaMorososApp"` to `<application>`, add `<service>` for `CuentaMorososFirebaseMessagingService` with `com.google.firebase.MESSAGING_EVENT` intent-filter.
 
 ## Phase 4: ViewModel Triggers
 
