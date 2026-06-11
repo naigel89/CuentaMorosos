@@ -45,9 +45,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 4: ViewModel Triggers
 
-- [ ] 4.1 Modify `shared/src/commonMain/kotlin/com/cuentamorosos/ui/InvitationsViewModel.kt` — change `onNewInvitation` param to `((NotificationEvent.InvitationReceived) -> Unit)?`, add `notifiedIds: MutableSet<String>`, fire callback in `onEach` for PENDING invitations not yet notified.
-- [ ] 4.2 Modify `shared/src/commonMain/kotlin/com/cuentamorosos/ui/DashboardViewModel.kt` — add `onCalculationCompleted` param, `notifiedCalculatedEventIds` set, detect `EventState.CALCULATED` in `computeState()`, compute `amountOwed` from unpaid debts where `profileId == currentUserUid`, fire when > 0.
-- [ ] 4.3 Modify `shared/src/androidMain/kotlin/com/cuentamorosos/AppViewModelFactory.kt` — add `notificationCallbacks: NotificationCallbacks` param, pass `onInvitationReceived` to InvitationsViewModel, `onCalculationCompleted` to DashboardViewModel.
+- [x] 4.1 Modify `shared/src/commonMain/kotlin/com/cuentamorosos/ui/InvitationsViewModel.kt` — change `onNewInvitation` param to `((NotificationEvent.InvitationReceived) -> Unit)?`, add `notifiedIds: MutableSet<String>`, fire callback in `onEach` for PENDING invitations not yet notified.
+- [x] 4.2 Modify `shared/src/commonMain/kotlin/com/cuentamorosos/ui/DashboardViewModel.kt` — add `onCalculationCompleted` param, `notifiedCalculatedEventIds` set, detect `EventState.CALCULATED` in `computeState()`, compute `amountOwed` from unpaid debts where `profileId == currentUserUid`, fire when > 0.
+- [x] 4.3 Modify `shared/src/androidMain/kotlin/com/cuentamorosos/AppViewModelFactory.kt` — add `notificationCallbacks: NotificationCallbacks` param, pass `onInvitationReceived` to InvitationsViewModel, `onCalculationCompleted` to DashboardViewModel.
 
 ## Phase 5: ReminderService + Worker
 

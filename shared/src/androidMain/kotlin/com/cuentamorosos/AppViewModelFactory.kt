@@ -15,6 +15,7 @@ import com.cuentamorosos.ui.ProfilesViewModel
 class AppViewModelFactory(
     private val repositoryProvider: RepositoryProvider,
     private val currentProfileId: String = "",
+    private val notificationCallbacks: NotificationCallbacks = NotificationCallbacks(),
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -43,7 +44,8 @@ class AppViewModelFactory(
             }
             modelClass.isAssignableFrom(InvitationsViewModel::class.java) -> {
                 InvitationsViewModel(
-                    invitationRepository = repositoryProvider.invitationRepository
+                    invitationRepository = repositoryProvider.invitationRepository,
+                    onNewInvitation = notificationCallbacks.onInvitationReceived,
                 ) as T
             }
             modelClass.isAssignableFrom(DashboardViewModel::class.java) -> {
@@ -53,6 +55,7 @@ class AppViewModelFactory(
                     expenseRepository = repositoryProvider.expenseRepository,
                     profileRepository = repositoryProvider.profileRepository,
                     currentUserUid = currentProfileId,
+                    onCalculationCompleted = notificationCallbacks.onCalculationCompleted,
                 ) as T
             }
             modelClass.isAssignableFrom(AccountViewModel::class.java) -> {

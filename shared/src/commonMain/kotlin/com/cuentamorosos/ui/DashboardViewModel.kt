@@ -11,6 +11,7 @@ import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.notifications.NotificationEvent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,10 +25,14 @@ class DashboardViewModel(
     private val expenseRepository: ExpenseRepository,
     private val profileRepository: ProfileRepository,
     private val currentUserUid: String,
+    private val onCalculationCompleted: ((NotificationEvent.CalculationCompleted) -> Unit)? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state.asStateFlow()
+
+    // Track which events we already notified as CALCULATED to avoid duplicates
+    private val notifiedCalculatedEventIds = mutableSetOf<String>()
 
     init {
         viewModelScope.launch {
@@ -55,6 +60,31 @@ class DashboardViewModel(
         expenses: List<EventExpenseItem>,
         profiles: List<ProfileItem>,
     ): DashboardState {
+        // ── TRIGGER: Detect CALCULATED transitions ──
+        events.forEach { event ->
+            if (event.state == EventState.CALCULATED &&
+                event.id !in notifiedCalculatedEventIds
+            ) {
+                notifiedCalculatedEventIds.add(event.id)
+
+                // Calculate how much the current user owes for this event
+                val amountOwed = debts
+                    .filter { it.eventId == event.id && it.profileId == currentUserUid && !it.paid }
+                    .sumOf { it.amountEuros }
+
+                if (amountOwed > 0) {
+                    onCalculationCompleted?.invoke(
+                        NotificationEvent.CalculationCompleted(
+                            eventId = event.id,
+                            eventName = event.name,
+                            amountOwed = amountOwed,
+                        )
+                    )
+                }
+            }
+        }
+
+        // ── Existing logic ──
         val totalOwedToYou = debts
             .filter { !it.paid }
             .sumOf { it.amountEuros }

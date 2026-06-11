@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cuentamorosos.data.repository.InvitationRepository
 import com.cuentamorosos.model.EventInvitation
+import com.cuentamorosos.model.InvitationStatus
+import com.cuentamorosos.notifications.NotificationEvent
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.onEach
@@ -13,7 +15,7 @@ import kotlinx.coroutines.launch
 class InvitationsViewModel(
     private val invitationRepository: InvitationRepository,
     /** Called when a new invitation arrives so the platform can post a notification. */
-    private val onNewInvitation: ((eventName: String, invitedByEmail: String) -> Unit)? = null,
+    private val onNewInvitation: ((NotificationEvent.InvitationReceived) -> Unit)? = null,
 ) : ViewModel() {
 
     // IDs de invitaciones ya notificadas en esta sesión para no repetir la notificación
@@ -23,9 +25,18 @@ class InvitationsViewModel(
         invitationRepository.observePendingInvitations()
             .onEach { invitations ->
                 invitations.forEach { invitation ->
-                    if (invitation.id !in notifiedIds) {
+                    if (invitation.id !in notifiedIds &&
+                        invitation.status == InvitationStatus.PENDING
+                    ) {
                         notifiedIds.add(invitation.id)
-                        onNewInvitation?.invoke(invitation.eventName, invitation.invitedByEmail)
+                        onNewInvitation?.invoke(
+                            NotificationEvent.InvitationReceived(
+                                invitationId = invitation.id,
+                                eventId = invitation.eventId,
+                                inviterName = invitation.invitedByEmail,
+                                eventName = invitation.eventName,
+                            )
+                        )
                     }
                 }
             }
