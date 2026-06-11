@@ -296,8 +296,8 @@ class NotificationDispatcher(private val context: Context) {
     private fun bgColorFor(type: NotificationType): Int = when (type) {
         NotificationType.INVITATION -> 0xFF39FF14.toInt()       // NeoFintech primaryContainer (green)
         NotificationType.INVITATION_ACCEPTED -> 0xFF39FF14.toInt() // same green
-        NotificationType.CALCULATION -> 0xFFFFA000              // NeoFintech warning (amber)
-        NotificationType.UPCOMING_EVENT -> 0xFF81D4FA           // NeoFintech flight blue
+        NotificationType.CALCULATION -> 0xFFFFA000.toInt()          // NeoFintech warning (amber)
+        NotificationType.UPCOMING_EVENT -> 0xFF81D4FA.toInt()       // NeoFintech flight blue
     }
 
     private fun createLargeIcon(iconRes: Int, bgColor: Int): Bitmap {

@@ -51,12 +51,12 @@ Chain strategy: stacked-to-main
 
 ## Phase 5: ReminderService + Worker
 
-- [ ] 5.1 Modify `shared/src/commonMain/kotlin/com/cuentamorosos/data/ReminderService.kt` — add `buildUpcomingEventMessages(events, reminderDays, nowMillis)` filtering `startDateMillis in nowMillis..windowEnd`, mapping to `ReminderMessage(type=UPCOMING_EVENT)`. Extend `ReminderMessage` with `eventId`, `daysUntil`, `dateFormatted` fields. Add `ReminderType.UPCOMING_EVENT`.
-- [ ] 5.2 Modify `app/src/main/java/com/cuentamorosos/data/ReminderWorker.kt` — replace `CuentaMorososLocalStore` with `CuentaMorososApp.getInstance().repositoryProvider`, use `first()` on observe Flows, create `NotificationDispatcher` and dispatch each message. Return `Result.retry()` if provider unavailable.
+- [x] 5.1 Modify `shared/src/commonMain/kotlin/com/cuentamorosos/data/ReminderService.kt` — add `buildUpcomingEventMessages(events, reminderDays, nowMillis)` filtering `startDateMillis in nowMillis..windowEnd`, mapping to `ReminderMessage(type=UPCOMING_EVENT)`. Extend `ReminderMessage` with `eventId`, `daysUntil`, `dateFormatted` fields. Add `ReminderType.UPCOMING_EVENT`.
+- [x] 5.2 Modify `app/src/main/java/com/cuentamorosos/data/ReminderWorker.kt` — replace `CuentaMorososLocalStore` with `CuentaMorososApp.getInstance().repositoryProvider`, use `first()` on observe Flows, create `NotificationDispatcher` and dispatch each message. Return `Result.retry()` if provider unavailable.
 
 ## Phase 6: FCM Service
 
-- [ ] 6.1 Create `app/src/main/java/com/cuentamorosos/data/CuentaMorososFirebaseMessagingService.kt` — `onMessageReceived()`: parse `data["type"]` → 4 parse methods (return null on missing fields), create dispatcher, dispatch. `onNewToken()`: save via FirebaseAuth uid, try/catch.
+- [x] 6.1 Create `app/src/main/java/com/cuentamorosos/data/CuentaMorososFirebaseMessagingService.kt` — `onMessageReceived()`: parse `data["type"]` → 4 parse methods (return null on missing fields), create dispatcher, dispatch. `onNewToken()`: save via FirebaseAuth uid, try/catch.
 
 ## Phase 7: MainActivity Wiring
 
