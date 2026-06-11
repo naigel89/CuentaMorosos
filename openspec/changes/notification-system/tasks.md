@@ -60,9 +60,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 7: MainActivity Wiring
 
-- [ ] 7.1 Modify `app/src/main/java/com/cuentamorosos/MainActivity.kt` — create `NotificationDispatcher`, request `POST_NOTIFICATIONS` (API 33+), store `repositoryProvider` in `CuentaMorososApp`. Add `MutableSharedFlow<DeepLinkTarget>`, `handleDeepLinkIntent()` extracting extras, `onNewIntent()` override.
-- [ ] 7.2 Modify `MainAppContent` — create `NotificationCallbacks` with lambdas calling `dispatcher.dispatch()`, pass to `AppViewModelFactory`. Pass `deepLinkEvent` to `CuentaMorososApp`.
-- [ ] 7.3 Modify `CuentaMorososApp` composable — accept `deepLinkEvent: SharedFlow<DeepLinkTarget>?`, add `LaunchedEffect` collecting events → `pagerState.animateScrollToPage()` + `eventDetailViewModel.setEventId()`.
+- [x] 7.1 Modify `app/src/main/java/com/cuentamorosos/MainActivity.kt` — create `NotificationDispatcher`, request `POST_NOTIFICATIONS` (API 33+), store `repositoryProvider` in `CuentaMorososApp`. Add `MutableSharedFlow<DeepLinkTarget>`, `handleDeepLinkIntent()` extracting extras, `onNewIntent()` override.
+- [x] 7.2 Modify `MainAppContent` — create `NotificationCallbacks` with lambdas calling `dispatcher.dispatch()`, pass to `AppViewModelFactory`. Pass `deepLinkEvent` to `CuentaMorososApp`.
+- [x] 7.3 Modify `CuentaMorososApp` composable — accept `deepLinkEvent: SharedFlow<DeepLinkTarget>?`, add `LaunchedEffect` collecting events → `pagerState.animateScrollToPage()` + `eventDetailViewModel.setEventId()`.
 
 ## Phase 8: Testing
 

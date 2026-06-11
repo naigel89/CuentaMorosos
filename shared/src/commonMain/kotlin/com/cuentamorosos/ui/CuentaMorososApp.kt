@@ -16,6 +16,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.sizeIn
+import com.cuentamorosos.notifications.DeepLinkTarget
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -151,6 +153,7 @@ fun CuentaMorososApp(
     networkMonitor: NetworkMonitor,
     onSignOut: (() -> Unit)? = null,
     onPickPhoto: ((OnPhotoReady) -> Unit)? = null,
+    deepLinkEvent: SharedFlow<DeepLinkTarget>? = null,
 ) {
     val eventsViewModel: EventsViewModel = viewModel(factory = viewModelFactory)
     val eventDetailViewModel: EventDetailViewModel = viewModel(factory = viewModelFactory)
@@ -177,6 +180,18 @@ fun CuentaMorososApp(
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // ── Deep link handler ──
+    LaunchedEffect(deepLinkEvent) {
+        deepLinkEvent?.collect { target ->
+            coroutineScope.launch {
+                pagerState.animateScrollToPage(target.pagerPage)
+            }
+            target.eventId?.let { eventId ->
+                eventDetailViewModel.setEventId(eventId)
+            }
+        }
+    }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     var showCalendar by remember { mutableStateOf(false) }
     var showAccountScreen by remember { mutableStateOf(false) }

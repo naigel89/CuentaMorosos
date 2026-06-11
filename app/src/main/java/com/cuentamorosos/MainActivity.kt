@@ -1,8 +1,11 @@
 package com.cuentamorosos
 
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -21,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import com.cuentamorosos.data.CuentaMorososLocalStore
 import com.cuentamorosos.data.FirebaseUserSyncManager
@@ -29,6 +33,8 @@ import com.cuentamorosos.data.NotificationScheduler
 import com.cuentamorosos.data.ReminderWorker
 import com.cuentamorosos.db.DriverFactory
 import com.cuentamorosos.model.UserPreferences
+import com.cuentamorosos.notifications.DeepLinkTarget
+import com.cuentamorosos.notifications.NotificationDispatcher
 import com.cuentamorosos.ui.CuentaMorososApp
 import com.cuentamorosos.ui.CuentaMorososTheme
 import com.cuentamorosos.ui.OnPhotoReady
@@ -42,12 +48,29 @@ import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var repositoryProvider: RepositoryProvider
     private lateinit var localStore: CuentaMorososLocalStore
     private lateinit var networkMonitor: com.cuentamorosos.data.NetworkMonitor
+    private lateinit var notificationDispatcher: NotificationDispatcher
+
+    // Deep link SharedFlow
+    private val _deepLinkEvent = MutableSharedFlow<DeepLinkTarget>(extraBufferCapacity = 1)
+    val deepLinkEvent: SharedFlow<DeepLinkTarget> = _deepLinkEvent.asSharedFlow()
+
+    // Permission launcher for POST_NOTIFICATIONS (Android 13+)
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            Log.w(TAG, "POST_NOTIFICATIONS permission denied")
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,7 +91,20 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Ensure notification channel exists
+        // Initialize NotificationDispatcher (replaces NotificationScheduler.ensureChannel)
+        notificationDispatcher = NotificationDispatcher(this)
+
+        // Request POST_NOTIFICATIONS permission (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this, android.Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // Ensure legacy notification channel exists (backward compat)
         NotificationScheduler.ensureChannel(this)
 
         // Initialize SQLDelight driver and repositories
@@ -76,6 +112,9 @@ class MainActivity : ComponentActivity() {
         networkMonitor = NetworkMonitorFactory(applicationContext).create()
         repositoryProvider = RepositoryProvider(sqlDriver, networkMonitor)
         localStore = CuentaMorososLocalStore(applicationContext)
+
+        // Store RepositoryProvider in Application for Worker access
+        (application as CuentaMorososApp).repositoryProvider = repositoryProvider
 
         // Sync Firebase user on startup if already logged in
         // Profile sync happens in MainAppContent LaunchedEffect (non-blocking)
@@ -104,7 +143,9 @@ class MainActivity : ComponentActivity() {
                             repositoryProvider = repositoryProvider,
                             localStore = localStore,
                             networkMonitor = networkMonitor,
-                            application = application
+                            application = application,
+                            notificationDispatcher = notificationDispatcher,
+                            deepLinkEvent = deepLinkEvent,
                         )
                     } else {
                         AuthFlow(
@@ -117,6 +158,30 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        // Handle deep link from cold start
+        handleDeepLinkIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleDeepLinkIntent(intent)
+    }
+
+    private fun handleDeepLinkIntent(intent: Intent?) {
+        intent ?: return
+        val type = intent.getStringExtra(NotificationDispatcher.EXTRA_NOTIFICATION_TYPE) ?: return
+        val eventId = intent.getStringExtra(NotificationDispatcher.EXTRA_EVENT_ID)
+        val pagerPage = intent.getIntExtra(NotificationDispatcher.EXTRA_PAGER_PAGE, 0)
+
+        _deepLinkEvent.tryEmit(DeepLinkTarget(pagerPage, eventId, type))
+
+        // Clear extras to avoid re-processing on config change
+        intent.removeExtra(NotificationDispatcher.EXTRA_NOTIFICATION_TYPE)
+        intent.removeExtra(NotificationDispatcher.EXTRA_EVENT_ID)
+        intent.removeExtra(NotificationDispatcher.EXTRA_INVITATION_ID)
+        intent.removeExtra(NotificationDispatcher.EXTRA_PAGER_PAGE)
     }
 }
 
@@ -129,10 +194,25 @@ private fun MainAppContent(
     repositoryProvider: RepositoryProvider,
     localStore: CuentaMorososLocalStore,
     networkMonitor: com.cuentamorosos.data.NetworkMonitor,
-    application: android.app.Application
+    application: android.app.Application,
+    notificationDispatcher: NotificationDispatcher,
+    deepLinkEvent: SharedFlow<DeepLinkTarget>,
 ) {
+    // Create NotificationCallbacks that dispatch via NotificationDispatcher
+    val notificationCallbacks = remember {
+        NotificationCallbacks(
+            onInvitationReceived = { event -> notificationDispatcher.dispatch(event) },
+            onInvitationAccepted = { event -> notificationDispatcher.dispatch(event) },
+            onCalculationCompleted = { event -> notificationDispatcher.dispatch(event) },
+        )
+    }
+
     val viewModelFactory = remember(user.uid) {
-        AppViewModelFactory(repositoryProvider, currentProfileId = user.uid)
+        AppViewModelFactory(
+            repositoryProvider,
+            currentProfileId = user.uid,
+            notificationCallbacks = notificationCallbacks,
+        )
     }
     var preferences by remember { mutableStateOf(localStore.loadPreferences()) }
 
@@ -236,7 +316,8 @@ private fun MainAppContent(
             println("[MainActivity] Photo picker requested, launching image/* picker")
             pendingPhotoCallback = onPhotoReady
             photoPickerLauncher.launch("image/*")
-        }
+        },
+        deepLinkEvent = deepLinkEvent,
     )
 }
 
