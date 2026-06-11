@@ -59,7 +59,7 @@ class InvitationsViewModelNotificationTest {
         )
 
         // Collect the flow to trigger side effects
-        val collectJob = kotlinx.coroutines.launch {
+        val collectJob = backgroundScope.launch {
             viewModel.pendingInvitations.collect {}
         }
         advanceUntilIdle()
@@ -85,7 +85,7 @@ class InvitationsViewModelNotificationTest {
             onNewInvitation = { receivedEvents.add(it) },
         )
 
-        val collectJob = kotlinx.coroutines.launch {
+        val collectJob = backgroundScope.launch {
             viewModel.pendingInvitations.collect {}
         }
         advanceUntilIdle()
@@ -103,7 +103,7 @@ class InvitationsViewModelNotificationTest {
             onNewInvitation = null,
         )
 
-        val collectJob = kotlinx.coroutines.launch {
+        val collectJob = backgroundScope.launch {
             viewModel.pendingInvitations.collect {}
         }
         advanceUntilIdle()
@@ -121,7 +121,7 @@ class InvitationsViewModelNotificationTest {
             onNewInvitation = { receivedEvents.add(it) },
         )
 
-        val collectJob = kotlinx.coroutines.launch {
+        val collectJob = backgroundScope.launch {
             viewModel.pendingInvitations.collect {}
         }
         advanceUntilIdle()
@@ -150,7 +150,7 @@ class InvitationsViewModelNotificationTest {
             onNewInvitation = { receivedEvents.add(it) },
         )
 
-        val collectJob = kotlinx.coroutines.launch {
+        val collectJob = backgroundScope.launch {
             viewModel.pendingInvitations.collect {}
         }
         advanceUntilIdle()
