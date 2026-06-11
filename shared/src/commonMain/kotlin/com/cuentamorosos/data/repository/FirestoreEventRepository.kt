@@ -5,6 +5,7 @@ import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.SUPPORTED_CURRENCY
+import com.cuentamorosos.model.migrateMemberIdsToParticipants
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
@@ -221,7 +222,7 @@ class FirestoreEventRepository : EventRepository {
                 println("[FirestoreEventRepo] toEventItem: doc '${this.id}' missing required fields: id=$id, name=$name, dateMillis=$dateMillis, ownerId=$ownerId")
                 return null
             }
-            EventItem(
+            migrateMemberIdsToParticipants(EventItem(
                 id = id,
                 name = name,
                 dateMillis = dateMillis,
@@ -234,7 +235,7 @@ class FirestoreEventRepository : EventRepository {
                 lastCalculationTimestamp = (data["lastCalculationTimestamp"] as? Number)?.toLong(),
                 lastCalculationSummary = data["lastCalculationSummary"] as? String,
                 state = computeStateFromFirestore(data, participants)
-            )
+            ))
         } catch (e: Exception) {
             println("[FirestoreEventRepo] toEventItem: failed to parse doc '${this.id}': ${e.message}")
             e.printStackTrace()

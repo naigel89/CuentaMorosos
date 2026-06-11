@@ -56,11 +56,16 @@ enum class ExpenseCategory(
     val iconEmoji: String,
     val iconBgColor: Color,
 ) {
-    SHARED("shared", "Compartido", "\uD83D\uDC65", Color(0xFFB388FF)),
-    FLIGHT("flight", "Vuelo", "\u2708\uFE0F", Color(0xFFDFDCE1)),
-    ACCOMMODATION("accommodation", "Alojamiento", "\uD83C\uDFE8", Color(0xFFC8C5CB)),
+    SHARED("shared", "Gasto grupal", "\uD83D\uDC65", Color(0xFFB388FF)),
+    FLIGHT("flight", "Vuelo", "\u2708\uFE0F", Color(0xFF81D4FA)),
+    ACCOMMODATION("accommodation", "Alojamiento", "\uD83C\uDFE8", Color(0xFFFFCC80)),
     FOOD("food", "Comida", "\uD83C\uDF7D\uFE0F", Color(0xFFFFB4AB)),
-    TRANSPORT("transport", "Transporte", "\uD83D\uDE8C", Color(0xFF39FF14)),
+    TRANSPORT("transport", "Transporte", "\uD83D\uDE8C", Color(0xFFA5D6A7)),
+    ENTERTAINMENT("entertainment", "Ocio", "\uD83C\uDFAD", Color(0xFFCE93D8)),
+    SHOPPING("shopping", "Compras", "\uD83D\uDECD\uFE0F", Color(0xFFF48FB1)),
+    HEALTH("health", "Salud", "\uD83C\uDFE5", Color(0xFF80CBC4)),
+    EDUCATION("education", "Educación", "\uD83D\uDCDA", Color(0xFF90CAF9)),
+    SERVICES("services", "Servicios", "\uD83D\uDD27", Color(0xFFFFAB91)),
     OTHER("other", "Otro", "\uD83D\uDCE6", Color(0xFFBACCB0));
 
     companion object {
@@ -86,12 +91,41 @@ data class EventItem(
     val lastCalculationSummary: String? = null,
 ) {
     /**
-     * Computed member IDs for backward compatibility.
+     * Computed member IDs from participants, with legacy fallback.
      * Returns participant profileIds when participants list is populated,
      * otherwise falls back to the legacy memberIds field.
+     *
+     * NOTE: Once all creation paths populate participants (including tests),
+     * the fallback can be removed.
      */
     val effectiveMemberIds: List<String>
         get() = if (participants.isNotEmpty()) participants.map { it.profileId } else memberIds
+}
+
+/**
+ * Migrates legacy [EventItem.memberIds] to [EventItem.participants].
+ *
+ * Idempotent: if [EventItem.participants] is already populated, returns the event unchanged.
+ * If [EventItem.memberIds] is empty, also returns unchanged (nothing to migrate).
+ *
+ * Migration logic:
+ * - The [EventItem.ownerId] becomes an [EventRole.OWNER] participant.
+ * - All other memberIds become [EventRole.CONTRIBUTOR] participants.
+ * - [EventParticipant.joinedAtMillis] is set to [EventItem.dateMillis].
+ */
+fun migrateMemberIdsToParticipants(event: EventItem): EventItem {
+    if (event.participants.isNotEmpty()) return event
+    if (event.memberIds.isEmpty()) return event
+
+    val participants = event.memberIds.map { memberId ->
+        EventParticipant(
+            profileId = memberId,
+            role = if (memberId == event.ownerId) EventRole.OWNER else EventRole.CONTRIBUTOR,
+            joinedAtMillis = event.dateMillis,
+        )
+    }
+
+    return event.copy(participants = participants)
 }
 
 data class ProfileItem(

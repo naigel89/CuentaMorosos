@@ -3,14 +3,19 @@ package com.cuentamorosos.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -19,20 +24,29 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.cuentamorosos.isValidEmail
 import com.cuentamorosos.model.CalculationResult
 import com.cuentamorosos.model.EventAction
@@ -47,6 +61,7 @@ import com.cuentamorosos.model.displayNameFor
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEuroAmount
+import kotlinx.coroutines.launch
 
 // ── EventDetailScreen ─────────────────────────────────────────────────────────
 
@@ -245,11 +260,11 @@ fun EventDetailScreen(
         )
     }
 
-    // Dialog 2: ExpenseEditorDialog
+    // Dialog 2: ExpenseEditorSheet (NeoFintech ModalBottomSheet)
     editableExpense?.let { expense ->
-        ExpenseEditorDialog(
+        ExpenseEditorSheet(
             expense = expense,
-            profiles = eventParticipants,
+            allProfiles = profiles,
             effectiveMemberIds = event.effectiveMemberIds,
             currentUid = currentUid,
             onDismiss = { editableExpense = null },
@@ -660,18 +675,27 @@ private fun AddProfileToEventDialog(
     )
 }
 
-// ── ExpenseEditorDialog ───────────────────────────────────────────────────────
+// ── ExpenseEditorSheet (NeoFintech ModalBottomSheet) ──────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ExpenseEditorDialog(
+private fun ExpenseEditorSheet(
     expense: EventExpenseItem,
-    profiles: List<ProfileItem>,
+    allProfiles: List<ProfileItem>,
     effectiveMemberIds: List<String>,
     currentUid: String,
     onDismiss: () -> Unit,
     onSave: (EventExpenseItem) -> Unit,
     onRemove: () -> Unit,
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+
+    val colors = LocalNeoFintechColors.current
+    val themeColors = MaterialTheme.colorScheme
+    val shapes = NeoFintechShapes
+    val typography = MaterialTheme.typography
+
     var name by remember(expense.id) { mutableStateOf(expense.name) }
     var amountText by remember(expense.id) {
         mutableStateOf(if (expense.amountEuros == 0.0) "" else expense.amountEuros.toString())
@@ -689,20 +713,139 @@ private fun ExpenseEditorDialog(
     }
     var validationMessage by remember(expense.id) { mutableStateOf<String?>(null) }
 
+    val isNew = expense.name.isBlank() && expense.amountEuros == 0.0
+    val title = if (isNew) "Nuevo gasto" else "Editar gasto"
+
+    // Split profiles into current event members and others
+    val currentParticipants = allProfiles.filter { it.id in effectiveMemberIds }
+    val otherProfiles = allProfiles.filter { it.id !in effectiveMemberIds }
+
     fun updateSelectedProfiles(newSelection: List<String>) {
         selectedProfileIds = newSelection
         selectedWeights = selectedWeights.filterKeys { it in newSelection }
         validationMessage = null
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (expense.name.isBlank()) "Nuevo ítem del evento" else "Editar ítem del evento") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+    fun dismissSheet() {
+        scope.launch { sheetState.hide() }.invokeOnCompletion {
+            if (!sheetState.isVisible) onDismiss()
+        }
+    }
+
+    fun saveAndDismiss() {
+        val parsedAmount = parseEuroAmount(amountText)
+        val selectedCategory = ExpenseCategory.fromId(selectedCategoryId)
+        val customWeightValues = selectedProfileIds.mapNotNull { profileId ->
+            parseDecimalValue(selectedWeights[profileId] ?: "")
+        }
+        val customWeightTotal = customWeightValues.sum()
+        validationMessage = when {
+            name.isBlank() -> "Indica un nombre para el ítem."
+            parsedAmount == null -> "Introduce un importe válido."
+            parsedAmount < 0.0 -> "El importe no puede ser negativo."
+            selectedPaidByProfileId.isBlank() -> "Seleccioná quién pagó el gasto."
+            selectedCategory != ExpenseCategory.SHARED && selectedProfileIds.isEmpty() -> "Selecciona al menos un perfil para esta categoría."
+            selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
+                selectedProfileIds.any { parseDecimalValue(selectedWeights[it] ?: "") == null } ->
+                    "Revisa los porcentajes del reparto personalizado."
+            selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
+                selectedProfileIds.any { (parseDecimalValue(selectedWeights[it] ?: "") ?: 0.0) < 0.0 } ->
+                    "Los porcentajes no pueden ser negativos."
+            selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
+                kotlin.math.abs(customWeightTotal - 100.0) >= 0.01 ->
+                    "El reparto personalizado debe sumar 100%."
+            else -> null
+        }
+
+        if (validationMessage == null && parsedAmount != null) {
+            val normalizedWeights = if (
+                selectedCategory != ExpenseCategory.SHARED &&
+                showCustomSplit
             ) {
+                selectedProfileIds.associateWith { profileId ->
+                    parseDecimalValue(selectedWeights[profileId] ?: "") ?: 0.0
+                }
+            } else {
+                emptyMap()
+            }
+
+            val updatedExpense = expense.copy(
+                name = name.trim(),
+                amountEuros = parsedAmount,
+                category = selectedCategory.id,
+                assignedProfileIds = if (selectedCategory == ExpenseCategory.SHARED) {
+                    emptyList()
+                } else {
+                    selectedProfileIds
+                },
+                profileWeights = normalizedWeights,
+                paidByProfileId = selectedPaidByProfileId,
+                debtorIds = if (selectedCategory == ExpenseCategory.SHARED) {
+                    effectiveMemberIds
+                } else {
+                    selectedProfileIds
+                },
+                payerContributions = if (selectedPaidByProfileId.isNotBlank()) {
+                    mapOf(selectedPaidByProfileId to parsedAmount)
+                } else {
+                    emptyMap()
+                },
+            )
+
+            scope.launch { sheetState.hide() }.invokeOnCompletion {
+                if (!sheetState.isVisible) onSave(updatedExpense)
+            }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = colors.surface,
+        shape = shapes.xl,
+        tonalElevation = 0.dp,
+        dragHandle = {
+            // Custom handle bar with NeoFintech styling
+            Box(
+                modifier = Modifier
+                    .padding(top = NeoFintechSpacing.sm, bottom = NeoFintechSpacing.xs)
+                    .fillMaxWidth()
+                    .height(4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .height(4.dp),
+                    shape = shapes.pill,
+                    color = colors.outlineVariant,
+                ) {}
+            }
+        },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    start = NeoFintechSpacing.lg,
+                    end = NeoFintechSpacing.lg,
+                    bottom = NeoFintechSpacing.lg,
+                ),
+            verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.md),
+        ) {
+            // ── Title ──────────────────────────────────────────────────────
+            Text(
+                text = title,
+                style = typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = colors.onSurface,
+            )
+
+            HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.3f))
+
+            // ── Description & Amount ───────────────────────────────────────
+            Column(verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = {
@@ -710,8 +853,16 @@ private fun ExpenseEditorDialog(
                         validationMessage = null
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Nombre del gasto") },
-                    singleLine = true
+                    label = { Text("Descripción") },
+                    singleLine = true,
+                    shape = shapes.md,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = themeColors.primary,
+                        unfocusedBorderColor = colors.outlineVariant,
+                        focusedLabelColor = themeColors.primary,
+                        unfocusedLabelColor = colors.onSurfaceVariant,
+                        cursorColor = themeColors.primary,
+                    ),
                 )
                 OutlinedTextField(
                     value = amountText,
@@ -721,280 +872,416 @@ private fun ExpenseEditorDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Importe (€)") },
-                    singleLine = true
+                    singleLine = true,
+                    shape = shapes.md,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = themeColors.primary,
+                        unfocusedBorderColor = colors.outlineVariant,
+                        focusedLabelColor = themeColors.primary,
+                        unfocusedLabelColor = colors.onSurfaceVariant,
+                        cursorColor = themeColors.primary,
+                    ),
                 )
+            }
 
-                // Paid by selector
+            // ── Paid by ────────────────────────────────────────────────────
+            Column(verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm)) {
                 Text(
                     text = "Pagado por",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
+                    style = typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface,
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
                 ) {
                     // "Yo" option
-                    val isMeSelected = selectedPaidByProfileId == currentUid
-                    Button(
-                        onClick = { selectedPaidByProfileId = currentUid },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isMeSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceContainerHigh,
-                            contentColor = if (isMeSelected) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurface,
-                        ),
-                    ) {
-                        Text("Yo")
-                    }
-                    profiles.forEach { profile ->
-                        OutlinedButton(
-                            onClick = { selectedPaidByProfileId = profile.id },
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl, size = 24.dp)
-                            Spacer(Modifier.width(4.dp))
-                            Text(profile.name)
-                        }
-                    }
-                }
-
-                Text(
-                    text = "Categoría",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                ExpenseCategory.entries.forEach { category ->
-                    if (selectedCategoryId == category.id) {
-                        Button(
-                            onClick = {
-                                selectedCategoryId = category.id
-                                if (category != ExpenseCategory.SHARED) {
-                                    showCustomSplit = false
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("${category.iconEmoji} ${category.label}")
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = {
-                                selectedCategoryId = category.id
-                                if (category != ExpenseCategory.SHARED) {
-                                    showCustomSplit = false
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("${category.iconEmoji} ${category.label}")
-                        }
-                    }
-                }
-                Text(
-                    text = "Categoría: ${ExpenseCategory.fromId(selectedCategoryId).label}",
-                    style = MaterialTheme.typography.bodySmall
-                )
-
-                if (profiles.isNotEmpty()) {
-                    Text(
-                        text = "Perfiles implicados",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    profiles.forEach { profile ->
-                        val isChecked = selectedProfileIds.contains(profile.id)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val newSelection = if (isChecked) {
-                                        selectedProfileIds - profile.id
-                                    } else {
-                                        selectedProfileIds + profile.id
-                                    }
-                                    updateSelectedProfiles(newSelection)
-                                },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isChecked,
-                                onCheckedChange = {
-                                    val newSelection = if (isChecked) {
-                                        selectedProfileIds - profile.id
-                                    } else {
-                                        selectedProfileIds + profile.id
-                                    }
-                                    updateSelectedProfiles(newSelection)
-                                }
-                            )
-                            ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl, size = 24.dp)
-                            Spacer(Modifier.width(8.dp))
-                            Text(profile.name)
-                        }
-                    }
-
-                    if (selectedCategoryId != ExpenseCategory.SHARED.id && selectedProfileIds.isNotEmpty()) {
-                        OutlinedButton(
-                            onClick = {
-                                showCustomSplit = !showCustomSplit
-                                validationMessage = null
-                            },
-                            modifier = Modifier.fillMaxWidth()
+                    item {
+                        val isMeSelected = selectedPaidByProfileId == currentUid
+                        Surface(
+                            onClick = { selectedPaidByProfileId = currentUid },
+                            shape = shapes.pill,
+                            color = if (isMeSelected) themeColors.primary else colors.surfaceContainerHigh,
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                color = if (isMeSelected) themeColors.primary else colors.outlineVariant,
+                            ),
                         ) {
                             Text(
-                                if (showCustomSplit) {
-                                    "Ocultar reparto personalizado"
-                                } else {
-                                    "Reparto personalizado (opcional)"
+                                text = "Yo",
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                style = typography.labelLarge,
+                                color = if (isMeSelected) colors.onPrimaryContainer else colors.onSurface,
+                                fontWeight = if (isMeSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            )
+                        }
+                    }
+                    items(allProfiles, key = { "paid_${it.id}" }) { profile ->
+                        val isSelected = selectedPaidByProfileId == profile.id
+                        Surface(
+                            onClick = { selectedPaidByProfileId = profile.id },
+                            shape = shapes.pill,
+                            color = if (isSelected) themeColors.primary else colors.surfaceContainerHigh,
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                color = if (isSelected) themeColors.primary else colors.outlineVariant,
+                            ),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                ProfileAvatar(
+                                    name = profile.name,
+                                    emoji = profile.icon,
+                                    photoUrl = profile.photoUrl,
+                                    size = 22.dp,
+                                )
+                                Text(
+                                    text = profile.name,
+                                    style = typography.labelLarge,
+                                    color = if (isSelected) colors.onPrimaryContainer else colors.onSurface,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Category chips ─────────────────────────────────────────────
+            Column(verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm)) {
+                Text(
+                    text = "Categoría",
+                    style = typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface,
+                )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
+                ) {
+                    items(ExpenseCategory.entries, key = { it.id }) { category ->
+                        val isSelected = selectedCategoryId == category.id
+                        Surface(
+                            onClick = {
+                                selectedCategoryId = category.id
+                                if (category != ExpenseCategory.SHARED) {
+                                    showCustomSplit = false
                                 }
+                            },
+                            shape = shapes.pill,
+                            color = if (isSelected) {
+                                category.iconBgColor.copy(alpha = 0.25f)
+                            } else {
+                                colors.surfaceContainerHigh
+                            },
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) category.iconBgColor else colors.outlineVariant.copy(alpha = 0.5f),
+                            ),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                // Category emoji icon
+                                Surface(
+                                    modifier = Modifier.size(28.dp),
+                                    shape = shapes.full,
+                                    color = category.iconBgColor.copy(alpha = if (isSelected) 0.35f else 0.15f),
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = category.iconEmoji,
+                                            fontSize = 14.sp,
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = category.label,
+                                    style = typography.labelLarge,
+                                    color = if (isSelected) colors.onSurface else colors.onSurfaceVariant,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Participants ───────────────────────────────────────────────
+            val selectedCategory = ExpenseCategory.fromId(selectedCategoryId)
+            if (selectedCategory != ExpenseCategory.SHARED && allProfiles.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm)) {
+                    Text(
+                        text = "¿Quiénes participan?",
+                        style = typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.onSurface,
+                    )
+
+                    // Current participants section
+                    if (currentParticipants.isNotEmpty()) {
+                        Text(
+                            text = "Participantes del evento",
+                            style = typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        currentParticipants.forEach { profile ->
+                            ProfileCheckboxRow(
+                                profile = profile,
+                                isChecked = selectedProfileIds.contains(profile.id),
+                                onToggle = { checked ->
+                                    val newSelection = if (checked) {
+                                        selectedProfileIds + profile.id
+                                    } else {
+                                        selectedProfileIds - profile.id
+                                    }
+                                    updateSelectedProfiles(newSelection)
+                                },
+                                colors = colors,
+                                typography = typography,
                             )
                         }
                     }
 
-                    if (
-                        selectedCategoryId != ExpenseCategory.SHARED.id &&
-                        selectedProfileIds.isNotEmpty() &&
-                        showCustomSplit
-                    ) {
+                    // Other profiles section
+                    if (otherProfiles.isNotEmpty()) {
+                        HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.2f))
                         Text(
-                            text = "Reparto personalizado (%)",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 8.dp)
+                            text = "Añadir participantes",
+                            style = typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
                         )
-
-                        var totalWeight = 0.0
-                        selectedProfileIds.forEach { profileId ->
-                            val profile = profiles.find { it.id == profileId }
-                            val weightText = selectedWeights[profileId] ?: "0"
-                            totalWeight += parseDecimalValue(weightText) ?: 0.0
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "${profile?.icon ?: ""} ${profile?.name ?: "Perfil"}",
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                OutlinedTextField(
-                                    value = weightText,
-                                    onValueChange = {
-                                        selectedWeights = selectedWeights + (profileId to it)
-                                        validationMessage = null
-                                    },
-                                    modifier = Modifier.width(80.dp),
-                                    label = { Text("%") },
-                                    singleLine = true
-                                )
-                            }
+                        otherProfiles.forEach { profile ->
+                            ProfileCheckboxRow(
+                                profile = profile,
+                                isChecked = selectedProfileIds.contains(profile.id),
+                                onToggle = { checked ->
+                                    val newSelection = if (checked) {
+                                        selectedProfileIds + profile.id
+                                    } else {
+                                        selectedProfileIds - profile.id
+                                    }
+                                    updateSelectedProfiles(newSelection)
+                                },
+                                colors = colors,
+                                typography = typography,
+                            )
                         }
-                        Text(
-                            text = "Total: ${String.format("%.2f", totalWeight)}% (debe ser 100%)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (kotlin.math.abs(totalWeight - 100.0) < 0.01) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
                     }
                 }
+            }
 
-                validationMessage?.let { message ->
+            // ── Custom split ───────────────────────────────────────────────
+            if (
+                selectedCategory != ExpenseCategory.SHARED &&
+                selectedProfileIds.isNotEmpty()
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        showCustomSplit = !showCustomSplit
+                        validationMessage = null
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = shapes.md,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant),
+                ) {
                     Text(
-                        text = message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
+                        text = if (showCustomSplit) "Ocultar reparto personalizado"
+                        else "Reparto personalizado (opcional)",
+                        color = colors.onSurfaceVariant,
                     )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val parsedAmount = parseEuroAmount(amountText)
-                    val selectedCategory = ExpenseCategory.fromId(selectedCategoryId)
-                    val customWeightValues = selectedProfileIds.mapNotNull { profileId ->
-                        parseDecimalValue(selectedWeights[profileId] ?: "")
-                    }
-                    val customWeightTotal = customWeightValues.sum()
-                    validationMessage = when {
-                        name.isBlank() -> "Indica un nombre para el ítem."
-                        parsedAmount == null -> "Introduce un importe válido."
-                        parsedAmount < 0.0 -> "El importe no puede ser negativo."
-                        selectedPaidByProfileId.isBlank() -> "Seleccioná quién pagó el gasto."
-                        selectedCategory != ExpenseCategory.SHARED && selectedProfileIds.isEmpty() -> "Selecciona al menos un perfil para esta categoría."
-                        selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
-                            selectedProfileIds.any { parseDecimalValue(selectedWeights[it] ?: "") == null } ->
-                                "Revisa los porcentajes del reparto personalizado."
-                        selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
-                            selectedProfileIds.any { (parseDecimalValue(selectedWeights[it] ?: "") ?: 0.0) < 0.0 } ->
-                                "Los porcentajes no pueden ser negativos."
-                        selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
-                            kotlin.math.abs(customWeightTotal - 100.0) >= 0.01 ->
-                                "El reparto personalizado debe sumar 100%."
-                        else -> null
-                    }
 
-                    if (validationMessage == null && parsedAmount != null) {
-                        val normalizedWeights = if (
-                            selectedCategory != ExpenseCategory.SHARED &&
-                            showCustomSplit
-                        ) {
-                            selectedProfileIds.associateWith { profileId ->
-                                parseDecimalValue(selectedWeights[profileId] ?: "") ?: 0.0
-                            }
-                        } else {
-                            emptyMap()
-                        }
-
-                        onSave(
-                            expense.copy(
-                                name = name.trim(),
-                                amountEuros = parsedAmount,
-                                category = selectedCategory.id,
-                                assignedProfileIds = if (selectedCategory == ExpenseCategory.SHARED) {
-                                    emptyList()
-                                } else {
-                                    selectedProfileIds
-                                },
-                                profileWeights = normalizedWeights,
-                                paidByProfileId = selectedPaidByProfileId,
-                                debtorIds = if (selectedCategory == ExpenseCategory.SHARED) {
-                                    effectiveMemberIds
-                                } else {
-                                    selectedProfileIds
-                                },
-                                payerContributions = if (selectedPaidByProfileId.isNotBlank()) {
-                                    mapOf(selectedPaidByProfileId to parsedAmount)
-                                } else {
-                                    emptyMap()
-                                },
-                            )
-                        )
-                    }
-                }
+            if (
+                selectedCategory != ExpenseCategory.SHARED &&
+                selectedProfileIds.isNotEmpty() &&
+                showCustomSplit
             ) {
-                Text("Guardar")
+                Column(verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm)) {
+                    Text(
+                        text = "Reparto personalizado (%)",
+                        style = typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.onSurface,
+                    )
+
+                    var totalWeight = 0.0
+                    selectedProfileIds.forEach { profileId ->
+                        val profile = allProfiles.find { it.id == profileId }
+                        val weightText = selectedWeights[profileId] ?: "0"
+                        totalWeight += parseDecimalValue(weightText) ?: 0.0
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
+                        ) {
+                            ProfileAvatar(
+                                name = profile?.name ?: "",
+                                emoji = profile?.icon ?: "",
+                                photoUrl = profile?.photoUrl,
+                                size = 28.dp,
+                            )
+                            Text(
+                                text = profile?.name ?: "Perfil",
+                                modifier = Modifier.weight(1f),
+                                style = typography.bodyMedium,
+                                color = colors.onSurface,
+                            )
+                            OutlinedTextField(
+                                value = weightText,
+                                onValueChange = {
+                                    selectedWeights = selectedWeights + (profileId to it)
+                                    validationMessage = null
+                                },
+                                modifier = Modifier.width(80.dp),
+                                label = { Text("%") },
+                                singleLine = true,
+                                shape = shapes.md,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = themeColors.primary,
+                                    unfocusedBorderColor = colors.outlineVariant,
+                                ),
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Total: ${String.format("%.2f", totalWeight)}% (debe ser 100%)",
+                        style = typography.bodySmall,
+                        color = if (kotlin.math.abs(totalWeight - 100.0) < 0.01) themeColors.primary
+                                else colors.error,
+                        fontFamily = JetBrainsMonoFontFamily(),
+                    )
+                }
             }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (expense.name.isNotBlank() || expense.amountEuros != 0.0) {
-                    TextButton(onClick = onRemove) {
-                        Text("Quitar")
+
+            // ── Validation message ─────────────────────────────────────────
+            validationMessage?.let { message ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = shapes.md,
+                    color = colors.errorContainer.copy(alpha = 0.3f),
+                ) {
+                    Text(
+                        text = message,
+                        color = colors.error,
+                        style = typography.bodySmall,
+                        modifier = Modifier.padding(NeoFintechSpacing.sm),
+                    )
+                }
+            }
+
+            // ── Action buttons ─────────────────────────────────────────────
+            HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.3f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
+            ) {
+                // Remove button (only for existing expenses)
+                if (!isNew) {
+                    TextButton(
+                        onClick = {
+                            scope.launch { sheetState.hide() }.invokeOnCompletion {
+                                if (!sheetState.isVisible) onRemove()
+                            }
+                        },
+                    ) {
+                        Text("Eliminar", color = colors.error)
                     }
                 }
-                TextButton(onClick = onDismiss) {
-                    Text("Cancelar")
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                OutlinedButton(
+                    onClick = { dismissSheet() },
+                    shape = shapes.md,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant),
+                ) {
+                    Text("Cancelar", color = colors.onSurfaceVariant)
+                }
+
+                Button(
+                    onClick = { saveAndDismiss() },
+                    modifier = Modifier.weight(1f),
+                    shape = shapes.md,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = themeColors.primary,
+                        contentColor = colors.onPrimaryContainer,
+                    ),
+                ) {
+                    Text("Guardar", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
-    )
+    }
 }
+
+// ── ProfileCheckboxRow ────────────────────────────────────────────────────────
+
+@Composable
+private fun ProfileCheckboxRow(
+    profile: ProfileItem,
+    isChecked: Boolean,
+    onToggle: (Boolean) -> Unit,
+    colors: NeoFintechColorSet,
+    typography: androidx.compose.material3.Typography,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle(!isChecked) },
+        shape = NeoFintechShapes.lg,
+        color = if (isChecked) colors.primaryContainer.copy(alpha = 0.08f)
+        else colors.surfaceContainerLow,
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isChecked) 1.5.dp else 1.dp,
+            color = if (isChecked) themeColorPrimary(colors) else colors.outlineVariant.copy(alpha = 0.3f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = NeoFintechSpacing.sm, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
+        ) {
+            ProfileAvatar(
+                name = profile.name,
+                emoji = profile.icon,
+                photoUrl = profile.photoUrl,
+                size = 32.dp,
+            )
+            Text(
+                text = profile.name,
+                modifier = Modifier.weight(1f),
+                style = typography.bodyMedium,
+                fontWeight = if (isChecked) FontWeight.Medium else FontWeight.Normal,
+                color = colors.onSurface,
+            )
+            Checkbox(
+                checked = isChecked,
+                onCheckedChange = onToggle,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = themeColorPrimary(colors),
+                    checkmarkColor = colors.onPrimaryContainer,
+                    uncheckedColor = colors.onSurfaceVariant,
+                ),
+            )
+        }
+    }
+}
+
+/** Helper to access primary color from NeoFintechColorSet. */
+private fun themeColorPrimary(colors: NeoFintechColorSet): androidx.compose.ui.graphics.Color =
+    colors.primaryContainer
 
 // ── DebtEditorDialog ──────────────────────────────────────────────────────────
 

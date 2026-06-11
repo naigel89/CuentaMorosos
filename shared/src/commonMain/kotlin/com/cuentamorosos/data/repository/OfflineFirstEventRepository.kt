@@ -11,6 +11,7 @@ import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.SUPPORTED_CURRENCY
 import com.cuentamorosos.model.deserializeParticipants
+import com.cuentamorosos.model.migrateMemberIdsToParticipants
 import com.cuentamorosos.model.serializeParticipants
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
@@ -246,7 +247,7 @@ class OfflineFirstEventRepository(
         return remoteRepository.findUidByEmail(email)
     }
 
-    private fun com.cuentamorosos.db.CachedEvent.toEventItem(): EventItem = EventItem(
+    private fun com.cuentamorosos.db.CachedEvent.toEventItem(): EventItem = migrateMemberIdsToParticipants(EventItem(
         id = id,
         name = name,
         dateMillis = dateMillis,
@@ -261,5 +262,5 @@ class OfflineFirstEventRepository(
         startDateMillis = if (startDateMillis == 0L) dateMillis else startDateMillis,
         endDateMillis = if (endDateMillis == 0L) dateMillis else endDateMillis,
         state = runCatching { EventState.valueOf(state) }.getOrDefault(EventState.DRAFT)
-    )
+    ))
 }
