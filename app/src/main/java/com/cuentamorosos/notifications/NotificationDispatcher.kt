@@ -294,10 +294,10 @@ class NotificationDispatcher(private val context: Context) {
     }
 
     private fun bgColorFor(type: NotificationType): Int = when (type) {
-        NotificationType.INVITATION -> 0xFF39FF14.toInt()       // NeoFintech primaryContainer (green)
-        NotificationType.INVITATION_ACCEPTED -> 0xFF39FF14.toInt() // same green
-        NotificationType.CALCULATION -> 0xFFFFA000.toInt()          // NeoFintech warning (amber)
-        NotificationType.UPCOMING_EVENT -> 0xFF81D4FA.toInt()       // NeoFintech flight blue
+        NotificationType.INVITATION -> 0xFF191C1D.toInt()       // NeoFintech onSurface (black)
+        NotificationType.INVITATION_ACCEPTED -> 0xFF191C1D.toInt() // same black
+        NotificationType.CALCULATION -> 0xFF191C1D.toInt()          // same black
+        NotificationType.UPCOMING_EVENT -> 0xFF191C1D.toInt()       // same black
     }
 
     private fun createLargeIcon(iconRes: Int, bgColor: Int): Bitmap {
@@ -312,9 +312,9 @@ class NotificationDispatcher(private val context: Context) {
         }
         canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, paint)
 
-        // Draw vector icon centered, tinted white
+        // Draw vector icon centered, tinted neon green
         val drawable = ContextCompat.getDrawable(context, iconRes) ?: return bitmap
-        drawable.setTint(0xFFFFFFFF.toInt())
+        drawable.setTint(0xFF39FF14.toInt())
         val iconSize = (sizePx * 0.6).toInt()
         val offset = (sizePx - iconSize) / 2
         drawable.setBounds(offset, offset, offset + iconSize, offset + iconSize)
