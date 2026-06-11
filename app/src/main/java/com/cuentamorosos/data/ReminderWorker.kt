@@ -1,11 +1,16 @@
 package com.cuentamorosos.data
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.cuentamorosos.CuentaMorososApp
+import com.cuentamorosos.notifications.NotificationDispatcher
+import com.cuentamorosos.notifications.NotificationEvent
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /**
@@ -20,26 +25,8 @@ class ReminderWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result {
-        val context = applicationContext
-        val store = CuentaMorososLocalStore(context)
-        val preferences = store.loadPreferences()
-
-        if (!preferences.remindersEnabled) return Result.success()
-
-        val messages = ReminderService.buildReminderMessages(
-            events = store.loadEvents(),
-            debts = store.loadDebts(),
-            expenses = store.loadExpenses(),
-            reminderDays = preferences.reminderDays,
-            remindersEnabled = preferences.remindersEnabled,
-        )
-
-        NotificationScheduler.postReminders(context, messages)
-        return Result.success()
-    }
-
     companion object {
+        private const val TAG = "ReminderWorker"
         private const val WORK_NAME = "cuenta_morosos_daily_reminder"
 
         /**
@@ -62,6 +49,76 @@ class ReminderWorker(
         /** Cancela el worker periódico (cuando el usuario desactiva los recordatorios). */
         fun cancel(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        }
+    }
+
+    override suspend fun doWork(): Result {
+        val app = applicationContext as? CuentaMorososApp
+        if (app == null) {
+            Log.w(TAG, "Application is not CuentaMorososApp, retrying")
+            return Result.retry()
+        }
+
+        val repoProvider = app.repositoryProvider
+        if (repoProvider == null) {
+            Log.w(TAG, "RepositoryProvider not initialized yet, retrying")
+            return Result.retry()
+        }
+
+        return try {
+            // Check preferences
+            val store = CuentaMorososLocalStore(applicationContext)
+            val preferences = store.loadPreferences()
+            if (!preferences.remindersEnabled) return Result.success()
+
+            // Fetch data from SQLDelight repositories using first() on Flows
+            val events = repoProvider.eventRepository.observeEvents().first()
+            val debts = repoProvider.debtRepository.observeAllDebts().first()
+            val expenses = repoProvider.expenseRepository.observeAllExpenses().first()
+
+            // Build reminder messages (existing + upcoming events)
+            val messages = ReminderService.buildReminderMessages(
+                events = events,
+                debts = debts,
+                expenses = expenses,
+                reminderDays = preferences.reminderDays,
+                remindersEnabled = preferences.remindersEnabled,
+            )
+
+            val upcomingMessages = ReminderService.buildUpcomingEventMessages(
+                events = events,
+                reminderDays = preferences.reminderDays,
+            )
+
+            // Dispatch all notifications
+            val dispatcher = NotificationDispatcher(applicationContext)
+
+            messages.forEach { message ->
+                dispatcher.dispatch(
+                    NotificationEvent.UpcomingEvent(
+                        eventId = message.eventId ?: "",
+                        eventName = message.title,
+                        daysUntil = message.daysUntil ?: 0,
+                        dateFormatted = message.dateFormatted ?: "",
+                    )
+                )
+            }
+
+            upcomingMessages.forEach { message ->
+                dispatcher.dispatch(
+                    NotificationEvent.UpcomingEvent(
+                        eventId = message.eventId ?: "",
+                        eventName = message.title.removePrefix("Próximo evento: "),
+                        daysUntil = message.daysUntil ?: 0,
+                        dateFormatted = message.dateFormatted ?: "",
+                    )
+                )
+            }
+
+            Result.success()
+        } catch (e: Exception) {
+            Log.e(TAG, "ReminderWorker failed", e)
+            Result.retry()
         }
     }
 }
