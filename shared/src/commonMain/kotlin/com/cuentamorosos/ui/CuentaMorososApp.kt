@@ -660,10 +660,6 @@ fun CuentaMorososApp(
                                 onSignOut = onSignOut,
                                 currentProfile = currentProfile,
                                 onOpenAccountSettings = { showAccountScreen = true },
-                                onTestNotification = { notificationEvent ->
-                                    onTestNotification?.invoke(notificationEvent)
-                                    feedbackMessage = "Notificación de prueba enviada."
-                                },
                             )
                                 }
                             }
