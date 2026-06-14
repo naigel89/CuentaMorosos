@@ -48,6 +48,7 @@ import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -218,7 +219,7 @@ private fun MainAppContent(
             notificationCallbacks = notificationCallbacks,
         )
     }
-    var preferences by remember { mutableStateOf(localStore.loadPreferences()) }
+    var preferences by remember(user.uid) { mutableStateOf(localStore.loadPreferences()) }
 
     // Start staggered sync after first render AND on user change
     val syncScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
@@ -312,8 +313,14 @@ private fun MainAppContent(
         },
         networkMonitor = networkMonitor,
         onSignOut = {
+            // 1. Cancel sync scope FIRST to prevent re-populating data after clear
+            syncScope.cancel()
+            // 2. Cancel scheduled reminders
+            ReminderWorker.cancel(application)
+            // 3. Clear local data
             repositoryProvider.clearLocalData()
             localStore.clearAll()
+            // 4. Sign out from Firebase
             FirebaseAuth.getInstance().signOut()
         },
         onPickPhoto = { onPhotoReady ->
