@@ -194,4 +194,49 @@ class DashboardAggregatesTest {
 
         assertEquals(80.0, result.totalSpent)
     }
+
+    // ── youAreOwedByEvent / yourShareByEvent exclusivity ────────────────────
+
+    @Test
+    fun `current user own debts go to yourShareByEvent not youAreOwedByEvent`() {
+        val debts = listOf(
+            EventDebtItem(id = "d1", eventId = "evt-1", profileId = "user-1", amountEuros = 50.0, paid = false),
+            EventDebtItem(id = "d2", eventId = "evt-1", profileId = "user-1", amountEuros = 30.0, paid = false),
+        )
+
+        val result = computeAggregates(debts, emptyList(), emptyList(), "user-1")
+
+        // User's own debts → yourShareByEvent
+        assertEquals(80.0, result.yourShareByEvent["evt-1"])
+        // Must NOT appear in youAreOwedByEvent
+        assertTrue(result.youAreOwedByEvent["evt-1"] == null || result.youAreOwedByEvent["evt-1"] == 0.0)
+    }
+
+    @Test
+    fun `other profiles debts go to youAreOwedByEvent not yourShareByEvent`() {
+        val debts = listOf(
+            EventDebtItem(id = "d1", eventId = "evt-1", profileId = "user-2", amountEuros = 40.0, paid = false),
+            EventDebtItem(id = "d2", eventId = "evt-1", profileId = "user-3", amountEuros = 60.0, paid = false),
+        )
+
+        val result = computeAggregates(debts, emptyList(), emptyList(), "user-1")
+
+        // Others' debts → youAreOwedByEvent
+        assertEquals(100.0, result.youAreOwedByEvent["evt-1"])
+        // Must NOT appear in yourShareByEvent
+        assertTrue(result.yourShareByEvent["evt-1"] == null || result.yourShareByEvent["evt-1"] == 0.0)
+    }
+
+    @Test
+    fun `paid debts go to neither yourShare nor youAreOwed`() {
+        val debts = listOf(
+            EventDebtItem(id = "d1", eventId = "evt-1", profileId = "user-1", amountEuros = 30.0, paid = true),
+            EventDebtItem(id = "d2", eventId = "evt-1", profileId = "user-2", amountEuros = 50.0, paid = true),
+        )
+
+        val result = computeAggregates(debts, emptyList(), emptyList(), "user-1")
+
+        assertTrue(result.yourShareByEvent["evt-1"] == null || result.yourShareByEvent["evt-1"] == 0.0)
+        assertTrue(result.youAreOwedByEvent["evt-1"] == null || result.youAreOwedByEvent["evt-1"] == 0.0)
+    }
 }
