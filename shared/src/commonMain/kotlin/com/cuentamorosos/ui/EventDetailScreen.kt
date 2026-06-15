@@ -183,6 +183,7 @@ fun EventDetailScreen(
                             canClose = canClose,
                             onCloseEvent = onCloseEvent,
                             onRemoveMember = { profileToRemove = it },
+                            lastCalculationSummary = event.lastCalculationSummary,
                         )
                     }
                 }
@@ -240,6 +241,7 @@ fun EventDetailScreen(
                         canClose = canClose,
                         onCloseEvent = onCloseEvent,
                         onRemoveMember = { profileToRemove = it },
+                        lastCalculationSummary = event.lastCalculationSummary,
                     )
                 }
             }
