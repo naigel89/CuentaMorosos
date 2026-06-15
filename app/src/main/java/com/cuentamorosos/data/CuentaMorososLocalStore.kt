@@ -354,6 +354,92 @@ class CuentaMorososLocalStore(context: Context) {
         }
     }
 
+    // ── Dedup Registry ─────────────────────────────────────────────────────
+
+    /**
+     * Checks whether a notification with the given [fingerprint] has already been sent.
+     * Returns `false` for null or blank fingerprints without throwing.
+     * Thread-safe via [synchronized] on the underlying [SharedPreferences].
+     */
+    fun hasNotificationBeenSent(fingerprint: String): Boolean {
+        if (fingerprint.isBlank()) return false
+        return synchronized(prefs) {
+            val set = prefs.getStringSet(KEY_SENT_FINGERPRINTS, emptySet()) ?: emptySet()
+            set.any { entry ->
+                val separator = entry.indexOf('|')
+                separator >= 0 && entry.substring(separator + 1) == fingerprint
+            }
+        }
+    }
+
+    /**
+     * Records that a notification with the given [fingerprint] has been sent.
+     * No-ops safely for null or blank fingerprints.
+     * Stores as `"{epochMs}|{fingerprint}"` in a [StringSet].
+     * Thread-safe via [synchronized] on the underlying [SharedPreferences].
+     */
+    fun recordNotificationSent(fingerprint: String) {
+        if (fingerprint.isBlank()) return
+        synchronized(prefs) {
+            val currentSet = prefs.getStringSet(KEY_SENT_FINGERPRINTS, emptySet())
+                ?.toMutableSet() ?: mutableSetOf()
+            val entry = "${System.currentTimeMillis()}|$fingerprint"
+            currentSet.add(entry)
+            prefs.edit().putStringSet(KEY_SENT_FINGERPRINTS, currentSet).apply()
+        }
+    }
+
+    /**
+     * Prunes fingerprint entries older than [maxAgeDays] (default 30 days).
+     * Each entry begins with an epoch-millis timestamp; entries whose timestamp
+     * is before the cutoff are removed. Malformed entries are also removed.
+     * Empty registry or no-op cleanup does not throw.
+     * Thread-safe via [synchronized] on the underlying [SharedPreferences].
+     */
+    fun cleanupOldEntries(maxAgeDays: Int = 30) {
+        synchronized(prefs) {
+            val currentSet = prefs.getStringSet(KEY_SENT_FINGERPRINTS, emptySet())
+                ?.toMutableSet() ?: mutableSetOf()
+            if (currentSet.isEmpty()) return
+
+            val cutoff = System.currentTimeMillis() - (maxAgeDays.toLong() * 24 * 60 * 60 * 1000)
+            val pruned = currentSet.filter { entry ->
+                val separator = entry.indexOf('|')
+                if (separator < 0) return@filter false // malformed, remove
+                val epochMs = entry.substring(0, separator).toLongOrNull() ?: return@filter false
+                epochMs >= cutoff
+            }.toMutableSet()
+
+            if (pruned.size != currentSet.size) {
+                prefs.edit().putStringSet(KEY_SENT_FINGERPRINTS, pruned).apply()
+            }
+        }
+    }
+
+    /**
+     * Seeds the dedup registry on first launch after deployment.
+     * Only runs when [KEY_SENT_FINGERPRINTS] does not yet exist.
+     * For each [EventItem] with [EventState.CALCULATED] state, registers
+     * a `CALCULATION_COMPLETED:{eventId}` fingerprint. Non-calculated events
+     * (OPEN, DRAFT, CLOSED) are skipped.
+     * Thread-safe via [synchronized] on the underlying [SharedPreferences].
+     */
+    fun seedDedupMigration(events: List<EventItem>) {
+        if (events.isEmpty()) return
+        synchronized(prefs) {
+            if (prefs.contains(KEY_SENT_FINGERPRINTS)) return
+
+            val entries = events
+                .filter { it.state == EventState.CALCULATED }
+                .map { "${System.currentTimeMillis()}|CALCULATION_COMPLETED:${it.id}" }
+                .toMutableSet()
+
+            if (entries.isNotEmpty()) {
+                prefs.edit().putStringSet(KEY_SENT_FINGERPRINTS, entries).apply()
+            }
+        }
+    }
+
     private companion object {
         const val PREFS_NAME = "cuenta_morosos_store"
         const val KEY_EVENTS = "events"
@@ -361,5 +447,6 @@ class CuentaMorososLocalStore(context: Context) {
         const val KEY_DEBTS = "debts"
         const val KEY_EXPENSES = "expenses"
         const val KEY_PREFERENCES = "preferences"
+        const val KEY_SENT_FINGERPRINTS = "sent_fingerprints"
     }
 }
