@@ -103,29 +103,35 @@ private fun ProfileDebtRow(
     staggerIndex: Int = 0,
 ) {
     val colors = LocalNeoFintechColors.current
+    val eventName = item.events.firstOrNull()?.eventName
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .fadeInStaggered(index = staggerIndex)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.profileName,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = colors.onSurface,
-            )
-            // Event indicator
-            if (item.events.isNotEmpty()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Text(
-                    text = item.events.first().eventName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
+                    text = item.profileName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = colors.onSurface,
                 )
+                // Event indicator badge
+                if (!eventName.isNullOrEmpty()) {
+                    Text(
+                        text = "• $eventName",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
             }
         }
 
