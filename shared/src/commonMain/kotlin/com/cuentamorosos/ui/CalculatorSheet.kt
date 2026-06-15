@@ -376,6 +376,7 @@ fun CalculatorSheet(
                         snapshot = snapshot,
                         status = result.status,
                         profileNameResolver = profileNameResolver,
+                        profiles = profiles,
                         paidTransferIndices = paidTransferIndices,
                         onTogglePaid = { index ->
                             paidTransferIndices = if (index in paidTransferIndices) {
@@ -498,11 +499,22 @@ fun ParameterInputRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "${profile.icon} ${profile.name}",
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.weight(1f),
-            style = typography.bodyMedium,
-        )
+        ) {
+            ProfileAvatar(
+                name = profile.name,
+                emoji = profile.icon,
+                photoUrl = profile.photoUrl,
+                size = 24.dp,
+            )
+            Text(
+                text = profile.name,
+                style = typography.bodyMedium,
+            )
+        }
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,

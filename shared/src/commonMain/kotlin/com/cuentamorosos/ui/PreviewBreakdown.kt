@@ -1,13 +1,11 @@
 package com.cuentamorosos.ui
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -16,18 +14,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.BorderStroke
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
 
 /**
  * Per-profile breakdown display with monospace amounts in a table layout.
- * Each row has: profile avatar (initials on colored circle, 32dp) + name + amount.
+ * Each row has: ProfileAvatar (32dp, photo or initial fallback) + name + amount.
  * Dividers between rows. Total row at bottom with bold label + separator above.
  */
 @Composable
@@ -80,29 +75,12 @@ fun PreviewBreakdown(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        // Avatar circle with initials (32dp)
-                        val initials = profile.name
-                            .split(" ")
-                            .filter { it.isNotBlank() }
-                            .take(2)
-                            .map { it.firstOrNull()?.uppercaseChar() ?: "" }
-                            .joinToString("")
-
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(NeoFintechShapes.full)
-                                .background(themeColors.tertiaryContainer),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = initials,
-                                style = typography.labelSmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = themeColors.onTertiaryContainer,
-                                ),
-                            )
-                        }
+                        ProfileAvatar(
+                            name = profile.name,
+                            emoji = profile.icon,
+                            photoUrl = profile.photoUrl,
+                            size = 32.dp,
+                        )
                         Text(
                             text = profile.name,
                             style = typography.bodyMedium,

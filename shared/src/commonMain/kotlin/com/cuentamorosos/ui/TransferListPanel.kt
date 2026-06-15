@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.model.CalculationSnapshot
 import com.cuentamorosos.model.CalculationStatus
+import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
 
 /**
@@ -36,6 +37,7 @@ fun TransferListPanel(
     snapshot: CalculationSnapshot,
     status: CalculationStatus?,
     profileNameResolver: (String) -> String,
+    profiles: List<ProfileItem> = emptyList(),
     paidTransferIndices: Set<Int> = emptySet(),
     onTogglePaid: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -98,6 +100,7 @@ fun TransferListPanel(
                     TransferRow(
                         transfer = transfer,
                         profileNameResolver = profileNameResolver,
+                        profiles = profiles,
                         isPaid = isPaid,
                         _onTogglePaid = { onTogglePaid(index) },
                         typography = typography,
@@ -115,8 +118,10 @@ fun TransferListPanel(
                 )
                 snapshot.participantBalances.forEach { (profileId, balance) ->
                     val name = profileNameResolver(profileId)
+                    val profile = profiles.find { it.id == profileId }
                     BalanceRow(
                         name = name,
+                        profile = profile,
                         balance = balance,
                         typography = typography,
                         themeColors = themeColors,
@@ -177,12 +182,14 @@ private fun StatusBanner(
 /**
  * Single transfer row: "Perfil A → Perfil B: XX,XX €"
  * Paid transfers show checkmark + muted styling.
+ * ProfileAvatar (24dp) rendered before each profile name.
  */
 @Suppress("UNUSED_PARAMETER")
 @Composable
 private fun TransferRow(
     transfer: com.cuentamorosos.model.SettlementTransfer,
     profileNameResolver: (String) -> String,
+    profiles: List<ProfileItem>,
     isPaid: Boolean,
     _onTogglePaid: () -> Unit,
     typography: Typography,
@@ -191,6 +198,8 @@ private fun TransferRow(
 ) {
     val fromName = profileNameResolver(transfer.fromProfileId)
     val toName = profileNameResolver(transfer.toProfileId)
+    val fromProfile = profiles.find { it.id == transfer.fromProfileId }
+    val toProfile = profiles.find { it.id == transfer.toProfileId }
 
     Row(
         modifier = Modifier
@@ -212,8 +221,36 @@ private fun TransferRow(
                     tint = themeColors.tertiary,
                 )
             }
+            if (fromProfile != null) {
+                ProfileAvatar(
+                    name = fromProfile.name,
+                    emoji = fromProfile.icon,
+                    photoUrl = fromProfile.photoUrl,
+                    size = 24.dp,
+                )
+            }
             Text(
-                text = "$fromName → $toName",
+                text = fromName,
+                style = typography.bodyMedium.copy(
+                    color = if (isPaid) themeColors.onSurfaceVariant else themeColors.onSurface,
+                ),
+            )
+            Text(
+                text = "→",
+                style = typography.bodyMedium.copy(
+                    color = themeColors.onSurfaceVariant,
+                ),
+            )
+            if (toProfile != null) {
+                ProfileAvatar(
+                    name = toProfile.name,
+                    emoji = toProfile.icon,
+                    photoUrl = toProfile.photoUrl,
+                    size = 24.dp,
+                )
+            }
+            Text(
+                text = toName,
                 style = typography.bodyMedium.copy(
                     color = if (isPaid) themeColors.onSurfaceVariant else themeColors.onSurface,
                 ),
@@ -232,10 +269,12 @@ private fun TransferRow(
 
 /**
  * Per-profile balance row: positive = creditor (green), negative = debtor (red).
+ * ProfileAvatar (24dp) rendered before the profile name.
  */
 @Composable
 private fun BalanceRow(
     name: String,
+    profile: ProfileItem?,
     balance: Double,
     typography: Typography,
     themeColors: androidx.compose.material3.ColorScheme,
@@ -261,6 +300,14 @@ private fun BalanceRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (profile != null) {
+                ProfileAvatar(
+                    name = profile.name,
+                    emoji = profile.icon,
+                    photoUrl = profile.photoUrl,
+                    size = 24.dp,
+                )
+            }
             Text(
                 text = name,
                 style = typography.bodySmall.copy(color = themeColors.onSurfaceVariant),
