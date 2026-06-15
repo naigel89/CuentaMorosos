@@ -4,6 +4,7 @@
 package com.cuentamorosos.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,6 +17,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import com.cuentamorosos.notifications.DeepLinkTarget
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
@@ -308,6 +311,7 @@ fun CuentaMorososApp(
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .slideUp()
                                     .padding(horizontal = 8.dp, vertical = 8.dp),
                             ) {
                                 Row(
@@ -733,6 +737,18 @@ private fun PillNavItem(
     onClick: () -> Unit,
 ) {
     val neoColors = LocalNeoFintechColors.current
+
+    val iconTint by animateColorAsState(
+        targetValue = if (selected) neoColors.primaryContainer else neoColors.onSurfaceVariant,
+        animationSpec = tween(durationMillis = 250),
+        label = "navIconTint",
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (selected) neoColors.onSurface else neoColors.onSurfaceVariant,
+        animationSpec = tween(durationMillis = 250),
+        label = "navTextColor",
+    )
+
     Column(
         modifier = Modifier
             .clickable(onClick = onClick)
@@ -743,13 +759,24 @@ private fun PillNavItem(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (selected) neoColors.primaryContainer else neoColors.onSurfaceVariant,
+            tint = iconTint,
             modifier = Modifier.size(24.dp),
         )
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
-            color = if (selected) neoColors.onSurface else neoColors.onSurfaceVariant,
+            color = textColor,
             style = MaterialTheme.typography.labelSmall,
+        )
+        // Selected indicator
+        Box(
+            modifier = Modifier
+                .padding(top = 3.dp)
+                .size(width = if (selected) 16.dp else 0.dp, height = 3.dp)
+                .background(
+                    color = if (selected) neoColors.primaryContainer else Color.Transparent,
+                    shape = RoundedCornerShape(2.dp),
+                ),
         )
     }
 }
