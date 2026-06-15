@@ -41,8 +41,8 @@ class DashboardViewModel(
                 debtRepository.observeAllDebts(),
                 expenseRepository.observeAllExpenses(),
                 profileRepository.observeProfiles(),
-            ) { events, debts, expenses, profiles ->
-                computeState(events, debts, expenses, profiles)
+            ) { events, debts, _, profiles ->
+                computeState(events, debts, profiles)
             }.collect { newState ->
                 _state.value = newState.copy(isLoading = false)
             }
@@ -57,7 +57,6 @@ class DashboardViewModel(
     private fun computeState(
         events: List<EventItem>,
         debts: List<EventDebtItem>,
-        expenses: List<EventExpenseItem>,
         profiles: List<ProfileItem>,
     ): DashboardState {
         // ── TRIGGER: Detect CALCULATED transitions ──
@@ -93,92 +92,13 @@ class DashboardViewModel(
             .filter { !it.paid && it.profileId == currentUserUid }
             .sumOf { it.amountEuros }
 
-        val smartAlerts = computeSmartAlerts(events, expenses)
-        val allEvents = buildAllEvents(events, debts, expenses)
         val breakdown = computeProfileBreakdown(debts, profiles, currentUserUid)
 
         return DashboardState(
             totalOwedToYou = totalOwedToYou,
             totalYouOwe = totalYouOwe,
-            smartAlerts = smartAlerts,
-            allEvents = allEvents,
             owedToYouBreakdown = breakdown.owedToYouBreakdown,
             youOweBreakdown = breakdown.youOweBreakdown,
         )
     }
-
-    private fun computeSmartAlerts(
-        events: List<EventItem>,
-        expenses: List<EventExpenseItem>,
-    ): List<SmartAlert> {
-        val alerts = mutableListOf<SmartAlert>()
-
-        val eventsWithExpenses = expenses.map { it.eventId }.toSet()
-        val eventsWithCalculation = events
-            .filter { it.lastCalculationMode != null }
-            .map { it.id }
-            .toSet()
-
-        events.forEach { event ->
-            if (event.state == EventState.CLOSED) return@forEach
-
-            if (event.effectiveMemberIds.isEmpty()) {
-                alerts.add(
-                    SmartAlert(
-                        type = AlertType.NO_PARTICIPANTS,
-                        message = "${event.name} sin participantes",
-                        icon = "\uD83D\uDC65",
-                        eventId = event.id,
-                    ),
-                )
-            }
-
-            if (event.id !in eventsWithExpenses) {
-                alerts.add(
-                    SmartAlert(
-                        type = AlertType.NO_EXPENSES,
-                        message = "${event.name} sin gastos",
-                        icon = "\uD83E\uDDFE",
-                        eventId = event.id,
-                    ),
-                )
-            }
-
-            if (event.id in eventsWithExpenses && event.id !in eventsWithCalculation) {
-                alerts.add(
-                    SmartAlert(
-                        type = AlertType.PENDING_CALCULATIONS,
-                        message = "${event.name} pendiente de calcular",
-                        icon = "\uD83E\uDDEE",
-                        eventId = event.id,
-                    ),
-                )
-            }
-        }
-
-        return alerts
-    }
-
-    private fun buildAllEvents(
-        events: List<EventItem>,
-        debts: List<EventDebtItem>,
-        expenses: List<EventExpenseItem>,
-    ): List<DashboardEventRow> = events
-        .filter { it.state != EventState.CLOSED }
-        .map { event ->
-        val eventExpenses = expenses.filter { it.eventId == event.id }
-        val eventDebts = debts.filter { it.eventId == event.id }
-        val totalExpenses = eventExpenses.sumOf { it.amountEuros }
-        val totalDebts = eventDebts.sumOf { it.amountEuros }
-        val netAmount = if (totalExpenses > 0) totalExpenses else totalDebts
-
-        DashboardEventRow(
-            eventId = event.id,
-            eventName = event.name,
-            amount = netAmount,
-            participantCount = event.effectiveMemberIds.size,
-            state = event.state,
-            dateMillis = event.dateMillis,
-        )
-    }.sortedByDescending { it.dateMillis }
 }
