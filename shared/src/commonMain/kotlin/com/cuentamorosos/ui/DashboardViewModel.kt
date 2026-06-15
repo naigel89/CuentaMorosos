@@ -85,9 +85,7 @@ class DashboardViewModel(
         }
 
         // ── Compute totals ──
-        val totalOwedToYou = debts
-            .filter { !it.paid }
-            .sumOf { it.amountEuros }
+        val totalOwedToYou = calculateTotalOwedToYou(debts, currentUserUid)
 
         val totalYouOwe = debts
             .filter { !it.paid && it.profileId == currentUserUid }
@@ -271,4 +269,22 @@ class DashboardViewModel(
 
         return unified.sortedByDescending { it.amount }
     }
+}
+
+/**
+ * Calculates the total amount owed TO the current user by other profiles.
+ *
+ * Excludes:
+ * - Paid debts (settled)
+ * - Debts where [currentUserUid] is the debtor (those belong to `totalYouOwe`)
+ *
+ * Only unpaid debts from profiles OTHER than the current user are counted.
+ */
+internal fun calculateTotalOwedToYou(
+    debts: List<EventDebtItem>,
+    currentUserUid: String,
+): Double {
+    return debts
+        .filter { !it.paid && it.profileId != currentUserUid }
+        .sumOf { it.amountEuros }
 }
