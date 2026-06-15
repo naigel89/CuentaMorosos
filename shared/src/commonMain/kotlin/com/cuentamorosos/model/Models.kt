@@ -364,7 +364,9 @@ fun CalculationSnapshot.toJson(): String = buildString {
     append("{\"transfers\":${transfers.toJson()},")
     append("\"totalExpense\":$totalExpense,")
     append("\"calculatedAtMillis\":$calculatedAtMillis,")
-    append("\"algorithmVersion\":\"${algorithmVersion.escapeJson()}\"}")
+    append("\"algorithmVersion\":\"${algorithmVersion.escapeJson()}\",")
+    append("\"participantBalances\":{${participantBalances.entries.joinToString(",") { (k, v) -> "\"${k.escapeJson()}\":$v" }}}")
+    append("}")
 }
 
 /** Deserializes a JSON array of transfers back to a list. */
@@ -401,10 +403,23 @@ fun String.toCalculationSnapshot(): CalculationSnapshot? {
     val algoMatch = algoRegex.find(this)
     val algorithmVersion = algoMatch?.groupValues?.get(1) ?: "v1-greedy"
 
+    val balancesRegex = """"participantBalances"\s*:\s*\{([^}]*)\}""".toRegex()
+    val balancesMatch = balancesRegex.find(this)
+    val participantBalances: Map<String, Double> = if (balancesMatch != null) {
+        val inner = balancesMatch.groupValues[1]
+        val entryRegex = """"([^"]+)"\s*:\s*([\d.eE+\-]+)""".toRegex()
+        entryRegex.findAll(inner).associate {
+            it.groupValues[1] to it.groupValues[2].toDouble()
+        }
+    } else {
+        emptyMap()
+    }
+
     return CalculationSnapshot(
         transfers = transfers,
         totalExpense = totalExpense,
         calculatedAtMillis = calculatedAtMillis,
         algorithmVersion = algorithmVersion,
+        participantBalances = participantBalances,
     )
 }
