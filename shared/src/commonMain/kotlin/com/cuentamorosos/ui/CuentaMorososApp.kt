@@ -101,6 +101,7 @@ import com.cuentamorosos.nextMonth
 import com.cuentamorosos.previousMonth
 import com.cuentamorosos.shortWeekDayNames
 import com.cuentamorosos.model.CalculationResult
+import com.cuentamorosos.model.toJson
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
@@ -446,7 +447,7 @@ fun CuentaMorososApp(
                                         lastCalculationMode = currentEvent.lastCalculationMode,
                                         lastCalculationTotal = result.snapshot?.totalExpense,
                                         lastCalculationTimestamp = currentTimeMillis(),
-                                        lastCalculationSummary = result.status?.message ?: "Cálculo aplicado"
+                                        lastCalculationSummary = result.snapshot?.toJson()
                                     )
                                 )
                                 feedbackMessage = "Cálculo aplicado al evento."
