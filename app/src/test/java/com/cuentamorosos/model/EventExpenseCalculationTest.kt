@@ -45,7 +45,7 @@ class EventExpenseCalculationTest {
         eventId = eventId,
         name = "Taxi",
         amountEuros = 30.0,
-        category = ExpenseCategory.PERSONAL.id,
+        category = ExpenseCategory.OTHER.id,
         assignedProfileIds = listOf(bobId), // Solo Bob
     )
 
@@ -199,7 +199,7 @@ class EventExpenseCalculationTest {
             eventId = eventId,
             name = "Taxi sin asignar",
             amountEuros = 30.0,
-            category = ExpenseCategory.PERSONAL.id,
+            category = ExpenseCategory.OTHER.id,
             assignedProfileIds = emptyList(),
         )
 

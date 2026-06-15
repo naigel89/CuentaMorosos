@@ -1,7 +1,7 @@
 package com.cuentamorosos.data
 
 import android.content.Context
-import android.content.NotificationManager
+import android.app.NotificationManager
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.firebase.messaging.RemoteMessage
