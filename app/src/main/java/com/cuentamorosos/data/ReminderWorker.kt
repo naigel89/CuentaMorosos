@@ -76,6 +76,9 @@ class ReminderWorker(
             val debts = repoProvider.debtRepository.observeAllDebts().first()
             val expenses = repoProvider.expenseRepository.observeAllExpenses().first()
 
+            // First-launch migration: seed fingerprints for already-calculated events
+            store.seedDedupMigration(events)
+
             // Build reminder messages (existing + upcoming events)
             val messages = ReminderService.buildReminderMessages(
                 events = events,
@@ -90,8 +93,8 @@ class ReminderWorker(
                 reminderDays = preferences.reminderDays,
             )
 
-            // Dispatch all notifications
-            val dispatcher = NotificationDispatcher(applicationContext)
+            // Dispatch all notifications with dedup guard
+            val dispatcher = NotificationDispatcher(applicationContext, localStore = store)
 
             messages.forEach { message ->
                 dispatcher.dispatch(

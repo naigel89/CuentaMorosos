@@ -92,8 +92,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Initialize NotificationDispatcher (replaces NotificationScheduler.ensureChannel)
-        notificationDispatcher = NotificationDispatcher(this)
+        // Initialize local store FIRST (needed by notification dispatcher for dedup)
+        localStore = CuentaMorososLocalStore(applicationContext)
+
+        // Initialize NotificationDispatcher with dedup store
+        notificationDispatcher = NotificationDispatcher(this, localStore = localStore)
 
         // Request POST_NOTIFICATIONS permission (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -112,7 +115,6 @@ class MainActivity : ComponentActivity() {
         val sqlDriver = DriverFactory(applicationContext).createDriver()
         networkMonitor = NetworkMonitorFactory(applicationContext).create()
         repositoryProvider = RepositoryProvider(sqlDriver, networkMonitor)
-        localStore = CuentaMorososLocalStore(applicationContext)
 
         // Store RepositoryProvider in Application for Worker access
         (application as CuentaMorososApp).repositoryProvider = repositoryProvider
@@ -309,7 +311,7 @@ private fun MainAppContent(
             ReminderWorker.cancel(application)
         },
         onPostReminders = { messages ->
-            NotificationScheduler.postReminders(application, messages)
+            NotificationScheduler.postReminders(application, messages, localStore)
         },
         networkMonitor = networkMonitor,
         onSignOut = {

@@ -1,6 +1,7 @@
 package com.cuentamorosos
 
 import android.app.Application
+import com.cuentamorosos.data.CuentaMorososLocalStore
 
 class CuentaMorososApp : Application() {
 
@@ -15,6 +16,9 @@ class CuentaMorososApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+
+        // Run periodic cleanup of old notification fingerprints on every app start
+        CuentaMorososLocalStore(this).cleanupOldEntries()
     }
 
     companion object {

@@ -53,7 +53,8 @@ class CuentaMorososFirebaseMessagingService : FirebaseMessagingService() {
         }
 
         if (event != null) {
-            NotificationDispatcher(applicationContext).dispatch(event)
+            val localStore = CuentaMorososLocalStore(applicationContext)
+            NotificationDispatcher(applicationContext, localStore = localStore).dispatch(event)
         } else {
             Log.w(TAG, "Failed to parse FCM payload for type: $type")
         }
