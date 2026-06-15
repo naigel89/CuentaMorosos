@@ -110,36 +110,9 @@ fun EventsScreen(
     // Filtro: 0 = Todos, 1 = Con deuda, 2 = Sin deuda, 3 = Cerrados
     var activeFilter by remember { mutableStateOf(0) }
 
-    val totalPending by remember(pendingTotalsByEvent) {
-        derivedStateOf { pendingTotalsByEvent.values.sum() }
-    }
-    val activeEventCount by remember(pendingTotalsByEvent) {
-        derivedStateOf { pendingTotalsByEvent.count { it.value > 0.0 } }
-    }
-    val owedEventCount by remember(youAreOwedByEvent) {
-        derivedStateOf { youAreOwedByEvent.count { it.value > 0.0 } }
-    }
-
     val filteredEvents by remember(events, searchQuery, activeFilter, pendingTotalsByEvent) {
         derivedStateOf {
-            events
-                .filter { event ->
-                    when (activeFilter) {
-                        3 -> event.state == EventState.CLOSED
-                        else -> event.state != EventState.CLOSED
-                    }
-                }
-                .filter { event ->
-                    searchQuery.isBlank() ||
-                        event.name.contains(searchQuery.trim(), ignoreCase = true)
-                }
-                .filter { event ->
-                    when (activeFilter) {
-                        1 -> (pendingTotalsByEvent[event.id] ?: 0.0) > 0.0
-                        2 -> (pendingTotalsByEvent[event.id] ?: 0.0) == 0.0
-                        else -> true
-                    }
-                }
+            filterEventsList(events, searchQuery, activeFilter, pendingTotalsByEvent)
         }
     }
 
@@ -159,14 +132,6 @@ fun EventsScreen(
                 .fillMaxSize()
                 .padding(NeoFintechSpacing.md),
         ) {
-            // Compact Balance Summary
-            BalanceSummaryCard(
-                totalPending = totalPending,
-                activeEventCount = activeEventCount,
-                totalSpent = totalSpent,
-                _owedEventCount = owedEventCount,
-            )
-
             // Header row: title + create button
             Row(
                 modifier = Modifier
@@ -720,4 +685,39 @@ private fun EventEditorDialog(
             DatePicker(state = endDatePickerState)
         }
     }
+}
+
+/**
+ * Filters a list of events by state, search query, and debt status.
+ *
+ * @param events All events to filter.
+ * @param searchQuery Case-insensitive name search. Blank means match all.
+ * @param activeFilter 0=Todos (non-CLOSED), 1=Con deuda (pending>0), 2=Sin deuda (pending==0), 3=Cerrados.
+ * @param pendingTotalsByEvent Map of event ID → total pending amount.
+ * @return Filtered list preserving original order.
+ */
+internal fun filterEventsList(
+    events: List<EventItem>,
+    searchQuery: String,
+    activeFilter: Int,
+    pendingTotalsByEvent: Map<String, Double>,
+): List<EventItem> {
+    return events
+        .filter { event ->
+            when (activeFilter) {
+                3 -> event.state == EventState.CLOSED
+                else -> event.state != EventState.CLOSED
+            }
+        }
+        .filter { event ->
+            searchQuery.isBlank() ||
+                event.name.contains(searchQuery.trim(), ignoreCase = true)
+        }
+        .filter { event ->
+            when (activeFilter) {
+                1 -> (pendingTotalsByEvent[event.id] ?: 0.0) > 0.0
+                2 -> (pendingTotalsByEvent[event.id] ?: 0.0) == 0.0
+                else -> true
+            }
+        }
 }
