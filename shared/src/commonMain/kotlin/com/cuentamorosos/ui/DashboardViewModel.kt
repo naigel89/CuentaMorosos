@@ -92,7 +92,7 @@ class DashboardViewModel(
             .filter { !it.paid && it.profileId == currentUserUid }
             .sumOf { it.amountEuros }
 
-        val breakdown = computeProfileBreakdown(debts, profiles, currentUserUid)
+        val breakdown = computeProfileBreakdown(events, debts, profiles, currentUserUid)
 
         return DashboardState(
             totalOwedToYou = totalOwedToYou,
@@ -108,11 +108,13 @@ class DashboardViewModel(
     )
 
     private fun computeProfileBreakdown(
+        events: List<EventItem>,
         debts: List<EventDebtItem>,
         profiles: List<ProfileItem>,
         currentUserUid: String,
     ): ProfileBreakdown {
         val profileMap = profiles.associateBy { it.id }
+        val eventMap = events.associateBy { it.id }
 
         // Deudas donde otros te deben (profileId != currentUserUid)
         val owedToYou = debts
@@ -125,9 +127,10 @@ class DashboardViewModel(
                     profileName = profile?.name ?: "Desconocido",
                     amount = profileDebts.sumOf { it.amountEuros },
                     events = profileDebts.map { debt ->
+                        val event = eventMap[debt.eventId]
                         EventDebt(
                             eventId = debt.eventId,
-                            eventName = "Evento ${debt.eventId.take(8)}",
+                            eventName = event?.name ?: "Evento",
                             amount = debt.amountEuros,
                         )
                     },
@@ -140,14 +143,15 @@ class DashboardViewModel(
             .filter { !it.paid && it.profileId == currentUserUid }
             .groupBy { it.eventId }
             .map { (eventId, eventDebts) ->
+                val event = eventMap[eventId]
                 DebtBreakdownItem(
                     profileId = eventId,
-                    profileName = "Evento ${eventId.take(8)}",
+                    profileName = event?.name ?: "Evento",
                     amount = eventDebts.sumOf { it.amountEuros },
                     events = eventDebts.map { debt ->
                         EventDebt(
                             eventId = debt.eventId,
-                            eventName = "Deuda ${debt.id.take(8)}",
+                            eventName = event?.name ?: "Evento",
                             amount = debt.amountEuros,
                         )
                     },
