@@ -1,8 +1,5 @@
 package com.cuentamorosos.ui
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,20 +19,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathMeasure
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -44,6 +29,7 @@ fun DashboardScreen(
     modifier: Modifier = Modifier,
     state: DashboardState,
     onOpenCalendar: () -> Unit = {},
+    onProfileTap: (String) -> Unit = {},
 ) {
     val colors = LocalNeoFintechColors.current
     val summary = state.toFinancialSummary()
@@ -97,29 +83,12 @@ fun DashboardScreen(
             NetBalanceCard(balance = summary.netBalance)
         }
 
-        // Debt accordion cards (Te deben + Debes)
-        item(key = "debt-accordions") {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .slideUp(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                DebtAccordionCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    title = "Te deben",
-                    breakdown = state.owedToYouBreakdown,
-                    accentColor = colors.primaryContainer,
-                    trendIcon = { TrendLineUp(color = colors.primaryContainer) },
-                )
-                DebtAccordionCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    title = "Debes",
-                    breakdown = state.youOweBreakdown,
-                    accentColor = colors.error,
-                    trendIcon = { TrendLineDown(color = colors.error) },
-                )
-            }
+        // Unified debts card (all profiles in one list)
+        item(key = "unified-debts") {
+            UnifiedDebtsCard(
+                items = state.unifiedBreakdown,
+                onProfileTap = onProfileTap,
+            )
         }
     }
 }
@@ -284,111 +253,15 @@ private fun LoadingSkeleton(modifier: Modifier = Modifier) {
                     .background(colors.surfaceContainerHigh, NeoFintechShapes.sm),
             )
         }
-        items(3) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .background(colors.surfaceContainerHigh, NeoFintechShapes.md),
-            )
+        repeat(3) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .background(colors.surfaceContainerHigh, NeoFintechShapes.md),
+                )
+            }
         }
-    }
-}
-
-// ── Animated sparkline trend lines ────────────────────────────────────────────
-
-@Composable
-private fun TrendLineUp(color: Color) {
-    var animate by remember { mutableStateOf(false) }
-    val progress by animateFloatAsState(
-        targetValue = if (animate) 1f else 0f,
-        animationSpec = tween(durationMillis = 1200),
-        label = "trendLineUp",
-    )
-
-    LaunchedEffect(Unit) { animate = true }
-
-    Canvas(modifier = Modifier.size(24.dp)) {
-        val strokeWidth = 1.5f
-        val w = size.width
-        val h = size.height
-
-        // Zigzag path trending upward with peaks
-        val path = Path().apply {
-            moveTo(0f, h * 0.85f)
-            lineTo(w * 0.15f, h * 0.65f)  // up
-            lineTo(w * 0.25f, h * 0.75f)  // dip
-            lineTo(w * 0.40f, h * 0.45f)  // up
-            lineTo(w * 0.50f, h * 0.55f)  // dip
-            lineTo(w * 0.65f, h * 0.30f)  // up
-            lineTo(w * 0.75f, h * 0.40f)  // dip
-            lineTo(w * 0.90f, h * 0.15f)  // up to peak
-            lineTo(w, 0f)                  // arrow tip
-        }
-
-        val pathMeasure = PathMeasure()
-        pathMeasure.setPath(path, false)
-        val length = pathMeasure.length
-
-        val animatedPath = Path()
-        pathMeasure.getSegment(0f, length * progress, animatedPath, true)
-
-        drawPath(
-            path = animatedPath,
-            color = color,
-            style = Stroke(
-                width = strokeWidth,
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round,
-            ),
-        )
-    }
-}
-
-@Composable
-private fun TrendLineDown(color: Color) {
-    var animate by remember { mutableStateOf(false) }
-    val progress by animateFloatAsState(
-        targetValue = if (animate) 1f else 0f,
-        animationSpec = tween(durationMillis = 1200),
-        label = "trendLineDown",
-    )
-
-    LaunchedEffect(Unit) { animate = true }
-
-    Canvas(modifier = Modifier.size(24.dp)) {
-        val strokeWidth = 1.5f
-        val w = size.width
-        val h = size.height
-
-        // Zigzag path trending downward with peaks
-        val path = Path().apply {
-            moveTo(0f, h * 0.15f)
-            lineTo(w * 0.15f, h * 0.35f)   // down
-            lineTo(w * 0.25f, h * 0.25f)   // up
-            lineTo(w * 0.40f, h * 0.55f)   // down
-            lineTo(w * 0.50f, h * 0.45f)   // up
-            lineTo(w * 0.65f, h * 0.70f)   // down
-            lineTo(w * 0.75f, h * 0.60f)   // up
-            lineTo(w * 0.90f, h * 0.85f)   // down to bottom
-            lineTo(w, h)                    // arrow tip
-        }
-
-        val pathMeasure = PathMeasure()
-        pathMeasure.setPath(path, false)
-        val length = pathMeasure.length
-
-        val animatedPath = Path()
-        pathMeasure.getSegment(0f, length * progress, animatedPath, true)
-
-        drawPath(
-            path = animatedPath,
-            color = color,
-            style = Stroke(
-                width = strokeWidth,
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round,
-            ),
-        )
     }
 }
