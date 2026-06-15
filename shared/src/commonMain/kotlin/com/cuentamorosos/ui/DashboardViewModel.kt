@@ -31,9 +31,6 @@ class DashboardViewModel(
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state.asStateFlow()
 
-    // Track which events we already notified as CALCULATED to avoid duplicates
-    private val notifiedCalculatedEventIds = mutableSetOf<String>()
-
     init {
         viewModelScope.launch {
             combine(
@@ -62,10 +59,7 @@ class DashboardViewModel(
     ): DashboardState {
         // ── TRIGGER: Detect CALCULATED transitions ──
         events.forEach { event ->
-            if (event.state == EventState.CALCULATED &&
-                event.id !in notifiedCalculatedEventIds
-            ) {
-                notifiedCalculatedEventIds.add(event.id)
+            if (event.state == EventState.CALCULATED) {
 
                 // Calculate how much the current user owes for this event
                 val amountOwed = debts

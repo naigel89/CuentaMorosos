@@ -88,14 +88,14 @@ Chain strategy: feature-branch-chain (Slice 1 → feature/notification-system-sl
 
 ## Phase 5: ViewModel Cleanup (Group 5)
 
-- [ ] **T-13** Remove in-memory dedup from ViewModels — `DashboardViewModel`: delete `notifiedCalculatedEventIds` set, remove guard condition (callback fires unconditionally, dispatcher handles dedup); `InvitationsViewModel`: delete `notifiedIds` set, remove guard condition. **GREEN**
-  - **Files**: `shared/…/ui/DashboardViewModel.kt`, `shared/…/ui/InvitationsViewModel.kt`
-  - **Deps**: T-05
-  - **Est. lines**: -30
-- [ ] **T-14** Update ViewModel notification tests — Dashboard: change "does NOT fire twice" → callback fires on every emission (dispatcher dedups); Invitations: change "fires only once" → fires per emission. Verify null-callback safety, non-CALCULATED/PENDING skip unchanged. **GREEN**
-  - **Files**: `shared/src/commonTest/…/ui/DashboardViewModelNotificationTest.kt`, `shared/src/commonTest/…/ui/InvitationsViewModelNotificationTest.kt`
-  - **Deps**: T-13
-  - **Est. lines**: +20
-- [ ] **T-15** Run `./gradlew test` — all existing + new tests pass. Final regression check.
-  - **Deps**: T-14
-  - **Est. lines**: 0
+- [x] **T-13** Remove in-memory dedup from ViewModels — `DashboardViewModel`: delete `notifiedCalculatedEventIds` set, remove guard condition (callback fires unconditionally, dispatcher handles dedup); `InvitationsViewModel`: delete `notifiedIds` set, remove guard condition. **GREEN**
+   - **Files**: `shared/…/ui/DashboardViewModel.kt`, `shared/…/ui/InvitationsViewModel.kt`
+   - **Deps**: T-05
+   - **Est. lines**: -30
+- [x] **T-14** Update ViewModel notification tests — Dashboard: change "does NOT fire twice" → callback fires on every emission (dispatcher dedups); Invitations: change "fires only once" → fires per emission. Verify null-callback safety, non-CALCULATED/PENDING skip unchanged. **GREEN**
+   - **Files**: `shared/src/commonTest/…/ui/DashboardViewModelNotificationTest.kt`, `shared/src/commonTest/…/ui/InvitationsViewModelNotificationTest.kt`
+   - **Deps**: T-13
+   - **Est. lines**: +20
+- [x] **T-15** Run `./gradlew test` — all existing + new tests pass. Final regression check.
+   - **Deps**: T-14
+   - **Est. lines**: 0

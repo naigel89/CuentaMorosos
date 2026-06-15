@@ -102,7 +102,7 @@ class DashboardViewModelNotificationTest {
     }
 
     @Test
-    fun `onCalculationCompleted does NOT fire twice for same event`() = runTest {
+    fun `onCalculationCompleted fires per emission, no in-memory dedup`() = runTest {
         val eventsFlow = MutableStateFlow(listOf(event("evt-1")))
         val debtsFlow = MutableStateFlow(listOf(debt("evt-1", "user-1", 10.0)))
 
@@ -118,11 +118,15 @@ class DashboardViewModelNotificationTest {
 
         advanceUntilIdle()
         assertEquals(1, receivedEvents.size)
+        assertEquals("evt-1", receivedEvents[0].eventId)
 
-        // Re-emit same data
-        eventsFlow.value = eventsFlow.value
+        // Emit a new list with an additional calculated event — both fire
+        // (no in-memory dedup means evt-1 fires again; dispatcher handles dedup downstream)
+        eventsFlow.value = listOf(event("evt-1"), event("evt-2"))
+        debtsFlow.value = listOf(debt("evt-1", "user-1", 10.0), debt("evt-2", "user-1", 5.0))
         advanceUntilIdle()
-        assertEquals(1, receivedEvents.size) // still 1
+        // 4 = 1 (initial) + 1 (intermediate combine after eventsFlow change: evt-1) + 2 (final: evt-1 + evt-2)
+        assertEquals(4, receivedEvents.size)
     }
 
     @Test
@@ -172,6 +176,7 @@ class DashboardViewModelNotificationTest {
         )
 
         val receivedEvents = mutableListOf<NotificationEvent.CalculationCompleted>()
+        @Suppress("UNUSED_VARIABLE")
         val viewModel = DashboardViewModel(
             eventRepository = FakeEventRepository(MutableStateFlow(events)),
             debtRepository = FakeDebtRepository(MutableStateFlow(debts)),

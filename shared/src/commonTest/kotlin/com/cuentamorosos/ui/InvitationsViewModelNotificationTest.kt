@@ -48,7 +48,7 @@ class InvitationsViewModelNotificationTest {
     )
 
     @Test
-    fun `onNewInvitation fires only once per invitation id`() = runTest {
+    fun `onNewInvitation fires per emission, dispatcher handles dedup`() = runTest {
         val invitations = listOf(invitation("inv-1"))
         val flow = MutableStateFlow<List<EventInvitation>>(invitations)
         val receivedEvents = mutableListOf<NotificationEvent.InvitationReceived>()
@@ -65,10 +65,11 @@ class InvitationsViewModelNotificationTest {
         advanceUntilIdle()
         assertEquals(1, receivedEvents.size)
 
-        // Re-emit same list → should NOT fire again
-        flow.value = invitations
+        // Emit a new list with an additional invitation — both fire
+        // (no in-memory dedup means inv-1 fires again; dispatcher handles dedup downstream)
+        flow.value = listOf(invitation("inv-1"), invitation("inv-2"))
         advanceUntilIdle()
-        assertEquals(1, receivedEvents.size)
+        assertEquals(3, receivedEvents.size) // inv-1 again + inv-2
         collectJob.cancel()
     }
 

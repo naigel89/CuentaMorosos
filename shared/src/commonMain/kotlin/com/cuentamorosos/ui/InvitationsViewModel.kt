@@ -18,17 +18,11 @@ class InvitationsViewModel(
     private val onNewInvitation: ((NotificationEvent.InvitationReceived) -> Unit)? = null,
 ) : ViewModel() {
 
-    // IDs de invitaciones ya notificadas en esta sesión para no repetir la notificación
-    private val notifiedIds = mutableSetOf<String>()
-
     val pendingInvitations: StateFlow<List<EventInvitation>> =
         invitationRepository.observePendingInvitations()
             .onEach { invitations ->
                 invitations.forEach { invitation ->
-                    if (invitation.id !in notifiedIds &&
-                        invitation.status == InvitationStatus.PENDING
-                    ) {
-                        notifiedIds.add(invitation.id)
+                    if (invitation.status == InvitationStatus.PENDING) {
                         onNewInvitation?.invoke(
                             NotificationEvent.InvitationReceived(
                                 invitationId = invitation.id,
