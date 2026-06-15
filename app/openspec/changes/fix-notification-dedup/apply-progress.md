@@ -113,8 +113,59 @@ None — implementation matches design exactly.
 - **Layers used**: Unit (14 Robolectric), Integration (46 Robolectric)
 - **Pure functions created**: 2 (`NotificationDispatcher.fingerprintFor`, `NotificationScheduler.fingerprintFor`)
 
-## Remaining Tasks (for Slice 3)
+## Slice 3 (of 3): ViewModel Cleanup + Migration Tests (FINAL)
 
-- [ ] T-13: Remove in-memory dedup from ViewModels (GREEN)
-- [ ] T-14: Update ViewModel notification tests (GREEN)
-- [ ] T-15: Full regression `./gradlew test` (REFACTOR)
+**Branch**: `feature/notification-system-slice1-dedup` (same branch — Slice 3 extends Slices 1+2)
+**Mode**: Strict TDD
+**Delivery**: feature-branch-chain — PR #3 targets Slice 2 PR
+
+### Completed Tasks
+
+| Task | Phase | Status | Tests | Commits |
+|------|-------|--------|-------|---------|
+| T-13 | GREEN | ✅ | 11/11 ViewModel tests pass | `6cff067` |
+| T-14 | GREEN | ✅ | Tests updated for per-emission behavior | `6cff067` |
+| T-15 | REFACTOR | ✅ | Full regression: 51/51 dedup + 11/11 VM = 62 new tests pass | `6cff067` |
+
+### TDD Cycle Evidence — Slice 3
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| T-13+T-14 | `DashboardViewModelNotificationTest.kt`, `InvitationsViewModelNotificationTest.kt` | Unit (shared) | ✅ 11/11 | ✅ Tests updated (2 tests changed to expect per-emission fire) | ✅ 11/11 | ✅ 6+5 scenarios | ✅ Suppress unused warning |
+
+### Files Changed — Slice 3
+
+| File | Action | Lines |
+|------|--------|-------|
+| `shared/…/ui/DashboardViewModel.kt` | Modified | -5 (removed `notifiedCalculatedEventIds` + guard) |
+| `shared/…/ui/InvitationsViewModel.kt` | Modified | -5 (removed `notifiedIds` + guard) |
+| `shared/src/commonTest/…/ui/DashboardViewModelNotificationTest.kt` | Modified | +8/-6 (updated dedup test for per-emission) |
+| `shared/src/commonTest/…/ui/InvitationsViewModelNotificationTest.kt` | Modified | +4/-4 (updated dedup test for per-emission) |
+
+### Deviations from Design — Slice 3
+
+1. **Original test design flaw**: The "does NOT fire twice" test relied on `MutableStateFlow.value = sameValue` not re-emitting (StateFlow equality suppression), NOT on the in-memory dedup set. Updated tests to use genuinely different data to trigger real re-emissions.
+2. **Intermediate combine emissions**: When updating both `eventsFlow` and `debtsFlow`, `combine` emits intermediately (once per source change) with `UnconfinedTestDispatcher`, causing more callbacks than naively expected. Tests account for this expected behavior.
+
+### Issues Found — Slice 3
+
+6. **Pre-existing shared module failure**: `OfflineFirstProfileRepositoryTest.customNames with special characters roundtrips correctly` — NOT caused by this change (untouched file).
+7. **StateFlow equality suppression**: `MutableStateFlow.value = sameValue` does not trigger collectors. The original dedup tests inadvertently tested Flow behavior, not ViewModel dedup logic.
+
+## Cumulative Test Summary (All Slices)
+
+| Slice | New Tests | Passing | Layer |
+|-------|-----------|---------|-------|
+| Slice 1 | 29 (14 store + 15 dispatcher) | 29/29 | Unit + Integration (Robolectric) |
+| Slice 2 | 22 (13 scheduler + 9 worker) | 22/22 | Integration (Robolectric) |
+| Slice 3 | 0 (11 updated, no net-new) | 11/11 | Unit (shared) |
+| **TOTAL** | **51 new + 11 updated = 62** | **62/62** | — |
+
+- **Pre-existing failures (not caused by this change)**: 9 total (8 app: 4 FcmParsingTest + 2 ProfileTest + 2 FcmIntegrationTest; 1 shared: OfflineFirstProfileRepositoryTest)
+- **Pure functions created**: 2 (`NotificationDispatcher.fingerprintFor`, `NotificationScheduler.fingerprintFor`)
+- **Commits**: `ebc4c7c` (Slice 1), `f021ed0` (Slice 1), `331ecce` (Slice 2), `0625e6f` (Slice 2 docs), `6cff067` (Slice 3)
+
+## Remaining Tasks
+
+- [x] T-01→15: ALL COMPLETE ✅
+- Next: `sdd-archive` to merge delta specs
