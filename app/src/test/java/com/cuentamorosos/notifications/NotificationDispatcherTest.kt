@@ -7,9 +7,11 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.cuentamorosos.data.CuentaMorososLocalStore
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertThat
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,7 +50,7 @@ class NotificationDispatcherTest {
         assertEquals("ch_invitations", notification!!.channelId)
         assertEquals("Invitación recibida", notification.extras.getString(NotificationCompat.EXTRA_TITLE))
         assertEquals("Ana te invitó al evento 'Asado'", notification.extras.getString(NotificationCompat.EXTRA_TEXT))
-        assertThat("auto_cancel", notification.flags and Notification.FLAG_AUTO_CANCEL != 0)
+        assertTrue("auto_cancel", notification.flags and Notification.FLAG_AUTO_CANCEL != 0)
     }
 
     @Test
@@ -125,5 +127,126 @@ class NotificationDispatcherTest {
         assert(channelIds.contains("ch_calculations"))
         assert(channelIds.contains("ch_reminders"))
         assert(channelIds.contains("ch_upcoming_events"))
+    }
+
+    // ── Dedup: fingerprintFor deterministic output ────────────────────────
+
+    @Test
+    fun `fingerprintFor InvitationReceived uses eventId and invitationId`() {
+        val event = NotificationEvent.InvitationReceived(
+            invitationId = "inv-1", eventId = "evt-1",
+            inviterName = "Ana", eventName = "Asado"
+        )
+        assertEquals(
+            "INVITATION_RECEIVED:evt-1:inv-1",
+            NotificationDispatcher.fingerprintFor(event)
+        )
+    }
+
+    @Test
+    fun `fingerprintFor CalculationCompleted uses eventId only`() {
+        val event = NotificationEvent.CalculationCompleted(
+            eventId = "evt-42", eventName = "Cena", amountOwed = 10.0
+        )
+        assertEquals(
+            "CALCULATION_COMPLETED:evt-42",
+            NotificationDispatcher.fingerprintFor(event)
+        )
+    }
+
+    @Test
+    fun `fingerprintFor UpcomingEvent includes daysUntil and dateFormatted`() {
+        val event = NotificationEvent.UpcomingEvent(
+            eventId = "evt-x", eventName = "Viaje", daysUntil = 3, dateFormatted = "15/06"
+        )
+        assertEquals(
+            "UPCOMING_EVENT:evt-x:3:15/06",
+            NotificationDispatcher.fingerprintFor(event)
+        )
+    }
+
+    @Test
+    fun `fingerprintFor InvitationAccepted uses eventId and inviteeName`() {
+        val event = NotificationEvent.InvitationAccepted(
+            eventId = "evt-acc", inviteeName = "Bob", eventName = "Fiesta"
+        )
+        assertEquals(
+            "INVITATION_ACCEPTED:evt-acc:Bob",
+            NotificationDispatcher.fingerprintFor(event)
+        )
+    }
+
+    @Test
+    fun `fingerprintFor different events produce different fingerprints`() {
+        val calc = NotificationEvent.CalculationCompleted("evt-1", "Test", 0.0)
+        val inv = NotificationEvent.InvitationReceived("inv-1", "evt-1", "Ana", "Test")
+
+        assertTrue(
+            NotificationDispatcher.fingerprintFor(calc) != NotificationDispatcher.fingerprintFor(inv)
+        )
+    }
+
+    // ── Dedup: dispatch skips when fingerprint already registered ─────────
+
+    @Test
+    fun `dispatch skips when notification already sent`() {
+        val store = CuentaMorososLocalStore(context)
+        store.clearAll()
+        val event = NotificationEvent.CalculationCompleted("evt-skip", "Test", 0.0)
+
+        // First dispatch with store: should succeed, record fingerprint
+        val dispatcherWithStore = NotificationDispatcher(context, localStore = store)
+        dispatcherWithStore.dispatch(event)
+        assertEquals(1, shadowManager().size())
+
+        // Second dispatch with same store: should skip
+        dispatcherWithStore.dispatch(event)
+        assertEquals(1, shadowManager().size()) // still 1 notification
+    }
+
+    @Test
+    fun `dispatch records fingerprint after posting`() {
+        val store = CuentaMorososLocalStore(context)
+        store.clearAll()
+        val event = NotificationEvent.CalculationCompleted("evt-record", "Test", 0.0)
+
+        val fingerprint = NotificationDispatcher.fingerprintFor(event)
+        assertFalse(store.hasNotificationBeenSent(fingerprint))
+
+        val dispatcherWithStore = NotificationDispatcher(context, localStore = store)
+        dispatcherWithStore.dispatch(event)
+
+        assertTrue(
+            "Fingerprint must be recorded after dispatch",
+            store.hasNotificationBeenSent(fingerprint)
+        )
+    }
+
+    @Test
+    fun `different fingerprints dispatch independently`() {
+        val store = CuentaMorososLocalStore(context)
+        store.clearAll()
+        val dispatcherWithStore = NotificationDispatcher(context, localStore = store)
+
+        val event1 = NotificationEvent.CalculationCompleted("evt-indep-1", "Test 1", 0.0)
+        val event2 = NotificationEvent.CalculationCompleted("evt-indep-2", "Test 2", 0.0)
+
+        dispatcherWithStore.dispatch(event1)
+        dispatcherWithStore.dispatch(event2)
+
+        assertEquals(2, shadowManager().size())
+    }
+
+    @Test
+    fun `dispatch without store still works for backward compat`() {
+        // Dispatcher constructed without store should dispatch normally (no dedup)
+        val dispatcherNoStore = NotificationDispatcher(context)
+        val event1 = NotificationEvent.CalculationCompleted("evt-bwd-1", "Test 1", 0.0)
+        val event2 = NotificationEvent.CalculationCompleted("evt-bwd-2", "Test 2", 0.0)
+
+        dispatcherNoStore.dispatch(event1)
+        dispatcherNoStore.dispatch(event2)
+
+        assertEquals(2, shadowManager().size())
     }
 }

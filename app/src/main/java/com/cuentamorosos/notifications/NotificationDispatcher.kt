@@ -14,9 +14,13 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.cuentamorosos.MainActivity
 import com.cuentamorosos.R
+import com.cuentamorosos.data.CuentaMorososLocalStore
 import java.util.concurrent.ConcurrentHashMap
 
-class NotificationDispatcher(private val context: Context) {
+class NotificationDispatcher(
+    private val context: Context,
+    private val localStore: CuentaMorososLocalStore? = null,
+) {
 
     companion object {
         private const val TAG = "NotificationDispatcher"
@@ -45,6 +49,21 @@ class NotificationDispatcher(private val context: Context) {
         const val PAGE_PROFILES = 2
         const val PAGE_INVITATIONS = 3
         const val PAGE_SETTINGS = 4
+
+        /**
+         * Computes a deterministic fingerprint for a [NotificationEvent].
+         * Same event type + same IDs → same fingerprint; different IDs → different fingerprints.
+         */
+        fun fingerprintFor(event: NotificationEvent): String = when (event) {
+            is NotificationEvent.InvitationReceived ->
+                "$TAG_INVITATION_RECEIVED:${event.eventId}:${event.invitationId}"
+            is NotificationEvent.InvitationAccepted ->
+                "$TAG_INVITATION_ACCEPTED:${event.eventId}:${event.inviteeName}"
+            is NotificationEvent.CalculationCompleted ->
+                "$TAG_CALCULATION_COMPLETED:${event.eventId}"
+            is NotificationEvent.UpcomingEvent ->
+                "$TAG_UPCOMING_EVENT:${event.eventId}:${event.daysUntil}:${event.dateFormatted}"
+        }
     }
 
     private val iconCache = ConcurrentHashMap<NotificationType, Bitmap>()
@@ -57,12 +76,23 @@ class NotificationDispatcher(private val context: Context) {
             Log.w(TAG, "Notifications disabled, skipping dispatch for ${event::class.simpleName}")
             return
         }
+
+        // Dedup guard: skip if this notification was already sent
+        val fingerprint = fingerprintFor(event)
+        if (localStore?.hasNotificationBeenSent(fingerprint) == true) {
+            Log.d(TAG, "Notification already sent, skipping: $fingerprint")
+            return
+        }
+
         ensureChannels()
         val notification = buildNotification(event)
         val tag = notificationTag(event)
         val id = notificationId(event)
         NotificationManagerCompat.from(context).notify(tag, id, notification)
         Log.d(TAG, "Dispatched notification: tag=$tag, id=$id")
+
+        // Record fingerprint so future dispatches skip this notification
+        localStore?.recordNotificationSent(fingerprint)
     }
 
     // ── Channel Management ──────────────────────────────────────────────────
