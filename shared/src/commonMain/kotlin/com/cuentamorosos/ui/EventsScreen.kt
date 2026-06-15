@@ -273,21 +273,23 @@ fun EventsScreen(
                             val role = PermissionEngine.getRole(profileId, event)
                             val canEdit = role == EventRole.OWNER
                             val canDelete = PermissionEngine.hasPermission(role, EventAction.DeleteEvent)
-                            EventCard(
-                                event = event,
-                                _participantCount = participantCountByEvent[event.id] ?: 0,
-                                _pendingTotal = pendingTotalsByEvent[event.id] ?: 0.0,
-                                totalExpense = totalExpensesByEvent[event.id] ?: 0.0,
-                                yourShare = yourShareByEvent[event.id] ?: 0.0,
-                                youAreOwed = youAreOwedByEvent[event.id] ?: 0.0,
-                                profiles = eventProfiles,
-                                category = ExpenseCategory.fromId("shared"),
-                                onTap = { onOpenEvent(event) },
-                                onEdit = { editableEvent = event },
-                                onDelete = { eventToDelete = event },
-                                canEdit = canEdit,
-                                canDelete = canDelete,
-                            )
+                            Box(modifier = Modifier.slideUp()) {
+                                EventCard(
+                                    event = event,
+                                    _participantCount = participantCountByEvent[event.id] ?: 0,
+                                    _pendingTotal = pendingTotalsByEvent[event.id] ?: 0.0,
+                                    totalExpense = totalExpensesByEvent[event.id] ?: 0.0,
+                                    yourShare = yourShareByEvent[event.id] ?: 0.0,
+                                    youAreOwed = youAreOwedByEvent[event.id] ?: 0.0,
+                                    profiles = eventProfiles,
+                                    category = ExpenseCategory.fromId("shared"),
+                                    onTap = { onOpenEvent(event) },
+                                    onEdit = { editableEvent = event },
+                                    onDelete = { eventToDelete = event },
+                                    canEdit = canEdit,
+                                    canDelete = canDelete,
+                                )
+                            }
                         }
                     }
                 }

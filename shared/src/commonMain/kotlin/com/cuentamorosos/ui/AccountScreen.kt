@@ -129,7 +129,8 @@ private fun AccountMainMenu(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .slideUp(),
     ) {
         // Top bar
         TextButton(onClick = onBack) {
@@ -263,7 +264,8 @@ private fun NamePhotoScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .slideUp(),
     ) {
         // Top bar
         TextButton(onClick = onBack) {
@@ -397,7 +399,8 @@ private fun UsernameScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .slideUp(),
     ) {
         // Top bar
         TextButton(onClick = onBack) {
@@ -521,6 +524,7 @@ private fun SecurityScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .slideUp()
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {

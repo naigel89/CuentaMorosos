@@ -159,6 +159,7 @@ private fun SettingsContent(
                 SectionHeader(text = "APARIENCIA", colors = colors)
                 Card(
                     modifier = Modifier.fillMaxWidth()
+                        .fadeInStaggered(index = 0)
                         .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
                         .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
                     colors = CardDefaults.cardColors(containerColor = colors.surface),
@@ -195,6 +196,7 @@ private fun SettingsContent(
                 SectionHeader(text = "RECORDATORIOS", colors = colors)
                 Card(
                     modifier = Modifier.fillMaxWidth()
+                        .fadeInStaggered(index = 1)
                         .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
                         .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
                     colors = CardDefaults.cardColors(containerColor = colors.surface),
@@ -294,6 +296,7 @@ private fun SettingsContent(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth()
+                        .fadeInStaggered(index = 2)
                         .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
                         .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
                     colors = CardDefaults.cardColors(containerColor = colors.surface),
