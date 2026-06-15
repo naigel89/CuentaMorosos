@@ -108,7 +108,6 @@ fun DashboardScreen(
                 DebtAccordionCard(
                     modifier = Modifier.fillMaxWidth(),
                     title = "Te deben",
-                    totalAmount = state.totalOwedToYou,
                     breakdown = state.owedToYouBreakdown,
                     accentColor = colors.primaryContainer,
                     trendIcon = { TrendLineUp(color = colors.primaryContainer) },
@@ -116,7 +115,6 @@ fun DashboardScreen(
                 DebtAccordionCard(
                     modifier = Modifier.fillMaxWidth(),
                     title = "Debes",
-                    totalAmount = state.totalYouOwe,
                     breakdown = state.youOweBreakdown,
                     accentColor = colors.error,
                     trendIcon = { TrendLineDown(color = colors.error) },

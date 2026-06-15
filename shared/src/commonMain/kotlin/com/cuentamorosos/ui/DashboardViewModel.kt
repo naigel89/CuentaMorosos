@@ -101,4 +101,63 @@ class DashboardViewModel(
             youOweBreakdown = breakdown.youOweBreakdown,
         )
     }
+
+    private data class ProfileBreakdown(
+        val owedToYouBreakdown: List<DebtBreakdownItem>,
+        val youOweBreakdown: List<DebtBreakdownItem>,
+    )
+
+    private fun computeProfileBreakdown(
+        debts: List<EventDebtItem>,
+        profiles: List<ProfileItem>,
+        currentUserUid: String,
+    ): ProfileBreakdown {
+        val profileMap = profiles.associateBy { it.id }
+
+        // Deudas donde otros te deben (profileId != currentUserUid)
+        val owedToYou = debts
+            .filter { !it.paid && it.profileId != currentUserUid }
+            .groupBy { it.profileId }
+            .map { (profileId, profileDebts) ->
+                val profile = profileMap[profileId]
+                DebtBreakdownItem(
+                    profileId = profileId,
+                    profileName = profile?.name ?: "Desconocido",
+                    amount = profileDebts.sumOf { it.amountEuros },
+                    events = profileDebts.map { debt ->
+                        EventDebt(
+                            eventId = debt.eventId,
+                            eventName = "Evento ${debt.eventId.take(8)}",
+                            amount = debt.amountEuros,
+                        )
+                    },
+                )
+            }
+            .sortedByDescending { it.amount }
+
+        // Deudas donde tú debes (profileId == currentUserUid)
+        val youOwe = debts
+            .filter { !it.paid && it.profileId == currentUserUid }
+            .groupBy { it.eventId }
+            .map { (eventId, eventDebts) ->
+                DebtBreakdownItem(
+                    profileId = eventId,
+                    profileName = "Evento ${eventId.take(8)}",
+                    amount = eventDebts.sumOf { it.amountEuros },
+                    events = eventDebts.map { debt ->
+                        EventDebt(
+                            eventId = debt.eventId,
+                            eventName = "Deuda ${debt.id.take(8)}",
+                            amount = debt.amountEuros,
+                        )
+                    },
+                )
+            }
+            .sortedByDescending { it.amount }
+
+        return ProfileBreakdown(
+            owedToYouBreakdown = owedToYou,
+            youOweBreakdown = youOwe,
+        )
+    }
 }

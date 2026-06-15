@@ -1,9 +1,16 @@
 package com.cuentamorosos.ui
 
+data class EventDebt(
+    val eventId: String,
+    val eventName: String,
+    val amount: Double,
+)
+
 data class DebtBreakdownItem(
     val profileId: String,
     val profileName: String,
     val amount: Double,
+    val events: List<EventDebt> = emptyList(),
 )
 
 data class DashboardState(
