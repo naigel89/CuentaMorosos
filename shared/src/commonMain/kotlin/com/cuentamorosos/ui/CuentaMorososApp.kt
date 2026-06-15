@@ -551,12 +551,6 @@ fun CuentaMorososApp(
                                     .fillMaxSize()
                                     .padding(innerPadding),
                                 state = dashboardState,
-                                onAlertTap = { alert ->
-                                    eventDetailViewModel.setEventId(alert.eventId)
-                                },
-                                onEventTap = { eventRow ->
-                                    eventDetailViewModel.setEventId(eventRow.eventId)
-                                },
                                 onOpenCalendar = {
                                     showCalendar = true
                                 },
