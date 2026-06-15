@@ -2,6 +2,7 @@ package com.cuentamorosos.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,11 +13,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,9 +46,9 @@ private val YouOweAvatarFg = Color(0xFFEF5350)     // red/salmon
  * Design (left to right):
  *   [Avatar circle with initial]  Name + subtitle  |  +Amount/-Amount  >
  *
- * Each row is tappable — delegates to [onProfileTap] with the profile ID.
- * Zero-balance items are hidden (filtered upstream), and a hint is shown when
- * the list is empty.
+ * Tapping a row opens a dialog showing the event-by-event breakdown for that person.
+ * Zero-balance items are hidden (filtered upstream), and an educational hint is shown
+ * when the list is empty.
  */
 @Composable
 fun UnifiedDebtsCard(
@@ -50,6 +57,7 @@ fun UnifiedDebtsCard(
     onProfileTap: (String) -> Unit = {},
 ) {
     val colors = LocalNeoFintechColors.current
+    var selectedItem by remember { mutableStateOf<UnifiedDebtItem?>(null) }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -73,7 +81,10 @@ fun UnifiedDebtsCard(
                 items.forEachIndexed { index, item ->
                     UnifiedDebtRow(
                         item = item,
-                        onProfileTap = onProfileTap,
+                        onClick = {
+                            selectedItem = item
+                            onProfileTap(item.profileName)
+                        },
                         staggerIndex = index,
                     )
                     if (index < items.lastIndex) {
@@ -96,6 +107,14 @@ fun UnifiedDebtsCard(
             }
         }
     }
+
+    // ── Event breakdown dialog ──
+    selectedItem?.let { item ->
+        EventBreakdownDialog(
+            item = item,
+            onDismiss = { selectedItem = null },
+        )
+    }
 }
 
 // ── Single row ───────────────────────────────────────────────────────────────
@@ -103,7 +122,7 @@ fun UnifiedDebtsCard(
 @Composable
 private fun UnifiedDebtRow(
     item: UnifiedDebtItem,
-    onProfileTap: (String) -> Unit,
+    onClick: () -> Unit,
     staggerIndex: Int,
 ) {
     val colors = LocalNeoFintechColors.current
@@ -118,7 +137,7 @@ private fun UnifiedDebtRow(
         modifier = Modifier
             .fillMaxWidth()
             .fadeInStaggered(index = staggerIndex)
-            .clickable(onClick = { onProfileTap(item.profileName) })
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -173,6 +192,103 @@ private fun UnifiedDebtRow(
             modifier = Modifier.padding(start = 6.dp),
         )
     }
+}
+
+// ── Event breakdown dialog ───────────────────────────────────────────────────
+
+@Composable
+private fun EventBreakdownDialog(
+    item: UnifiedDebtItem,
+    onDismiss: () -> Unit,
+) {
+    val colors = LocalNeoFintechColors.current
+    val isOwedToYou = item.direction == DebtDirection.OWED_TO_YOU
+    val accentColor = if (isOwedToYou) OwedToYouAvatarFg else YouOweAvatarFg
+    val prefix = if (isOwedToYou) "+" else "-"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        containerColor = colors.surfaceContainerLowest,
+        title = {
+            Column {
+                Text(
+                    text = item.profileName,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.onSurface,
+                )
+                Text(
+                    text = if (isOwedToYou) "Eventos donde te debe dinero" else "Eventos donde le debes dinero",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (item.events.isEmpty()) {
+                    Text(
+                        text = "No hay eventos registrados para este perfil.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                    )
+                } else {
+                    item.events.forEach { event ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = event.eventName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colors.onSurface,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = "$prefix${formatEuros(event.amount)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontFamily = JetBrainsMonoFontFamily(),
+                                fontWeight = FontWeight.SemiBold,
+                                color = accentColor,
+                            )
+                        }
+                    }
+
+                    // Total row
+                    ThinDivider(
+                        color = colors.outlineVariant,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "Total",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.onSurface,
+                        )
+                        Text(
+                            text = "$prefix${formatEuros(item.amount)}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontFamily = JetBrainsMonoFontFamily(),
+                            fontWeight = FontWeight.Bold,
+                            color = accentColor,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cerrar")
+            }
+        },
+    )
 }
 
 // ── Empty / footer helpers ───────────────────────────────────────────────────

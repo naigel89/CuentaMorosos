@@ -251,6 +251,7 @@ class DashboardViewModel(
                     profileName = item.profileName,
                     amount = item.amount,
                     direction = DebtDirection.OWED_TO_YOU,
+                    events = item.events,
                 )
             )
         }
@@ -263,6 +264,7 @@ class DashboardViewModel(
                     profileName = item.profileName,
                     amount = item.amount,
                     direction = DebtDirection.YOU_OWE,
+                    events = item.events,
                 )
             )
         }

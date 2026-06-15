@@ -17,6 +17,7 @@ data class UnifiedDebtItem(
     val profileName: String,
     val amount: Double,
     val direction: DebtDirection,
+    val events: List<EventDebt> = emptyList(),
 )
 
 data class EventDebt(
