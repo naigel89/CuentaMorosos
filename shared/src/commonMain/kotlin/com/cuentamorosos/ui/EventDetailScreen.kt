@@ -342,6 +342,7 @@ fun EventDetailScreen(
             },
             _deletedProfileIds = deletedProfileIds,
             _priorSnapshot = null, // Prior snapshot not yet persisted — future enhancement
+            currentUserUid = currentUserUid,
         )
     }
 

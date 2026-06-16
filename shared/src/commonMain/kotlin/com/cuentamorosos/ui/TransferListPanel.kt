@@ -1,7 +1,8 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,22 +15,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.cuentamorosos.model.CalculationSnapshot
 import com.cuentamorosos.model.CalculationStatus
 import com.cuentamorosos.model.ProfileItem
@@ -37,35 +37,19 @@ import com.cuentamorosos.model.formatEuros
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
-private val SurfaceCard    = Color(0xFF181C27)
-private val SurfaceRow     = Color(0xFF1E2335)
-private val SurfaceTrack   = Color(0xFF252B40)
-private val BorderSubtle   = Color(0xFF2A2F45)
-private val BorderEmphasis = Color(0xFF363D5A)
-private val TextPrimary    = Color(0xFFF0F2F8)
-private val TextSecondary  = Color(0xFF8B91A8)
-private val TextHint       = Color(0xFF555E7A)
-private val GreenAccent    = Color(0xFF3DFFA0)
-private val GreenBg        = Color(0x143DFFA0)
-private val GreenBorder    = Color(0x333DFFA0)
-private val RedAccent      = Color(0xFFFF6B6B)
-private val RedBg          = Color(0x14FF6B6B)
-private val RedBorder      = Color(0x33FF6B6B)
-private val AmberAccent    = Color(0xFFFFB347)
-
 private val ShapeCard   = RoundedCornerShape(20.dp)
 private val ShapeRow    = RoundedCornerShape(8.dp)
 private val ShapeBadge  = RoundedCornerShape(4.dp)
 private val ShapePill   = RoundedCornerShape(99.dp)
+
+/** Warning/accent amber — keeps its identity in light/dark. */
+private val AmberAccent = Color(0xFFFFB347)
 
 // ─── Root composable ──────────────────────────────────────────────────────────
 
 /**
  * Displays the results of a settlement calculation: status banner, transfer rows,
  * per-profile net balances, and total expense summary.
- *
- * Replaces the old SettlementCard usage in CalculatorSheet.
- * Signature is unchanged — drop-in replacement.
  */
 @Composable
 fun TransferListPanel(
@@ -75,31 +59,26 @@ fun TransferListPanel(
     profiles: List<ProfileItem> = emptyList(),
     paidTransferIndices: Set<Int> = emptySet(),
     onTogglePaid: (Int) -> Unit = {},
+    currentProfileId: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    val typography = NeoFintechTypography()
-    val monoFont   = JetBrainsMonoFontFamily()
+    val colors = LocalNeoFintechColors.current
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, BorderEmphasis, ShapeCard),
-        shape    = ShapeCard,
-        color    = SurfaceCard,
+            .cardShadow()
+            .slideUp(),
+        shape = ShapeCard,
+        color = colors.surfaceContainerLowest,
         tonalElevation = 0.dp,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // ── 1. Status banner ──────────────────────────────────────────────
-            status?.let {
-                StatusBanner(status = it, typography = typography)
-            }
+            status?.let { StatusBanner(status = it) }
 
             // ── 2. Total hero ─────────────────────────────────────────────────
-            TotalHero(
-                snapshot   = snapshot,
-                typography = typography,
-                monoFont   = monoFont,
-            )
+            TotalHero(snapshot = snapshot)
 
             // ── 3. Transfer rows ──────────────────────────────────────────────
             Column(
@@ -108,30 +87,30 @@ fun TransferListPanel(
                     .padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                SectionLabel(text = "Transferencias sugeridas", typography = typography)
+                SectionLabel(text = "Transferencias sugeridas")
 
                 if (snapshot.transfers.isEmpty()) {
                     Text(
-                        text  = "No hay transferencias pendientes",
-                        style = typography.bodyMedium.copy(color = TextSecondary),
+                        text = "No hay transferencias pendientes",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 8.dp),
                     )
                 } else {
                     snapshot.transfers.forEachIndexed { index, transfer ->
                         TransferRow(
-                            transfer            = transfer,
+                            transfer = transfer,
                             profileNameResolver = profileNameResolver,
-                            profiles            = profiles,
-                            isPaid              = index in paidTransferIndices,
-                            onTogglePaid        = { onTogglePaid(index) },
-                            typography          = typography,
-                            monoFont            = monoFont,
+                            profiles = profiles,
+                            isPaid = index in paidTransferIndices,
+                            onTogglePaid = { onTogglePaid(index) },
+                            index = index,
                         )
                     }
                 }
             }
 
-            HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
+            HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.3f), thickness = 1.dp)
 
             // ── 4. Per-profile balance rows ───────────────────────────────────
             if (snapshot.participantBalances.isNotEmpty()) {
@@ -140,7 +119,7 @@ fun TransferListPanel(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 18.dp),
                 ) {
-                    SectionLabel(text = "Saldos por perfil", typography = typography)
+                    SectionLabel(text = "Saldos por perfil")
                     Spacer(modifier = Modifier.height(4.dp))
 
                     val maxAbs = snapshot.participantBalances.values
@@ -148,15 +127,15 @@ fun TransferListPanel(
                         ?.takeIf { it > 0.0 } ?: 1.0
 
                     snapshot.participantBalances.forEach { (profileId, balance) ->
-                        val name    = profileNameResolver(profileId)
+                        val name = profileNameResolver(profileId)
                         val profile = profiles.find { it.id == profileId }
                         BalanceRow(
-                            name       = name,
-                            profile    = profile,
-                            balance    = balance,
-                            maxAbs     = maxAbs,
-                            typography = typography,
-                            monoFont   = monoFont,
+                            name = name,
+                            profile = profile,
+                            balance = balance,
+                            maxAbs = maxAbs,
+                            currentProfileId = currentProfileId,
+                            cardBg = colors.surfaceContainerLowest,
                         )
                     }
                 }
@@ -169,25 +148,21 @@ fun TransferListPanel(
 
 /**
  * Slim top banner with a glowing dot and a tinted background.
- *
- * Success / ZeroBalance → green
- * EdgeCaseWarning       → amber
- * Error                 → red
+ * Uses theme-aware accent colors.
  */
 @Composable
-private fun StatusBanner(
-    status: CalculationStatus,
-    typography: Typography,
-) {
-    val (bgColor, dotColor, textColor) = when (status) {
+private fun StatusBanner(status: CalculationStatus) {
+    val colors = LocalNeoFintechColors.current
+
+    val (bgColor, dotColor) = when (status) {
         is CalculationStatus.Success ->
-            Triple(Color(0x113DFFA0), GreenAccent, GreenAccent)
+            colors.primaryContainer.copy(alpha = 0.08f) to colors.primaryContainer
         is CalculationStatus.ZeroBalance ->
-            Triple(Color(0x113DFFA0), GreenAccent, GreenAccent)
+            colors.primaryContainer.copy(alpha = 0.08f) to colors.primaryContainer
         is CalculationStatus.EdgeCaseWarning ->
-            Triple(Color(0x11FFB347), AmberAccent, AmberAccent)
+            AmberAccent.copy(alpha = 0.08f) to AmberAccent
         is CalculationStatus.Error ->
-            Triple(Color(0x11FF6B6B), RedAccent, RedAccent)
+            colors.error.copy(alpha = 0.08f) to colors.error
     }
     val borderColor = dotColor.copy(alpha = 0.15f)
 
@@ -196,7 +171,7 @@ private fun StatusBanner(
             .fillMaxWidth()
             .background(bgColor)
             .padding(horizontal = 20.dp, vertical = 13.dp),
-        verticalAlignment   = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         // Glowing dot
@@ -207,12 +182,10 @@ private fun StatusBanner(
                 .background(dotColor),
         )
         Text(
-            text  = status.message,
-            style = typography.bodySmall.copy(
-                color      = textColor,
-                fontWeight = FontWeight.Medium,
-                fontSize   = 13.sp,
-            ),
+            text = status.message,
+            style = MaterialTheme.typography.bodySmall,
+            color = dotColor,
+            fontWeight = FontWeight.Medium,
         )
     }
 
@@ -222,15 +195,17 @@ private fun StatusBanner(
 // ─── Total hero ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun TotalHero(
-    snapshot: CalculationSnapshot,
-    typography: Typography,
-    monoFont: androidx.compose.ui.text.font.FontFamily,
-) {
+private fun TotalHero(snapshot: CalculationSnapshot) {
+    val colors = LocalNeoFintechColors.current
+
     val participantCount = snapshot.participantBalances.size
-    val transferCount    = snapshot.transfers.size
-    val formattedAmount  = formatEuros(snapshot.totalExpense)
-        .replace(" €", "").replace("€", "").trim()
+    val transferCount = snapshot.transfers.size
+    val totalDisplay = rememberAnimatedAmount(
+        targetValue = snapshot.totalExpense,
+        prefix = "",
+        suffix = "",
+        decimals = 2,
+    )
 
     Column(
         modifier = Modifier
@@ -240,35 +215,28 @@ private fun TotalHero(
     ) {
         // Eyebrow label
         Text(
-            text  = "TOTAL DEL EVENTO",
-            style = typography.labelSmall.copy(
-                color          = TextHint,
-                fontWeight     = FontWeight.SemiBold,
-                fontSize       = 11.sp,
-                letterSpacing  = 0.1.sp,
-            ),
+            text = "TOTAL DEL EVENTO",
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
         )
 
-        // Large mono amount
+        // Large mono amount with animated count-up
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                text  = formattedAmount,
-                style = typography.displaySmall.copy(
-                    fontFamily    = monoFont,
-                    fontWeight    = FontWeight.Bold,
-                    color         = TextPrimary,
-                    fontSize      = 38.sp,
-                    letterSpacing = (-0.5).sp,
-                    lineHeight    = 38.sp,
+                text = totalDisplay,
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontFamily = JetBrainsMonoFontFamily(),
+                    fontWeight = FontWeight.Bold,
+                    color = colors.onSurface,
                 ),
             )
             Spacer(Modifier.width(4.dp))
             Text(
-                text  = "€",
-                style = typography.titleLarge.copy(
-                    color      = TextSecondary,
+                text = "€",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    color = colors.onSurfaceVariant,
                     fontWeight = FontWeight.Normal,
-                    fontSize   = 20.sp,
                 ),
                 modifier = Modifier.padding(bottom = 4.dp),
             )
@@ -276,29 +244,26 @@ private fun TotalHero(
 
         // Metadata line
         Text(
-            text  = "$participantCount participantes · $transferCount transferencias pendientes",
-            style = typography.bodySmall.copy(
-                color    = TextHint,
-                fontSize = 12.sp,
-            ),
+            text = "$participantCount participantes · $transferCount transferencias pendientes",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceVariant.copy(alpha = 0.7f),
         )
     }
 
-    HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
+    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.3f), thickness = 1.dp)
 }
 
 // ─── Section label ────────────────────────────────────────────────────────────
 
 @Composable
-private fun SectionLabel(text: String, typography: Typography) {
+private fun SectionLabel(text: String) {
+    val colors = LocalNeoFintechColors.current
+
     Text(
-        text     = text.uppercase(),
-        style    = typography.labelSmall.copy(
-            color         = TextHint,
-            fontWeight    = FontWeight.SemiBold,
-            fontSize      = 11.sp,
-            letterSpacing = 0.1.sp,
-        ),
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelSmall,
+        color = colors.onSurfaceVariant,
+        fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(bottom = 10.dp),
     )
 }
@@ -306,8 +271,8 @@ private fun SectionLabel(text: String, typography: Typography) {
 // ─── Transfer row ─────────────────────────────────────────────────────────────
 
 /**
- * Single transfer row inside a tinted surface pill.
- * Paid transfers: check icon + muted alpha.
+ * Single transfer row with staggered fade-in animation.
+ * Paid transfers: lower alpha + check icon.
  */
 @Composable
 private fun TransferRow(
@@ -316,24 +281,27 @@ private fun TransferRow(
     profiles: List<ProfileItem>,
     isPaid: Boolean,
     onTogglePaid: () -> Unit,
-    typography: Typography,
-    monoFont: androidx.compose.ui.text.font.FontFamily,
+    index: Int,
 ) {
-    val fromName    = profileNameResolver(transfer.fromProfileId)
-    val toName      = profileNameResolver(transfer.toProfileId)
+    val colors = LocalNeoFintechColors.current
+
+    val fromName = profileNameResolver(transfer.fromProfileId)
+    val toName = profileNameResolver(transfer.toProfileId)
     val fromProfile = profiles.find { it.id == transfer.fromProfileId }
-    val toProfile   = profiles.find { it.id == transfer.toProfileId }
-    val rowAlpha    = if (isPaid) 0.45f else 1f
+    val toProfile = profiles.find { it.id == transfer.toProfileId }
+    val rowAlpha = if (isPaid) 0.45f else 1f
 
     Surface(
         onClick = onTogglePaid,
-        shape   = ShapeRow,
-        color   = SurfaceRow,
+        shape = ShapeRow,
+        color = colors.surfaceContainer,
         modifier = Modifier
             .fillMaxWidth()
+            .fadeInStaggered(index = index)
             .then(
                 if (isPaid) Modifier.background(
-                    SurfaceRow.copy(alpha = 0.45f), ShapeRow,
+                    colors.surfaceContainer.copy(alpha = 0.45f),
+                    ShapeRow,
                 ) else Modifier
             ),
     ) {
@@ -341,62 +309,55 @@ private fun TransferRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment   = Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Check icon for paid state
             if (isPaid) {
-                Icon(
-                    imageVector        = Icons.Default.Check,
-                    contentDescription = "Pagado",
-                    tint               = GreenAccent.copy(alpha = rowAlpha),
-                    modifier           = Modifier.size(14.dp),
+                Text(
+                    text = "✓",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.primaryContainer.copy(alpha = rowAlpha),
+                    fontWeight = FontWeight.Bold,
                 )
             }
 
             // FROM avatar + name
             SmallAvatar(profile = fromProfile, fallbackLabel = fromName.take(1))
             Text(
-                text     = fromName,
-                style    = typography.bodyMedium.copy(
-                    color      = TextPrimary.copy(alpha = rowAlpha),
-                    fontWeight = FontWeight.Medium,
-                    fontSize   = 13.sp,
-                ),
+                text = fromName,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurface.copy(alpha = rowAlpha),
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
             )
 
             // Arrow
             Text(
-                text  = "→",
-                style = typography.bodyMedium.copy(
-                    color    = TextHint,
-                    fontSize = 11.sp,
-                ),
+                text = "→",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant.copy(alpha = 0.5f),
             )
 
             // TO avatar + name
             SmallAvatar(profile = toProfile, fallbackLabel = toName.take(1))
             Text(
-                text     = toName,
-                style    = typography.bodyMedium.copy(
-                    color      = TextPrimary.copy(alpha = rowAlpha),
-                    fontWeight = FontWeight.Medium,
-                    fontSize   = 13.sp,
-                ),
+                text = toName,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurface.copy(alpha = rowAlpha),
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
 
             // Amount
             Text(
-                text  = formatEuros(transfer.amount),
-                style = typography.bodyMedium.copy(
-                    fontFamily = monoFont,
-                    color      = if (isPaid) AmberAccent.copy(alpha = 0.5f) else AmberAccent,
+                text = formatEuros(transfer.amount),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = JetBrainsMonoFontFamily(),
                     fontWeight = FontWeight.SemiBold,
-                    fontSize   = 13.sp,
                 ),
+                color = if (isPaid) AmberAccent.copy(alpha = 0.5f) else AmberAccent,
             )
         }
     }
@@ -405,11 +366,14 @@ private fun TransferRow(
 // ─── Balance row ──────────────────────────────────────────────────────────────
 
 /**
- * Per-profile balance row with a mini proportional bar under the name.
+ * Per-profile balance row with an animated proportional bar under the name.
  *
- * creditor (balance > 0) → green
- * debtor   (balance < 0) → red
- * settled  (balance ≈ 0) → neutral
+ * Shows a "Tú" marker next to the current user's profile.
+ * Names longer than 7 characters fade out on the right edge.
+ *
+ * creditor (balance > 0) → green (primaryContainer)
+ * debtor   (balance < 0) → red (error)
+ * settled  (balance ≈ 0)  → neutral
  *
  * [maxAbs] is the largest absolute balance in the list, used to scale the bars.
  */
@@ -419,56 +383,96 @@ private fun BalanceRow(
     profile: ProfileItem?,
     balance: Double,
     maxAbs: Double,
-    typography: Typography,
-    monoFont: androidx.compose.ui.text.font.FontFamily,
+    currentProfileId: String?,
+    cardBg: Color,
 ) {
+    val colors = LocalNeoFintechColors.current
+
     val isCreditor = balance > 0.01
-    val isDebtor   = balance < -0.01
+    val isDebtor = balance < -0.01
+    val isCurrentUser = profile?.id != null && profile.id == currentProfileId
 
     val accentColor = when {
-        isCreditor -> GreenAccent
-        isDebtor   -> RedAccent
-        else       -> TextHint
+        isCreditor -> colors.primaryContainer
+        isDebtor -> colors.error
+        else -> colors.onSurfaceVariant
     }
-    val badgeBg     = when {
-        isCreditor -> GreenBg
-        isDebtor   -> RedBg
-        else       -> SurfaceRow
+    val badgeBg = when {
+        isCreditor -> colors.primaryContainer.copy(alpha = 0.1f)
+        isDebtor -> colors.error.copy(alpha = 0.1f)
+        else -> colors.surfaceContainer
     }
-    val badgeBorder = when {
-        isCreditor -> GreenBorder
-        isDebtor   -> RedBorder
-        else       -> BorderSubtle
-    }
-    val badgeLabel  = when {
+    val badgeLabel = when {
         isCreditor -> "Acreedor"
-        isDebtor   -> "Deudor"
-        else       -> "Saldado"
+        isDebtor -> "Deudor"
+        else -> "Saldado"
     }
     val barFraction = (kotlin.math.abs(balance) / maxAbs).toFloat().coerceIn(0f, 1f)
+    val animatedFraction by animateFloatAsState(
+        targetValue = barFraction,
+        animationSpec = tween(durationMillis = NeoFintechAnimations.PROPORTION_BAR_DURATION_MS),
+        label = "balanceBar",
+    )
 
     Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 10.dp),
-            verticalAlignment   = Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Avatar (36 dp)
             LargeAvatar(profile = profile, fallbackLabel = name.take(1))
 
-            // Name + mini bar
+            // Name + Tú marker + animated bar
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text  = name,
-                    style = typography.bodyMedium.copy(
-                        color      = TextPrimary,
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Name with optional fade if > 7 chars
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurface,
                         fontWeight = FontWeight.Medium,
-                        fontSize   = 14.sp,
-                    ),
-                    maxLines = 1,
-                )
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                        modifier = Modifier.weight(1f).then(
+                            if (name.length > 7) Modifier.drawWithContent {
+                                drawContent()
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.Transparent,
+                                            cardBg,
+                                        ),
+                                        startX = size.width * 0.6f,
+                                        endX = size.width,
+                                    ),
+                                    size = size,
+                                )
+                            } else Modifier
+                        ),
+                    )
+
+                    // "Tú" badge for current user
+                    if (isCurrentUser) {
+                        Spacer(Modifier.width(6.dp))
+                        Surface(
+                            shape = ShapeBadge,
+                            color = colors.primaryContainer.copy(alpha = 0.15f),
+                        ) {
+                            Text(
+                                text = "Tú",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                ),
+                                color = colors.primaryContainer,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                            )
+                        }
+                    }
+                }
                 Spacer(Modifier.height(5.dp))
                 // Track
                 Box(
@@ -476,12 +480,12 @@ private fun BalanceRow(
                         .fillMaxWidth()
                         .height(3.dp)
                         .clip(ShapePill)
-                        .background(SurfaceTrack),
+                        .background(colors.outlineVariant.copy(alpha = 0.25f)),
                 ) {
-                    // Fill
+                    // Animated fill
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(barFraction)
+                            .fillMaxWidth(animatedFraction)
                             .height(3.dp)
                             .clip(ShapePill)
                             .background(accentColor),
@@ -492,34 +496,31 @@ private fun BalanceRow(
             // Amount + badge
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text  = formatEuros(balance),
-                    style = typography.titleMedium.copy(
-                        fontFamily = monoFont,
-                        color      = accentColor,
+                    text = formatEuros(balance),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = JetBrainsMonoFontFamily(),
                         fontWeight = FontWeight.Bold,
-                        fontSize   = 15.sp,
                     ),
+                    color = accentColor,
                 )
                 Spacer(Modifier.height(4.dp))
                 Surface(
                     shape = ShapeBadge,
                     color = badgeBg,
-                    modifier = Modifier.border(1.dp, badgeBorder, ShapeBadge),
                 ) {
                     Text(
-                        text     = badgeLabel,
-                        style    = typography.labelSmall.copy(
-                            color      = accentColor,
+                        text = badgeLabel,
+                        style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.SemiBold,
-                            fontSize   = 10.sp,
                         ),
+                        color = accentColor,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
             }
         }
 
-        HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
+        HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.2f), thickness = 1.dp)
     }
 }
 
@@ -529,10 +530,10 @@ private fun BalanceRow(
 @Composable
 private fun SmallAvatar(profile: ProfileItem?, fallbackLabel: String) {
     ProfileAvatar(
-        name     = profile?.name ?: fallbackLabel,
-        emoji    = profile?.icon ?: "",
+        name = profile?.name ?: fallbackLabel,
+        emoji = profile?.icon ?: "",
         photoUrl = profile?.photoUrl,
-        size     = 28.dp,
+        size = 28.dp,
     )
 }
 
@@ -540,9 +541,9 @@ private fun SmallAvatar(profile: ProfileItem?, fallbackLabel: String) {
 @Composable
 private fun LargeAvatar(profile: ProfileItem?, fallbackLabel: String) {
     ProfileAvatar(
-        name     = profile?.name ?: fallbackLabel,
-        emoji    = profile?.icon ?: "",
+        name = profile?.name ?: fallbackLabel,
+        emoji = profile?.icon ?: "",
         photoUrl = profile?.photoUrl,
-        size     = 36.dp,
+        size = 36.dp,
     )
 }

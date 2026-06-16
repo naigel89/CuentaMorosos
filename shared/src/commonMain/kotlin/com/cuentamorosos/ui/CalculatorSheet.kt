@@ -77,6 +77,7 @@ fun CalculatorSheet(
     onApply: (CalculationResult) -> Unit,
     _deletedProfileIds: Set<String> = emptySet(),
     _priorSnapshot: CalculationSnapshot? = null,
+    currentUserUid: String? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -378,6 +379,7 @@ fun CalculatorSheet(
                                 paidTransferIndices + index
                             }
                         },
+                        currentProfileId = currentUserUid,
                     )
                 }
             }
