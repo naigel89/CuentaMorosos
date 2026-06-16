@@ -3,17 +3,21 @@ package com.cuentamorosos.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
@@ -23,6 +27,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.cuentamorosos.model.CalculationSnapshot
 import com.cuentamorosos.model.CalculationStatus
 import com.cuentamorosos.model.ProfileItem
@@ -102,7 +107,7 @@ fun TransferListPanel(
             } else {
                 Text(
                     text = "Transferencias sugeridas",
-                    style = typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    style = typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 )
                 snapshot.transfers.forEachIndexed { index, transfer ->
                     val isPaid = index in paidTransferIndices
@@ -123,7 +128,7 @@ fun TransferListPanel(
             if (snapshot.participantBalances.isNotEmpty()) {
                 Text(
                     text = "Saldos por perfil",
-                    style = typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    style = typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 )
                 snapshot.participantBalances.forEach { (profileId, balance) ->
                     val name = profileNameResolver(profileId)
@@ -265,20 +270,21 @@ private fun TransferRow(
                 ),
             )
         }
-        Text(
-            text = formatEuros(transfer.amount),
-            style = typography.labelSmall.copy(
-                fontFamily = monoFont,
-                color = if (isPaid) themeColors.tertiary else themeColors.primary,
-                fontWeight = FontWeight.Medium,
-            ),
-        )
+            Text(
+                text = formatEuros(transfer.amount),
+                style = typography.bodyMedium.copy(
+                    fontFamily = monoFont,
+                    color = if (isPaid) themeColors.tertiary else themeColors.primary,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+            )
     }
 }
 
 /**
  * Per-profile balance row: positive = creditor (green), negative = debtor (red).
- * ProfileAvatar (24dp) rendered before the profile name.
+ * ProfileAvatar (32dp) rendered before the profile name.
+ * Includes a colored classification badge and divider between rows.
  */
 @Composable
 private fun BalanceRow(
@@ -299,43 +305,72 @@ private fun BalanceRow(
         balance < -0.01 -> "Deudor"
         else -> "Saldado"
     }
+    val badgeBg = when {
+        balance > 0.01 -> themeColors.tertiaryContainer
+        balance < -0.01 -> themeColors.errorContainer
+        else -> themeColors.surfaceContainerHigh
+    }
+    val badgeTextColor = when {
+        balance > 0.01 -> themeColors.onTertiaryContainer
+        balance < -0.01 -> themeColors.onErrorContainer
+        else -> themeColors.onSurfaceVariant
+    }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    Column {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (profile != null) {
-                ProfileAvatar(
-                    name = profile.name,
-                    emoji = profile.icon,
-                    photoUrl = profile.photoUrl,
-                    size = 24.dp,
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (profile != null) {
+                    ProfileAvatar(
+                        name = profile.name,
+                        emoji = profile.icon,
+                        photoUrl = profile.photoUrl,
+                        size = 32.dp,
+                    )
+                }
+                Text(
+                    text = name,
+                    style = typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Medium,
+                        color = themeColors.onSurface,
+                    ),
                 )
+                // Colored classification badge
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = badgeBg,
+                ) {
+                    Text(
+                        text = balanceLabel,
+                        style = typography.labelSmall.copy(
+                            color = badgeTextColor,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp,
+                        ),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
             }
             Text(
-                text = name,
-                style = typography.bodySmall.copy(color = themeColors.onSurfaceVariant),
-            )
-            Text(
-                text = "($balanceLabel)",
-                style = typography.labelSmall.copy(
+                text = formatEuros(balance),
+                style = typography.titleMedium.copy(
+                    fontFamily = monoFont,
                     color = balanceColor,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Bold,
                 ),
             )
         }
-        Text(
-            text = formatEuros(balance),
-            style = typography.labelSmall.copy(
-                fontFamily = monoFont,
-                color = balanceColor,
-                fontWeight = FontWeight.Medium,
-            ),
+        HorizontalDivider(
+            color = themeColors.outlineVariant.copy(alpha = 0.5f),
+            thickness = 0.5.dp,
         )
     }
 }

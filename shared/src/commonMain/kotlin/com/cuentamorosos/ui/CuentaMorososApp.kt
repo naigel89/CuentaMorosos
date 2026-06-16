@@ -520,7 +520,7 @@ fun CuentaMorososApp(
                         if (validationErrors.isNotEmpty()) {
                             AlertDialog(
                                 onDismissRequest = { eventDetailViewModel.clearValidationErrors() },
-                                title = { Text("No se puede abrir el evento") },
+                                title = { Text("Acción no disponible") },
                                 text = {
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         validationErrors.forEach { error ->
