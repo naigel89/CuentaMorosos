@@ -1,19 +1,21 @@
 package com.cuentamorosos.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,8 +25,8 @@ import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,11 +35,37 @@ import com.cuentamorosos.model.CalculationStatus
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.formatEuros
 
+// ─── Design tokens ────────────────────────────────────────────────────────────
+
+private val SurfaceCard    = Color(0xFF181C27)
+private val SurfaceRow     = Color(0xFF1E2335)
+private val SurfaceTrack   = Color(0xFF252B40)
+private val BorderSubtle   = Color(0xFF2A2F45)
+private val BorderEmphasis = Color(0xFF363D5A)
+private val TextPrimary    = Color(0xFFF0F2F8)
+private val TextSecondary  = Color(0xFF8B91A8)
+private val TextHint       = Color(0xFF555E7A)
+private val GreenAccent    = Color(0xFF3DFFA0)
+private val GreenBg        = Color(0x143DFFA0)
+private val GreenBorder    = Color(0x333DFFA0)
+private val RedAccent      = Color(0xFFFF6B6B)
+private val RedBg          = Color(0x14FF6B6B)
+private val RedBorder      = Color(0x33FF6B6B)
+private val AmberAccent    = Color(0xFFFFB347)
+
+private val ShapeCard   = RoundedCornerShape(20.dp)
+private val ShapeRow    = RoundedCornerShape(8.dp)
+private val ShapeBadge  = RoundedCornerShape(4.dp)
+private val ShapePill   = RoundedCornerShape(99.dp)
+
+// ─── Root composable ──────────────────────────────────────────────────────────
+
 /**
  * Displays the results of a settlement calculation: status banner, transfer rows,
  * per-profile net balances, and total expense summary.
  *
  * Replaces the old SettlementCard usage in CalculatorSheet.
+ * Signature is unchanged — drop-in replacement.
  */
 @Composable
 fun TransferListPanel(
@@ -49,328 +77,472 @@ fun TransferListPanel(
     onTogglePaid: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val themeColors = MaterialTheme.colorScheme
-    val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
-    val monoFont = JetBrainsMonoFontFamily()
+    val monoFont   = JetBrainsMonoFontFamily()
 
-    Card(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = NeoFintechElevation.cardShadowElevation,
-                shape = NeoFintechElevation.cardShadowShape,
-                clip = false,
-            ),
-        colors = CardDefaults.cardColors(containerColor = themeColors.surface),
-        shape = shapes.lg,
-        border = BorderStroke(1.dp, themeColors.outline),
+            .border(1.dp, BorderEmphasis, ShapeCard),
+        shape    = ShapeCard,
+        color    = SurfaceCard,
+        tonalElevation = 0.dp,
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            // Section 1: Status banner
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // ── 1. Status banner ──────────────────────────────────────────────
             status?.let {
-                StatusBanner(status = it, typography = typography, themeColors = themeColors)
+                StatusBanner(status = it, typography = typography)
             }
 
-            // Section 2: Total expense header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            // ── 2. Total hero ─────────────────────────────────────────────────
+            TotalHero(
+                snapshot   = snapshot,
+                typography = typography,
+                monoFont   = monoFont,
+            )
+
+            // ── 3. Transfer rows ──────────────────────────────────────────────
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(
-                    text = "Total del evento",
-                    style = typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                )
-                Text(
-                    text = formatEuros(snapshot.totalExpense),
-                    style = typography.titleMedium.copy(
-                        fontFamily = monoFont,
-                        fontWeight = FontWeight.Bold,
-                        color = themeColors.primary,
-                    ),
-                )
-            }
+                SectionLabel(text = "Transferencias sugeridas", typography = typography)
 
-            // Section 3: Transfer rows
-            if (snapshot.transfers.isEmpty()) {
-                Text(
-                    text = "No hay transferencias pendientes",
-                    style = typography.bodyMedium.copy(
-                        color = themeColors.onSurfaceVariant,
-                    ),
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-            } else {
-                Text(
-                    text = "Transferencias sugeridas",
-                    style = typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                )
-                snapshot.transfers.forEachIndexed { index, transfer ->
-                    val isPaid = index in paidTransferIndices
-                    TransferRow(
-                        transfer = transfer,
-                        profileNameResolver = profileNameResolver,
-                        profiles = profiles,
-                        isPaid = isPaid,
-                        _onTogglePaid = { onTogglePaid(index) },
-                        typography = typography,
-                        themeColors = themeColors,
-                        monoFont = monoFont,
+                if (snapshot.transfers.isEmpty()) {
+                    Text(
+                        text  = "No hay transferencias pendientes",
+                        style = typography.bodyMedium.copy(color = TextSecondary),
+                        modifier = Modifier.padding(vertical = 8.dp),
                     )
+                } else {
+                    snapshot.transfers.forEachIndexed { index, transfer ->
+                        TransferRow(
+                            transfer            = transfer,
+                            profileNameResolver = profileNameResolver,
+                            profiles            = profiles,
+                            isPaid              = index in paidTransferIndices,
+                            onTogglePaid        = { onTogglePaid(index) },
+                            typography          = typography,
+                            monoFont            = monoFont,
+                        )
+                    }
                 }
             }
 
-            // Section 4: Per-profile net balances
+            HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
+
+            // ── 4. Per-profile balance rows ───────────────────────────────────
             if (snapshot.participantBalances.isNotEmpty()) {
-                Text(
-                    text = "Saldos por perfil",
-                    style = typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                )
-                snapshot.participantBalances.forEach { (profileId, balance) ->
-                    val name = profileNameResolver(profileId)
-                    val profile = profiles.find { it.id == profileId }
-                    BalanceRow(
-                        name = name,
-                        profile = profile,
-                        balance = balance,
-                        typography = typography,
-                        themeColors = themeColors,
-                        monoFont = monoFont,
-                    )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                ) {
+                    SectionLabel(text = "Saldos por perfil", typography = typography)
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    val maxAbs = snapshot.participantBalances.values
+                        .maxOfOrNull { kotlin.math.abs(it) }
+                        ?.takeIf { it > 0.0 } ?: 1.0
+
+                    snapshot.participantBalances.forEach { (profileId, balance) ->
+                        val name    = profileNameResolver(profileId)
+                        val profile = profiles.find { it.id == profileId }
+                        BalanceRow(
+                            name       = name,
+                            profile    = profile,
+                            balance    = balance,
+                            maxAbs     = maxAbs,
+                            typography = typography,
+                            monoFont   = monoFont,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+// ─── Status banner ────────────────────────────────────────────────────────────
+
 /**
- * Color-coded status banner for CalculationStatus variants.
+ * Slim top banner with a glowing dot and a tinted background.
  *
- * Coverage: All 4 CalculationStatus variants are handled:
- * - Success: tertiaryContainer + ✅ checkmark + "Cálculo completado"
- * - ZeroBalance: primaryContainer + 🎉 celebration + "Todo está saldado"
- * - EdgeCaseWarning: secondaryContainer + ⚠️ warning + custom message
- * - Error: errorContainer + ❌ error icon + custom message
+ * Success / ZeroBalance → green
+ * EdgeCaseWarning       → amber
+ * Error                 → red
  */
 @Composable
 private fun StatusBanner(
     status: CalculationStatus,
     typography: Typography,
-    themeColors: androidx.compose.material3.ColorScheme,
 ) {
-    val (backgroundColor, contentColor, icon) = when (status) {
+    val (bgColor, dotColor, textColor) = when (status) {
         is CalculationStatus.Success ->
-            Triple(themeColors.tertiaryContainer, themeColors.onTertiaryContainer, "\u2705")
+            Triple(Color(0x113DFFA0), GreenAccent, GreenAccent)
         is CalculationStatus.ZeroBalance ->
-            Triple(themeColors.primaryContainer, themeColors.onPrimaryContainer, "\uD83C\uDF89")
+            Triple(Color(0x113DFFA0), GreenAccent, GreenAccent)
         is CalculationStatus.EdgeCaseWarning ->
-            Triple(themeColors.secondaryContainer, themeColors.onSecondaryContainer, "\u26A0\uFE0F")
+            Triple(Color(0x11FFB347), AmberAccent, AmberAccent)
         is CalculationStatus.Error ->
-            Triple(themeColors.errorContainer, themeColors.onErrorContainer, "\u274C")
+            Triple(Color(0x11FF6B6B), RedAccent, RedAccent)
     }
+    val borderColor = dotColor.copy(alpha = 0.15f)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color = backgroundColor, shape = NeoFintechShapes.md)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .background(bgColor)
+            .padding(horizontal = 20.dp, vertical = 13.dp),
+        verticalAlignment   = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(
-            text = icon,
-            style = typography.bodyMedium,
+        // Glowing dot
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(dotColor),
         )
         Text(
-            text = status.message,
-            style = typography.bodyMedium.copy(color = contentColor),
-            modifier = Modifier.weight(1f),
+            text  = status.message,
+            style = typography.bodySmall.copy(
+                color      = textColor,
+                fontWeight = FontWeight.Medium,
+                fontSize   = 13.sp,
+            ),
         )
     }
+
+    HorizontalDivider(color = borderColor, thickness = 1.dp)
 }
 
+// ─── Total hero ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun TotalHero(
+    snapshot: CalculationSnapshot,
+    typography: Typography,
+    monoFont: androidx.compose.ui.text.font.FontFamily,
+) {
+    val participantCount = snapshot.participantBalances.size
+    val transferCount    = snapshot.transfers.size
+    val formattedAmount  = formatEuros(snapshot.totalExpense)
+        .replace(" €", "").replace("€", "").trim()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // Eyebrow label
+        Text(
+            text  = "TOTAL DEL EVENTO",
+            style = typography.labelSmall.copy(
+                color          = TextHint,
+                fontWeight     = FontWeight.SemiBold,
+                fontSize       = 11.sp,
+                letterSpacing  = 0.1.sp,
+            ),
+        )
+
+        // Large mono amount
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text  = formattedAmount,
+                style = typography.displaySmall.copy(
+                    fontFamily    = monoFont,
+                    fontWeight    = FontWeight.Bold,
+                    color         = TextPrimary,
+                    fontSize      = 38.sp,
+                    letterSpacing = (-0.5).sp,
+                    lineHeight    = 38.sp,
+                ),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text  = "€",
+                style = typography.titleLarge.copy(
+                    color      = TextSecondary,
+                    fontWeight = FontWeight.Normal,
+                    fontSize   = 20.sp,
+                ),
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+        }
+
+        // Metadata line
+        Text(
+            text  = "$participantCount participantes · $transferCount transferencias pendientes",
+            style = typography.bodySmall.copy(
+                color    = TextHint,
+                fontSize = 12.sp,
+            ),
+        )
+    }
+
+    HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
+}
+
+// ─── Section label ────────────────────────────────────────────────────────────
+
+@Composable
+private fun SectionLabel(text: String, typography: Typography) {
+    Text(
+        text     = text.uppercase(),
+        style    = typography.labelSmall.copy(
+            color         = TextHint,
+            fontWeight    = FontWeight.SemiBold,
+            fontSize      = 11.sp,
+            letterSpacing = 0.1.sp,
+        ),
+        modifier = Modifier.padding(bottom = 10.dp),
+    )
+}
+
+// ─── Transfer row ─────────────────────────────────────────────────────────────
+
 /**
- * Single transfer row: "Perfil A → Perfil B: XX,XX €"
- * Paid transfers show checkmark + muted styling.
- * ProfileAvatar (24dp) rendered before each profile name.
+ * Single transfer row inside a tinted surface pill.
+ * Paid transfers: check icon + muted alpha.
  */
-@Suppress("UNUSED_PARAMETER")
 @Composable
 private fun TransferRow(
     transfer: com.cuentamorosos.model.SettlementTransfer,
     profileNameResolver: (String) -> String,
     profiles: List<ProfileItem>,
     isPaid: Boolean,
-    _onTogglePaid: () -> Unit,
+    onTogglePaid: () -> Unit,
     typography: Typography,
-    themeColors: androidx.compose.material3.ColorScheme,
     monoFont: androidx.compose.ui.text.font.FontFamily,
 ) {
-    val fromName = profileNameResolver(transfer.fromProfileId)
-    val toName = profileNameResolver(transfer.toProfileId)
+    val fromName    = profileNameResolver(transfer.fromProfileId)
+    val toName      = profileNameResolver(transfer.toProfileId)
     val fromProfile = profiles.find { it.id == transfer.fromProfileId }
-    val toProfile = profiles.find { it.id == transfer.toProfileId }
+    val toProfile   = profiles.find { it.id == transfer.toProfileId }
+    val rowAlpha    = if (isPaid) 0.45f else 1f
 
-    Row(
+    Surface(
+        onClick = onTogglePaid,
+        shape   = ShapeRow,
+        color   = SurfaceRow,
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(if (isPaid) 0.5f else 1f),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+            .then(
+                if (isPaid) Modifier.background(
+                    SurfaceRow.copy(alpha = 0.45f), ShapeRow,
+                ) else Modifier
+            ),
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment   = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // Check icon for paid state
             if (isPaid) {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    imageVector        = Icons.Default.Check,
                     contentDescription = "Pagado",
-                    modifier = Modifier.size(16.dp),
-                    tint = themeColors.tertiary,
+                    tint               = GreenAccent.copy(alpha = rowAlpha),
+                    modifier           = Modifier.size(14.dp),
                 )
             }
-            if (fromProfile != null) {
-                ProfileAvatar(
-                    name = fromProfile.name,
-                    emoji = fromProfile.icon,
-                    photoUrl = fromProfile.photoUrl,
-                    size = 24.dp,
-                )
-            }
+
+            // FROM avatar + name
+            SmallAvatar(profile = fromProfile, fallbackLabel = fromName.take(1))
             Text(
-                text = fromName,
+                text     = fromName,
+                style    = typography.bodyMedium.copy(
+                    color      = TextPrimary.copy(alpha = rowAlpha),
+                    fontWeight = FontWeight.Medium,
+                    fontSize   = 13.sp,
+                ),
+                maxLines = 1,
+            )
+
+            // Arrow
+            Text(
+                text  = "→",
                 style = typography.bodyMedium.copy(
-                    color = if (isPaid) themeColors.onSurfaceVariant else themeColors.onSurface,
+                    color    = TextHint,
+                    fontSize = 11.sp,
                 ),
             )
+
+            // TO avatar + name
+            SmallAvatar(profile = toProfile, fallbackLabel = toName.take(1))
             Text(
-                text = "→",
-                style = typography.bodyMedium.copy(
-                    color = themeColors.onSurfaceVariant,
+                text     = toName,
+                style    = typography.bodyMedium.copy(
+                    color      = TextPrimary.copy(alpha = rowAlpha),
+                    fontWeight = FontWeight.Medium,
+                    fontSize   = 13.sp,
                 ),
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
             )
-            if (toProfile != null) {
-                ProfileAvatar(
-                    name = toProfile.name,
-                    emoji = toProfile.icon,
-                    photoUrl = toProfile.photoUrl,
-                    size = 24.dp,
-                )
-            }
+
+            // Amount
             Text(
-                text = toName,
+                text  = formatEuros(transfer.amount),
                 style = typography.bodyMedium.copy(
-                    color = if (isPaid) themeColors.onSurfaceVariant else themeColors.onSurface,
+                    fontFamily = monoFont,
+                    color      = if (isPaid) AmberAccent.copy(alpha = 0.5f) else AmberAccent,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize   = 13.sp,
                 ),
             )
         }
-            Text(
-                text = formatEuros(transfer.amount),
-                style = typography.bodyMedium.copy(
-                    fontFamily = monoFont,
-                    color = if (isPaid) themeColors.tertiary else themeColors.primary,
-                    fontWeight = FontWeight.SemiBold,
-                ),
-            )
     }
 }
 
+// ─── Balance row ──────────────────────────────────────────────────────────────
+
 /**
- * Per-profile balance row: positive = creditor (green), negative = debtor (red).
- * ProfileAvatar (32dp) rendered before the profile name.
- * Includes a colored classification badge and divider between rows.
+ * Per-profile balance row with a mini proportional bar under the name.
+ *
+ * creditor (balance > 0) → green
+ * debtor   (balance < 0) → red
+ * settled  (balance ≈ 0) → neutral
+ *
+ * [maxAbs] is the largest absolute balance in the list, used to scale the bars.
  */
 @Composable
 private fun BalanceRow(
     name: String,
     profile: ProfileItem?,
     balance: Double,
+    maxAbs: Double,
     typography: Typography,
-    themeColors: androidx.compose.material3.ColorScheme,
     monoFont: androidx.compose.ui.text.font.FontFamily,
 ) {
-    val balanceColor = when {
-        balance > 0.01 -> themeColors.tertiary // creditor = green
-        balance < -0.01 -> themeColors.error   // debtor = red
-        else -> themeColors.onSurfaceVariant     // zero = neutral
+    val isCreditor = balance > 0.01
+    val isDebtor   = balance < -0.01
+
+    val accentColor = when {
+        isCreditor -> GreenAccent
+        isDebtor   -> RedAccent
+        else       -> TextHint
     }
-    val balanceLabel = when {
-        balance > 0.01 -> "Acreedor"
-        balance < -0.01 -> "Deudor"
-        else -> "Saldado"
+    val badgeBg     = when {
+        isCreditor -> GreenBg
+        isDebtor   -> RedBg
+        else       -> SurfaceRow
     }
-    val badgeBg = when {
-        balance > 0.01 -> themeColors.tertiaryContainer
-        balance < -0.01 -> themeColors.errorContainer
-        else -> themeColors.surfaceContainerHigh
+    val badgeBorder = when {
+        isCreditor -> GreenBorder
+        isDebtor   -> RedBorder
+        else       -> BorderSubtle
     }
-    val badgeTextColor = when {
-        balance > 0.01 -> themeColors.onTertiaryContainer
-        balance < -0.01 -> themeColors.onErrorContainer
-        else -> themeColors.onSurfaceVariant
+    val badgeLabel  = when {
+        isCreditor -> "Acreedor"
+        isDebtor   -> "Deudor"
+        else       -> "Saldado"
     }
+    val barFraction = (kotlin.math.abs(balance) / maxAbs).toFloat().coerceIn(0f, 1f)
 
     Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(vertical = 10.dp),
+            verticalAlignment   = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (profile != null) {
-                    ProfileAvatar(
-                        name = profile.name,
-                        emoji = profile.icon,
-                        photoUrl = profile.photoUrl,
-                        size = 32.dp,
+            // Avatar (36 dp)
+            LargeAvatar(profile = profile, fallbackLabel = name.take(1))
+
+            // Name + mini bar
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text  = name,
+                    style = typography.bodyMedium.copy(
+                        color      = TextPrimary,
+                        fontWeight = FontWeight.Medium,
+                        fontSize   = 14.sp,
+                    ),
+                    maxLines = 1,
+                )
+                Spacer(Modifier.height(5.dp))
+                // Track
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(ShapePill)
+                        .background(SurfaceTrack),
+                ) {
+                    // Fill
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(barFraction)
+                            .height(3.dp)
+                            .clip(ShapePill)
+                            .background(accentColor),
                     )
                 }
+            }
+
+            // Amount + badge
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = name,
-                    style = typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Medium,
-                        color = themeColors.onSurface,
+                    text  = formatEuros(balance),
+                    style = typography.titleMedium.copy(
+                        fontFamily = monoFont,
+                        color      = accentColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize   = 15.sp,
                     ),
                 )
-                // Colored classification badge
+                Spacer(Modifier.height(4.dp))
                 Surface(
-                    shape = RoundedCornerShape(4.dp),
+                    shape = ShapeBadge,
                     color = badgeBg,
+                    modifier = Modifier.border(1.dp, badgeBorder, ShapeBadge),
                 ) {
                     Text(
-                        text = balanceLabel,
-                        style = typography.labelSmall.copy(
-                            color = badgeTextColor,
+                        text     = badgeLabel,
+                        style    = typography.labelSmall.copy(
+                            color      = accentColor,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 11.sp,
+                            fontSize   = 10.sp,
                         ),
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
             }
-            Text(
-                text = formatEuros(balance),
-                style = typography.titleMedium.copy(
-                    fontFamily = monoFont,
-                    color = balanceColor,
-                    fontWeight = FontWeight.Bold,
-                ),
-            )
         }
-        HorizontalDivider(
-            color = themeColors.outlineVariant.copy(alpha = 0.5f),
-            thickness = 0.5.dp,
-        )
+
+        HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
     }
+}
+
+// ─── Avatar helpers ───────────────────────────────────────────────────────────
+
+/** 28 dp avatar used in transfer rows. */
+@Composable
+private fun SmallAvatar(profile: ProfileItem?, fallbackLabel: String) {
+    ProfileAvatar(
+        name     = profile?.name ?: fallbackLabel,
+        emoji    = profile?.icon ?: "",
+        photoUrl = profile?.photoUrl,
+        size     = 28.dp,
+    )
+}
+
+/** 36 dp avatar used in balance rows. */
+@Composable
+private fun LargeAvatar(profile: ProfileItem?, fallbackLabel: String) {
+    ProfileAvatar(
+        name     = profile?.name ?: fallbackLabel,
+        emoji    = profile?.icon ?: "",
+        photoUrl = profile?.photoUrl,
+        size     = 36.dp,
+    )
 }
