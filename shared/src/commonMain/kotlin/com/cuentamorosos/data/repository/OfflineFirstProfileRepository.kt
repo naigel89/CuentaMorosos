@@ -411,17 +411,50 @@ class OfflineFirstProfileRepository(
     private fun serializeCustomNames(customNames: Map<String, String>): String {
         if (customNames.isEmpty()) return ""
         return customNames.entries.joinToString("|") { (key, value) ->
-            "${key}=${value}"
+            "$key=${value.replace("|", "\\|")}"
         }
     }
 
     private fun parseCustomNames(json: String): Map<String, String> {
         if (json.isBlank()) return emptyMap()
-        return json.split("|").mapNotNull { part ->
+        val result = mutableMapOf<String, String>()
+        val parts = splitAtUnescapedPipe(json)
+        for (part in parts) {
             val eq = part.indexOf('=')
-            if (eq > 0) part.substring(0, eq) to part.substring(eq + 1) else null
-        }.toMap()
+            if (eq > 0) {
+                result[part.substring(0, eq)] = part.substring(eq + 1).unescapePipe()
+            }
+        }
+        return result
     }
+
+    /** Splits on `|` that is NOT preceded by `\`. */
+    private fun splitAtUnescapedPipe(input: String): List<String> {
+        val parts = mutableListOf<String>()
+        val current = StringBuilder()
+        var i = 0
+        while (i < input.length) {
+            when {
+                input[i] == '\\' && i + 1 < input.length && input[i + 1] == '|' -> {
+                    current.append("\\|")
+                    i += 2
+                }
+                input[i] == '|' -> {
+                    parts.add(current.toString())
+                    current.clear()
+                    i++
+                }
+                else -> {
+                    current.append(input[i])
+                    i++
+                }
+            }
+        }
+        parts.add(current.toString())
+        return parts
+    }
+
+    private fun String.unescapePipe(): String = replace("\\|", "|")
 
     // ── Mapping Helpers ─────────────────────────────────────────────────────
 

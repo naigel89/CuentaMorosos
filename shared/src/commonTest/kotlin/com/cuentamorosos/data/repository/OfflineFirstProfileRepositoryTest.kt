@@ -76,12 +76,42 @@ class OfflineFirstProfileRepositoryTest {
             "friend!" to "Value|with|pipe",
         )
 
-        val serialized = original.entries.joinToString("|") { "${it.key}=${it.value}" }
-        val deserialized = serialized.split("|").mapNotNull { part ->
+        // Matches OfflineFirstProfileRepository.serializeCustomNames — escape pipes in values
+        val serialized = original.entries.joinToString("|") { (key, value) ->
+            "$key=${value.replace("|", "\\|")}"
+        }
+        // Matches OfflineFirstProfileRepository.parseCustomNames — split by unescaped pipe
+        val deserialized = parseEscaped(serialized).mapNotNull { part ->
             val eq = part.indexOf('=')
-            if (eq > 0) part.substring(0, eq) to part.substring(eq + 1) else null
+            if (eq > 0) part.substring(0, eq) to part.substring(eq + 1).replace("\\|", "|") else null
         }.toMap()
 
         assertEquals(original, deserialized)
+    }
+
+    /** Replicates OfflineFirstProfileRepository.splitAtUnescapedPipe — splits on `|` not preceded by `\`. */
+    private fun parseEscaped(input: String): List<String> {
+        val parts = mutableListOf<String>()
+        val current = StringBuilder()
+        var i = 0
+        while (i < input.length) {
+            when {
+                input[i] == '\\' && i + 1 < input.length && input[i + 1] == '|' -> {
+                    current.append("\\|")
+                    i += 2
+                }
+                input[i] == '|' -> {
+                    parts.add(current.toString())
+                    current.clear()
+                    i++
+                }
+                else -> {
+                    current.append(input[i])
+                    i++
+                }
+            }
+        }
+        parts.add(current.toString())
+        return parts
     }
 }
