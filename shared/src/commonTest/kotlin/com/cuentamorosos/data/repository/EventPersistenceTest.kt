@@ -5,6 +5,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.cuentamorosos.db.CuentaMorososDatabase
 import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.serializeParticipants
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -75,5 +76,30 @@ class EventPersistenceTest {
 
         val afterDelete = queries.selectAll().executeAsList()
         assertEquals(0, afterDelete.size)
+    }
+
+    // ── DRAFT → OPEN fallback on load ────────────────────────────────────────
+
+    @Test
+    fun `loading persisted DRAFT string falls back to OPEN`() {
+        // Simulates the persistence layer fallback:
+        // runCatching { EventState.valueOf("DRAFT") }.getOrDefault(EventState.OPEN)
+        val storedState = "DRAFT"
+        val resolvedState = runCatching { EventState.valueOf(storedState) }.getOrDefault(EventState.OPEN)
+        assertEquals(EventState.OPEN, resolvedState)
+    }
+
+    @Test
+    fun `loading valid OPEN state string resolves to OPEN`() {
+        val storedState = "OPEN"
+        val resolvedState = runCatching { EventState.valueOf(storedState) }.getOrDefault(EventState.OPEN)
+        assertEquals(EventState.OPEN, resolvedState)
+    }
+
+    @Test
+    fun `loading valid CALCULATED state string resolves to CALCULATED`() {
+        val storedState = "CALCULATED"
+        val resolvedState = runCatching { EventState.valueOf(storedState) }.getOrDefault(EventState.OPEN)
+        assertEquals(EventState.CALCULATED, resolvedState)
     }
 }
