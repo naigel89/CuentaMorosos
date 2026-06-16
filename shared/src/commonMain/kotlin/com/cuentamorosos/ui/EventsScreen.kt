@@ -615,7 +615,7 @@ private fun EventEditorDialog(
                         participants = newParticipants,
                         ownerId = ownerId,
                     )
-                    val result = EventValidator.validate(draftEvent, itemCount)
+                    val result = EventValidator.validate(draftEvent, itemCount, isNewlyCreated = isNew)
 
                     if (result.hasErrors()) {
                         validationErrors = result.allErrors()

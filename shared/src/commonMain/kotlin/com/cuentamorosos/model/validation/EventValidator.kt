@@ -14,9 +14,11 @@ object EventValidator {
      *
      * @param event the event to validate
      * @param itemCount number of expenses currently registered (default 0)
+     * @param isNewlyCreated when true, EV-06 (no expenses warning) is suppressed —
+     *   a new event is expected to have zero expenses during creation.
      * @return [ValidationResult] with accumulated errors and warnings
      */
-    fun validate(event: EventItem, itemCount: Int = 0): ValidationResult {
+    fun validate(event: EventItem, itemCount: Int = 0, isNewlyCreated: Boolean = false): ValidationResult {
         val errors = mutableListOf<ValidationError>()
         val warnings = mutableListOf<ValidationError>()
 
@@ -60,8 +62,8 @@ object EventValidator {
             )
         }
 
-        // EV-06: No items warning — always active
-        if (itemCount == 0) {
+        // EV-06: No items warning — skipped during creation (new events start with 0 expenses)
+        if (!isNewlyCreated && itemCount == 0) {
             warnings.add(
                 ValidationError("El evento no tiene gastos registrados"),
             )
