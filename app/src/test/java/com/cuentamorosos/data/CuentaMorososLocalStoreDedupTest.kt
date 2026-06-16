@@ -204,7 +204,7 @@ class CuentaMorososLocalStoreDedupTest {
             ),
             EventItem(
                 id = "evt-4", name = "Event 4", dateMillis = System.currentTimeMillis(),
-                ownerId = "owner-1", state = EventState.DRAFT, // NOT calculated
+                ownerId = "owner-1", state = EventState.OPEN, // NOT calculated
             ),
         )
 
