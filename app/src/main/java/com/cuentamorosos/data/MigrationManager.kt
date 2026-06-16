@@ -4,6 +4,7 @@ import android.content.Context
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.SUPPORTED_CURRENCY
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -107,6 +108,7 @@ object MigrationManager {
             },
             "participantIds" to participants.map { it.profileId },
             "baseCurrency" to (baseCurrency.takeIf { it.isNotBlank() } ?: SUPPORTED_CURRENCY),
+            "state" to state.name,
             "lastCalculationMode" to lastCalculationMode,
             "lastCalculationTotal" to lastCalculationTotal,
             "lastCalculationTimestamp" to lastCalculationTimestamp,

@@ -43,8 +43,8 @@ class CuentaMorososLocalStore(context: Context) {
                 baseCurrency = item.optString("baseCurrency", ""),
                 creatorId = item.optString("creatorId", ""),
                 state = runCatching {
-                    EventState.valueOf(item.optString("state", "DRAFT"))
-                }.getOrDefault(EventState.DRAFT),
+                    EventState.valueOf(item.optString("state", "OPEN"))
+                }.getOrDefault(EventState.OPEN),
                 lastCalculationMode = item.optString("lastCalculationMode").takeIf { it.isNotBlank() },
                 lastCalculationTotal = item.optDouble("lastCalculationTotal").takeIf { item.has("lastCalculationTotal") },
                 lastCalculationTimestamp = item.optLong("lastCalculationTimestamp").takeIf { item.has("lastCalculationTimestamp") },
@@ -421,7 +421,7 @@ class CuentaMorososLocalStore(context: Context) {
      * Only runs when [KEY_SENT_FINGERPRINTS] does not yet exist.
      * For each [EventItem] with [EventState.CALCULATED] state, registers
      * a `CALCULATION_COMPLETED:{eventId}` fingerprint. Non-calculated events
-     * (OPEN, DRAFT, CLOSED) are skipped.
+     * (OPEN, CLOSED) are skipped.
      * Thread-safe via [synchronized] on the underlying [SharedPreferences].
      */
     fun seedDedupMigration(events: List<EventItem>) {

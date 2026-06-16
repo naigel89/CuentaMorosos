@@ -16,11 +16,9 @@ const val SUPPORTED_CURRENCY = "EUR"
 
 /**
  * Event lifecycle states.
- * Transitions (informational): DRAFT → OPEN → CALCULATED → CLOSED
+ * Transitions: OPEN → CALCULATED → CLOSED
  */
 enum class EventState {
-    /** Event being configured, not yet active. */
-    DRAFT,
     /** Event is active, expenses can be added. */
     OPEN,
     /** Debts have been calculated. */
@@ -84,7 +82,7 @@ data class EventItem(
     val endDateMillis: Long = dateMillis,
     val baseCurrency: String = SUPPORTED_CURRENCY,
     val creatorId: String = "",
-    val state: EventState = EventState.DRAFT,
+    val state: EventState = EventState.OPEN,
     val lastCalculationMode: String? = null,
     val lastCalculationTotal: Double? = null,
     val lastCalculationTimestamp: Long? = null,
@@ -232,13 +230,11 @@ object InvitationStatus {
 
 // ── State helpers ─────────────────────────────────────────────────────────────
 
-fun EventItem.isDraft(): Boolean = state == EventState.DRAFT
 fun EventItem.isOpen(): Boolean = state == EventState.OPEN
 fun EventItem.isCalculated(): Boolean = state == EventState.CALCULATED
 fun EventItem.isClosed(): Boolean = state == EventState.CLOSED
 
 fun EventItem.stateLabel(): String = when (state) {
-    EventState.DRAFT -> "Borrador"
     EventState.OPEN -> "Abierto"
     EventState.CALCULATED -> "Calculado"
     EventState.CLOSED -> "Cerrado"

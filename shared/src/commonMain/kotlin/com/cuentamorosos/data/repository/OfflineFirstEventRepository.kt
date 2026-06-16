@@ -261,6 +261,6 @@ class OfflineFirstEventRepository(
         lastCalculationSummary = lastCalculationSummary,
         startDateMillis = if (startDateMillis == 0L) dateMillis else startDateMillis,
         endDateMillis = if (endDateMillis == 0L) dateMillis else endDateMillis,
-        state = runCatching { EventState.valueOf(state) }.getOrDefault(EventState.DRAFT)
+        state = runCatching { EventState.valueOf(state) }.getOrDefault(EventState.OPEN)
     ))
 }
