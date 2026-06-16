@@ -11,6 +11,7 @@ import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.notifications.NotificationEvent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,7 @@ class DashboardViewModel(
     private val expenseRepository: ExpenseRepository,
     private val profileRepository: ProfileRepository,
     private val currentUserUid: String,
+    private val onCalculationCompleted: ((NotificationEvent.CalculationCompleted) -> Unit)? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardState())
@@ -55,100 +57,228 @@ class DashboardViewModel(
         expenses: List<EventExpenseItem>,
         profiles: List<ProfileItem>,
     ): DashboardState {
-        val totalOwedToYou = debts
-            .filter { !it.paid }
-            .sumOf { it.amountEuros }
+        // ── TRIGGER: Detect CALCULATED transitions ──
+        events.forEach { event ->
+            if (event.state == EventState.CALCULATED) {
+
+                // Calculate how much the current user owes for this event
+                val amountOwed = debts
+                    .filter { it.eventId == event.id && it.profileId == currentUserUid && !it.paid }
+                    .sumOf { it.amountEuros }
+
+                if (amountOwed > 0) {
+                    onCalculationCompleted?.invoke(
+                        NotificationEvent.CalculationCompleted(
+                            eventId = event.id,
+                            eventName = event.name,
+                            amountOwed = amountOwed,
+                        )
+                    )
+                }
+            }
+        }
+
+        // ── Compute totals ──
+        val totalOwedToYou = calculateTotalOwedToYou(debts, currentUserUid)
 
         val totalYouOwe = debts
             .filter { !it.paid && it.profileId == currentUserUid }
             .sumOf { it.amountEuros }
 
-        val smartAlerts = computeSmartAlerts(events, expenses)
-        val allEvents = buildAllEvents(events, debts, expenses)
-        val breakdown = computeProfileBreakdown(debts, profiles, currentUserUid)
+        // ── Compute breakdowns ──
+        val profileMap = profiles.associateBy { it.id }
+        val eventMap = events.associateBy { it.id }
+
+        val (owedToYouBreakdown, youOweBreakdown) = computeProfileBreakdown(
+            debts = debts,
+            expenses = expenses,
+            eventMap = eventMap,
+            profileMap = profileMap,
+            currentUserUid = currentUserUid,
+        )
+
+        // ── Build unified list (one person per row, sorted by amount desc) ──
+        val unifiedBreakdown = buildUnifiedBreakdown(
+            owedToYou = owedToYouBreakdown,
+            youOwe = youOweBreakdown,
+        )
 
         return DashboardState(
             totalOwedToYou = totalOwedToYou,
             totalYouOwe = totalYouOwe,
-            smartAlerts = smartAlerts,
-            allEvents = allEvents,
-            owedToYouBreakdown = breakdown.owedToYouBreakdown,
-            youOweBreakdown = breakdown.youOweBreakdown,
+            owedToYouBreakdown = owedToYouBreakdown,
+            youOweBreakdown = youOweBreakdown,
+            unifiedBreakdown = unifiedBreakdown,
         )
     }
 
-    private fun computeSmartAlerts(
-        events: List<EventItem>,
-        expenses: List<EventExpenseItem>,
-    ): List<SmartAlert> {
-        val alerts = mutableListOf<SmartAlert>()
-
-        val eventsWithExpenses = expenses.map { it.eventId }.toSet()
-        val eventsWithCalculation = events
-            .filter { it.lastCalculationMode != null }
-            .map { it.id }
-            .toSet()
-
-        events.forEach { event ->
-            if (event.state == EventState.CLOSED) return@forEach
-
-            if (event.effectiveMemberIds.isEmpty()) {
-                alerts.add(
-                    SmartAlert(
-                        type = AlertType.NO_PARTICIPANTS,
-                        message = "${event.name} sin participantes",
-                        icon = "\uD83D\uDC65",
-                        eventId = event.id,
-                    ),
-                )
-            }
-
-            if (event.id !in eventsWithExpenses) {
-                alerts.add(
-                    SmartAlert(
-                        type = AlertType.NO_EXPENSES,
-                        message = "${event.name} sin gastos",
-                        icon = "\uD83E\uDDFE",
-                        eventId = event.id,
-                    ),
-                )
-            }
-
-            if (event.id in eventsWithExpenses && event.id !in eventsWithCalculation) {
-                alerts.add(
-                    SmartAlert(
-                        type = AlertType.PENDING_CALCULATIONS,
-                        message = "${event.name} pendiente de calcular",
-                        icon = "\uD83E\uDDEE",
-                        eventId = event.id,
-                    ),
-                )
-            }
-        }
-
-        return alerts
-    }
-
-    private fun buildAllEvents(
-        events: List<EventItem>,
+    /**
+     * Splits debts into two groups:
+     * 1. **owedToYou** — debts where OTHERS owe the current user (profileId != currentUserUid).
+     *    Grouped by debtor profile (the person who owes you).
+     * 2. **youOwe** — debts where the current user OWES others (profileId == currentUserUid).
+     *    Resolves the creditor from expenses (paidByProfileId), then groups by that person.
+     */
+    private fun computeProfileBreakdown(
         debts: List<EventDebtItem>,
         expenses: List<EventExpenseItem>,
-    ): List<DashboardEventRow> = events
-        .filter { it.state != EventState.CLOSED }
-        .map { event ->
-        val eventExpenses = expenses.filter { it.eventId == event.id }
-        val eventDebts = debts.filter { it.eventId == event.id }
-        val totalExpenses = eventExpenses.sumOf { it.amountEuros }
-        val totalDebts = eventDebts.sumOf { it.amountEuros }
-        val netAmount = if (totalExpenses > 0) totalExpenses else totalDebts
+        eventMap: Map<String, EventItem>,
+        profileMap: Map<String, ProfileItem>,
+        currentUserUid: String,
+    ): Pair<List<DebtBreakdownItem>, List<DebtBreakdownItem>> {
+        // ── "Te deben" — others owe you ──
+        val owedToYou = debts
+            .filter { !it.paid && it.profileId != currentUserUid }
+            .groupBy { it.profileId }
+            .map { (profileId, profileDebts) ->
+                val profile = profileMap[profileId]
+                DebtBreakdownItem(
+                    profileId = profileId,
+                    profileName = profile?.name ?: "Desconocido",
+                    amount = profileDebts.sumOf { it.amountEuros },
+                    events = profileDebts.map { debt ->
+                        val event = eventMap[debt.eventId]
+                        EventDebt(
+                            eventId = debt.eventId,
+                            eventName = event?.name ?: "Evento",
+                            amount = debt.amountEuros,
+                        )
+                    },
+                )
+            }
+            .sortedByDescending { it.amount }
 
-        DashboardEventRow(
-            eventId = event.id,
-            eventName = event.name,
-            amount = netAmount,
-            participantCount = event.effectiveMemberIds.size,
-            state = event.state,
-            dateMillis = event.dateMillis,
-        )
-    }.sortedByDescending { it.dateMillis }
+        // ── "Debes" — you owe others ──
+        val youOweDebts = debts.filter { !it.paid && it.profileId == currentUserUid }
+
+        // Build a map: expense paidByProfileId → total amount owed
+        val creditorAmounts = mutableMapOf<String, Double>()
+        for (debt in youOweDebts) {
+            val creditorId = resolveCreditor(debt, expenses, eventMap, currentUserUid)
+            creditorAmounts[creditorId] = (creditorAmounts[creditorId] ?: 0.0) + debt.amountEuros
+        }
+
+        val youOwe = creditorAmounts.map { (creditorId, amount) ->
+            val profile = profileMap[creditorId]
+            val name = profile?.name
+                ?: eventMap[creditorId]?.name
+                ?: "Desconocido"
+            // Attach event info for the detail view
+            val relatedDebts = youOweDebts.filter { debt ->
+                resolveCreditor(debt, expenses, eventMap, currentUserUid) == creditorId
+            }
+            DebtBreakdownItem(
+                profileId = creditorId,
+                profileName = name,
+                amount = amount,
+                events = relatedDebts.map { debt ->
+                    val event = eventMap[debt.eventId]
+                    EventDebt(
+                        eventId = debt.eventId,
+                        eventName = event?.name ?: "Evento",
+                        amount = debt.amountEuros,
+                    )
+                },
+            )
+        }.sortedByDescending { it.amount }
+
+        return Pair(owedToYou, youOwe)
+    }
+
+    /**
+     * Determines the creditor (who is owed money) for a given debt where the current user
+     * is the debtor.
+     *
+     * Resolution priority:
+     * 1. First expense's [EventExpenseItem.paidByProfileId] for the same event
+     * 2. Event [EventItem.ownerId]
+     * 3. Event ID as fallback
+     */
+    private fun resolveCreditor(
+        debt: EventDebtItem,
+        expenses: List<EventExpenseItem>,
+        eventMap: Map<String, EventItem>,
+        currentUserUid: String,
+    ): String {
+        // 1. Try expenses — find who paid for expenses in this event (excluding the current user)
+        val eventExpenses = expenses.filter { it.eventId == debt.eventId }
+        val nonUserPayers = eventExpenses
+            .map { it.paidByProfileId }
+            .filter { it != currentUserUid && it.isNotBlank() }
+            .distinct()
+        if (nonUserPayers.isNotEmpty()) {
+            // If multiple people paid, they're grouped per-creditor by the caller,
+            // but here we just return the first for initial grouping.
+            // The caller groups and aggregates per unique creditor.
+            return nonUserPayers.first()
+        }
+
+        // 2. Fallback to event owner
+        val event = eventMap[debt.eventId]
+        if (event != null && event.ownerId != currentUserUid && event.ownerId.isNotBlank()) {
+            return event.ownerId
+        }
+
+        // 3. Ultimate fallback — use event ID (will show event name)
+        return debt.eventId
+    }
+
+    /**
+     * Merges [owedToYou] and [youOwe] into a single sorted list of [UnifiedDebtItem].
+     *
+     * Each item carries a [DebtDirection] so the UI knows how to colour it.
+     * Zero amounts are excluded.
+     */
+    private fun buildUnifiedBreakdown(
+        owedToYou: List<DebtBreakdownItem>,
+        youOwe: List<DebtBreakdownItem>,
+    ): List<UnifiedDebtItem> {
+        val unified = mutableListOf<UnifiedDebtItem>()
+
+        for (item in owedToYou) {
+            if (item.amount <= 0.0) continue
+            unified.add(
+                UnifiedDebtItem(
+                    profileId = item.profileId,
+                    profileName = item.profileName,
+                    amount = item.amount,
+                    direction = DebtDirection.OWED_TO_YOU,
+                    events = item.events,
+                )
+            )
+        }
+
+        for (item in youOwe) {
+            if (item.amount <= 0.0) continue
+            unified.add(
+                UnifiedDebtItem(
+                    profileId = item.profileId,
+                    profileName = item.profileName,
+                    amount = item.amount,
+                    direction = DebtDirection.YOU_OWE,
+                    events = item.events,
+                )
+            )
+        }
+
+        return unified.sortedByDescending { it.amount }
+    }
+}
+
+/**
+ * Calculates the total amount owed TO the current user by other profiles.
+ *
+ * Excludes:
+ * - Paid debts (settled)
+ * - Debts where [currentUserUid] is the debtor (those belong to `totalYouOwe`)
+ *
+ * Only unpaid debts from profiles OTHER than the current user are counted.
+ */
+internal fun calculateTotalOwedToYou(
+    debts: List<EventDebtItem>,
+    currentUserUid: String,
+): Double {
+    return debts
+        .filter { !it.paid && it.profileId != currentUserUid }
+        .sumOf { it.amountEuros }
 }

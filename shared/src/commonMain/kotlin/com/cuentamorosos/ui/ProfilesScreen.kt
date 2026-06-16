@@ -148,7 +148,7 @@ fun ProfilesScreen(
                     isOwnProfile = isOwnProfile,
                     currentUid = currentUid ?: "",
                     onClick = { selectedProfile = profile },
-                    modifier = Modifier.then(if (isSettled) Modifier.alpha(0.75f) else Modifier),
+                    modifier = Modifier.slideUp().then(if (isSettled) Modifier.alpha(0.75f) else Modifier),
                 )
             }
         }

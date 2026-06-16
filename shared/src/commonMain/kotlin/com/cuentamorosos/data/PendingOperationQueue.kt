@@ -39,7 +39,7 @@ class PendingOperationQueue(
     }
 
     suspend fun dequeue(limit: Int): List<PendingOperation> = mutex.withLock {
-        queries.selectPending(limit.toLong()).executeAsList()
+        queries.selectPending(maxRetries.toLong(), limit.toLong()).executeAsList()
     }
 
     suspend fun markComplete(id: String) = mutex.withLock {
@@ -51,7 +51,7 @@ class PendingOperationQueue(
     }
 
     suspend fun getAllPending(): Long = mutex.withLock {
-        queries.countPending().executeAsOne()
+        queries.countPending(maxRetries.toLong()).executeAsOne()
     }
 
     suspend fun drain(
@@ -87,6 +87,18 @@ class PendingOperationQueue(
                 println("[PendingOperationQueue] Drain failed for ${op.id}: ${e.message}")
                 markFailed(op.id)
             }
+        }
+    }
+
+    /**
+     * Drains all pending operations in a loop until the queue is empty.
+     * Processes operations in batches of 10 until getAllPending() returns 0.
+     */
+    suspend fun drainAll(
+        remoteOps: RemoteOperations,
+    ) {
+        while (getAllPending() > 0) {
+            drain(remoteOps)
         }
     }
 }

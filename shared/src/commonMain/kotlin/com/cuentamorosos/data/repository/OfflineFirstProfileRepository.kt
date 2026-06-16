@@ -3,6 +3,7 @@ package com.cuentamorosos.data.repository
 import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.data.NetworkMonitor
 import com.cuentamorosos.data.PendingOperationQueue
+import com.cuentamorosos.data.RemoteOperations
 import com.cuentamorosos.db.CuentaMorososDatabase
 import com.cuentamorosos.model.ProfileItem
 import app.cash.sqldelight.coroutines.asFlow
@@ -15,7 +16,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 class OfflineFirstProfileRepository(
     private val remoteRepository: ProfileRepository,
@@ -27,14 +27,42 @@ class OfflineFirstProfileRepository(
 
     private val queries = database.cachedProfileQueries
     private var syncJob: Job? = null
-    private var started = false
 
     private val pendingLocalChanges = mutableMapOf<String, Map<String, String>>()
 
+    private val profileRemoteOps = object : RemoteOperations {
+        override suspend fun saveEvent(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteEvent(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun saveDebt(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteDebt(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun saveExpense(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun deleteExpense(entityId: String) = throw UnsupportedOperationException()
+        override suspend fun saveProfile(entityId: String) {
+            val profiles = remoteRepository.observeProfiles().first()
+            profiles.find { it.id == entityId }?.let { remoteRepository.saveProfile(it) }
+        }
+        override suspend fun deleteProfile(entityId: String) = remoteRepository.deleteProfile(entityId)
+        override suspend fun updateProfilePhoto(profileId: String, photoUrl: String) {
+            remoteRepository.updateProfilePhoto(photoUrl)
+        }
+        override suspend fun updateProfileUsername(profileId: String, username: String) {
+            remoteRepository.updateUsername(username)
+        }
+        override suspend fun updateProfileDisplayName(profileId: String, displayName: String) {
+            remoteRepository.updateDisplayName(displayName)
+        }
+        override suspend fun deleteProfilePhoto(profileId: String) {
+            remoteRepository.deleteProfilePhoto()
+        }
+    }
+
     fun startSync() {
-        if (started) return
-        started = true
+        stopSyncLoop()
+        // Start sync loop IMMEDIATELY — don't wait for network monitor
+        startSyncLoop()
+        // Also subscribe to reconnection events
         networkMonitor.isOnline
+            .drop(1) // Skip initial emission (already handled above)
             .onEach { isOnline ->
                 if (isOnline) startSyncLoop() else stopSyncLoop()
             }
@@ -62,19 +90,17 @@ class OfflineFirstProfileRepository(
             val maxBackoffMs = 30000L
             while (isActive) {
                 try {
-                    val firstEmission = withTimeoutOrNull(15_000) {
-                        remoteRepository.observeProfiles().first()
-                    }
-                    if (firstEmission != null) {
-                        println("[OfflineFirstProfileRepo] First emission received: ${firstEmission.size} profiles")
-                        upsertProfiles(firstEmission)
-                    } else {
-                        println("[OfflineFirstProfileRepo] Sync timeout after 15s, retrying with backoff")
-                    }
-                    remoteRepository.observeProfiles().collect { remoteProfiles ->
-                        println("[OfflineFirstProfileRepo] Sync update: ${remoteProfiles.size} profiles")
-                        upsertProfiles(remoteProfiles)
-                    }
+                    // 1. Drain pending operations FIRST
+                    pendingQueue.drainAll(profileRemoteOps)
+
+                    // 2. Single subscription to remote
+                    remoteRepository.observeProfiles()
+                        .onEach { remoteProfiles ->
+                            println("[OfflineFirstProfileRepo] Sync update: ${remoteProfiles.size} profiles")
+                            upsertProfiles(remoteProfiles)
+                        }
+                        .collect()
+
                     backoffMs = 1000L
                 } catch (e: Exception) {
                     println("[OfflineFirstProfileRepo] Sync error: ${e.message}")
@@ -385,17 +411,50 @@ class OfflineFirstProfileRepository(
     private fun serializeCustomNames(customNames: Map<String, String>): String {
         if (customNames.isEmpty()) return ""
         return customNames.entries.joinToString("|") { (key, value) ->
-            "${key}=${value}"
+            "$key=${value.replace("|", "\\|")}"
         }
     }
 
     private fun parseCustomNames(json: String): Map<String, String> {
         if (json.isBlank()) return emptyMap()
-        return json.split("|").mapNotNull { part ->
+        val result = mutableMapOf<String, String>()
+        val parts = splitAtUnescapedPipe(json)
+        for (part in parts) {
             val eq = part.indexOf('=')
-            if (eq > 0) part.substring(0, eq) to part.substring(eq + 1) else null
-        }.toMap()
+            if (eq > 0) {
+                result[part.substring(0, eq)] = part.substring(eq + 1).unescapePipe()
+            }
+        }
+        return result
     }
+
+    /** Splits on `|` that is NOT preceded by `\`. */
+    private fun splitAtUnescapedPipe(input: String): List<String> {
+        val parts = mutableListOf<String>()
+        val current = StringBuilder()
+        var i = 0
+        while (i < input.length) {
+            when {
+                input[i] == '\\' && i + 1 < input.length && input[i + 1] == '|' -> {
+                    current.append("\\|")
+                    i += 2
+                }
+                input[i] == '|' -> {
+                    parts.add(current.toString())
+                    current.clear()
+                    i++
+                }
+                else -> {
+                    current.append(input[i])
+                    i++
+                }
+            }
+        }
+        parts.add(current.toString())
+        return parts
+    }
+
+    private fun String.unescapePipe(): String = replace("\\|", "|")
 
     // ── Mapping Helpers ─────────────────────────────────────────────────────
 

@@ -71,38 +71,23 @@ class EventsViewModel(
 
     fun removeMember(eventId: String, memberUid: String) {
         viewModelScope.launch {
-            eventRepository.removeMember(eventId, memberUid)
+            runCatching {
+                // Delete all debts for this member in this event first
+                val memberDebts = debtRepository.fetchDebtsForEvent(eventId)
+                    .filter { it.profileId == memberUid }
+                memberDebts.forEach { debt ->
+                    debtRepository.deleteDebt(eventId, debt.id)
+                }
+                // Then remove from event participants
+                eventRepository.removeMember(eventId, memberUid)
+            }.onFailure { e ->
+                println("[EventsViewModel] Failed to remove member: ${e.message}")
+            }
         }
     }
 
     suspend fun findUidByEmail(email: String): String? =
         eventRepository.findUidByEmail(email)
-
-    fun openEvent(eventId: String, context: TransitionContext) {
-        viewModelScope.launch {
-            val event = _events.value.find { it.id == eventId } ?: return@launch
-            val result = event.canTransitionTo(EventState.OPEN, context)
-            when (result) {
-                is StateTransitionResult.Allowed -> {
-                    saveEvent(event.copy(state = result.newState))
-                }
-                is StateTransitionResult.AllowedWithWarning -> {
-                    _transitionWarning.value = result
-                }
-                is StateTransitionResult.Blocked -> {
-                    _validationErrors.value = result.reasons
-                }
-            }
-        }
-    }
-
-    fun openEventConfirmed(eventId: String) {
-        viewModelScope.launch {
-            val event = _events.value.find { it.id == eventId } ?: return@launch
-            saveEvent(event.copy(state = EventState.OPEN))
-            _transitionWarning.value = null
-        }
-    }
 
     fun dismissTransitionWarning() {
         _transitionWarning.value = null

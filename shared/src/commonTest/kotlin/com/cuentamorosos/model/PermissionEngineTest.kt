@@ -118,8 +118,8 @@ class PermissionEngineTest {
     }
 
     @Test
-    fun `CONTRIBUTOR cannot manage participants`() {
-        assertFalse(PermissionEngine.hasPermission(EventRole.CONTRIBUTOR, EventAction.ManageParticipants))
+    fun `CONTRIBUTOR can manage participants`() {
+        assertTrue(PermissionEngine.hasPermission(EventRole.CONTRIBUTOR, EventAction.ManageParticipants))
     }
 
     @Test

@@ -198,4 +198,54 @@ class DashboardViewModelTest {
         assertEquals(25.0, result.youOweBreakdown[0].amount) // 10 + 15
         assertEquals("Alice", result.youOweBreakdown[0].profileName)
     }
+
+    // ── totalOwedToYou aggregation ─────────────────────────────────────────
+
+    @Test
+    fun `totalOwedToYou is zero when no debts`() {
+        val result = calculateTotalOwedToYou(emptyList(), "user-alice")
+        assertEquals(0.0, result)
+    }
+
+    @Test
+    fun `totalOwedToYou excludes current user own unpaid debts`() {
+        val debts = listOf(
+            testDebt("evt1", "user-alice", 50.0),
+            testDebt("evt1", "user-alice", 30.0),
+        )
+        val result = calculateTotalOwedToYou(debts, "user-alice")
+        assertEquals(0.0, result, "Own debts must be excluded from totalOwedToYou")
+    }
+
+    @Test
+    fun `totalOwedToYou sums only other profiles unpaid debts`() {
+        val debts = listOf(
+            testDebt("evt1", "bob", 50.0),
+            testDebt("evt2", "charlie", 75.0),
+        )
+        val result = calculateTotalOwedToYou(debts, "user-alice")
+        assertEquals(125.0, result)
+    }
+
+    @Test
+    fun `totalOwedToYou excludes paid debts and own debts in mixed scenario`() {
+        val debts = listOf(
+            testDebt("evt1", "bob", 50.0, paid = false),      // included: 50
+            testDebt("evt1", "user-alice", 30.0, paid = false), // excluded: own
+            testDebt("evt2", "charlie", 20.0, paid = true),     // excluded: paid
+            testDebt("evt2", "dave", 40.0, paid = false),       // included: 40
+        )
+        val result = calculateTotalOwedToYou(debts, "user-alice")
+        assertEquals(90.0, result) // 50 + 40
+    }
+
+    @Test
+    fun `totalOwedToYou is zero when all debts are paid`() {
+        val debts = listOf(
+            testDebt("evt1", "bob", 50.0, paid = true),
+            testDebt("evt1", "charlie", 30.0, paid = true),
+        )
+        val result = calculateTotalOwedToYou(debts, "user-alice")
+        assertEquals(0.0, result)
+    }
 }

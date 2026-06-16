@@ -5,6 +5,7 @@ import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
@@ -29,6 +30,7 @@ class FirestoreDebtRepository : DebtRepository {
             return@flow
         }
 
+        // 1. Resolve event IDs (3 queries, constant cost)
         val ownerSnapshot = db.collection("events").where { "ownerId" equalTo uid }.get()
         val memberSnapshot = db.collection("events").where { "memberIds" contains uid }.get()
         val participantSnapshot = db.collection("events").where { "participantIds" contains uid }.get()
@@ -37,18 +39,24 @@ class FirestoreDebtRepository : DebtRepository {
             .map { it.id }
             .distinct()
 
-        val allDebts = mutableListOf<EventDebtItem>()
-        for (eventId in eventIds) {
-            val debtsSnapshot = db.collection("events")
+        if (eventIds.isEmpty()) {
+            emit(emptyList())
+            return@flow
+        }
+
+        // 2. Create per-event snapshot listeners (long-lived, not polling)
+        val debtFlows = eventIds.map { eventId ->
+            db.collection("events")
                 .document(eventId)
                 .collection("debts")
-                .get()
-
-            for (debtDoc in debtsSnapshot.documents) {
-                debtDoc.toDebtItem()?.let { allDebts.add(it) }
-            }
+                .snapshots
+                .map { snapshot -> snapshot.documents.mapNotNull { it.toDebtItem() } }
         }
-        emit(allDebts)
+
+        // 3. Combine all flows into single emission
+        combine(debtFlows) { debtLists ->
+            debtLists.flatMap { it }
+        }.collect { emit(it) }
     }
 
     override suspend fun saveDebt(debt: EventDebtItem) {
@@ -124,6 +132,16 @@ class FirestoreDebtRepository : DebtRepository {
         }
     }
 
+    override suspend fun fetchDebtsForEvent(eventId: String): List<EventDebtItem> {
+        return try {
+            db.collection("events").document(eventId).collection("debts").get()
+                .documents.mapNotNull { it.toDebtItem() }
+        } catch (e: Exception) {
+            println("[FirestoreDebtRepo] fetchDebtsForEvent failed: ${e.message}")
+            emptyList()
+        }
+    }
+
     private fun EventDebtItem.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
         "eventId" to eventId,
@@ -136,7 +154,7 @@ class FirestoreDebtRepository : DebtRepository {
 
     private fun dev.gitlive.firebase.firestore.DocumentSnapshot.toDebtItem(): EventDebtItem? {
         return try {
-            val data = data<Map<String, Any?>>()
+            val data = this.getRawData() ?: return null
             EventDebtItem(
                 id = data["id"] as? String ?: return null,
                 eventId = data["eventId"] as? String ?: return null,

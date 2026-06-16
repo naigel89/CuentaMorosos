@@ -52,6 +52,10 @@ class AccountViewModel(
     private val _usernameAvailability = MutableStateFlow<UsernameAvailability>(UsernameAvailability.Idle)
     val usernameAvailability: StateFlow<UsernameAvailability> = _usernameAvailability.asStateFlow()
 
+    /** Minimum interval between remote username availability checks (ms). */
+    private var lastUsernameCheckTime = 0L
+    private val usernameCheckIntervalMs = 2_000L
+
     // ── Password editing ──────────────────────────────────────────────────────
 
     private val _currentPassword = MutableStateFlow("")
@@ -76,16 +80,30 @@ class AccountViewModel(
         setupUsernameValidation()
     }
 
+    /**
+     * Loads the profile from the repository.
+     * Only populates display name and username on the first emission to avoid
+     * overwriting user edits when a background sync refreshes the profile list.
+     */
     private fun loadProfile() {
         viewModelScope.launch {
             profileRepository.observeProfiles().collect { profiles ->
                 val own = profiles.firstOrNull { it.id == currentProfileId }
                 _currentProfile.value = own
-                _displayNameText.value = own?.displayName ?: own?.name ?: ""
-                _usernameText.value = own?.username ?: ""
+                if (!hasInitialLoadDone) {
+                    _displayNameText.value = own?.displayName ?: own?.name ?: ""
+                    _usernameText.value = own?.username ?: ""
+                    hasInitialLoadDone = true
+                }
             }
         }
     }
+
+    /**
+     * Validates username format: alphanumeric + underscore, 3-20 chars.
+     */
+    private fun isValidUsernameFormat(username: String): Boolean =
+        username.matches(Regex("^[a-zA-Z0-9_]{3,20}$"))
 
     private fun setupUsernameValidation() {
         viewModelScope.launch {
@@ -94,6 +112,13 @@ class AccountViewModel(
                 .filter { it.length >= 3 }
                 .distinctUntilChanged()
                 .map { username ->
+                    // Rate limit: skip if checked too recently
+                    val now = System.currentTimeMillis()
+                    if (now - lastUsernameCheckTime < usernameCheckIntervalMs) {
+                        return@map _usernameAvailability.value
+                    }
+                    lastUsernameCheckTime = now
+
                     _usernameAvailability.value = UsernameAvailability.Checking
                     val available = profileRepository.isUsernameAvailable(username)
                     if (available) UsernameAvailability.Available else UsernameAvailability.Taken
@@ -103,13 +128,17 @@ class AccountViewModel(
     }
 
     fun navigateTo(screen: Int) {
-        println("[AccountViewModel] navigateTo($screen)")
         _subScreenIndex.value = screen
     }
 
+    /**
+     * Navigates back to the main menu and clears sensitive password fields.
+     */
     fun onBackToMenu() {
-        println("[AccountViewModel] onBackToMenu")
         _subScreenIndex.value = 0
+        _currentPassword.value = ""
+        _newPassword.value = ""
+        _passwordState.value = PasswordState.Idle
     }
 
     fun setUsername(text: String) {
@@ -134,22 +163,17 @@ class AccountViewModel(
 
     fun saveDisplayName() {
         viewModelScope.launch {
-            println("[AccountViewModel] saveDisplayName called, text='${_displayNameText.value}'")
             _state.value = AccountUiState.Loading
             val name = _displayNameText.value.trim()
             if (name.isBlank()) {
-                println("[AccountViewModel] saveDisplayName: name is blank, aborting")
                 _state.value = AccountUiState.Error("El nombre no puede estar vacío")
                 return@launch
             }
-            println("[AccountViewModel] saveDisplayName: calling updateDisplayName('$name')")
             profileRepository.updateDisplayName(name)
                 .onSuccess {
-                    println("[AccountViewModel] saveDisplayName: success")
                     _state.value = AccountUiState.Success("Nombre actualizado")
                 }
                 .onFailure {
-                    println("[AccountViewModel] saveDisplayName: failure ${it.message}")
                     _state.value = AccountUiState.Error(it.message ?: "Error al guardar")
                 }
         }
@@ -157,22 +181,19 @@ class AccountViewModel(
 
     fun saveUsername() {
         viewModelScope.launch {
-            println("[AccountViewModel] saveUsername called, text='${_usernameText.value}'")
             _state.value = AccountUiState.Loading
             val username = _usernameText.value.trim()
-            if (username.length < 3) {
-                println("[AccountViewModel] saveUsername: too short, aborting")
-                _state.value = AccountUiState.Error("El nombre de usuario debe tener al menos 3 caracteres")
+            if (!isValidUsernameFormat(username)) {
+                _state.value = AccountUiState.Error(
+                    "Solo letras, números y guiones bajos (3-20 caracteres)"
+                )
                 return@launch
             }
-            println("[AccountViewModel] saveUsername: calling updateUsername('$username')")
             profileRepository.updateUsername(username)
                 .onSuccess {
-                    println("[AccountViewModel] saveUsername: success")
                     _state.value = AccountUiState.Success("Nombre de usuario actualizado")
                 }
                 .onFailure {
-                    println("[AccountViewModel] saveUsername: failure ${it.message}")
                     _state.value = AccountUiState.Error(it.message ?: "Error al guardar")
                 }
         }
@@ -180,15 +201,12 @@ class AccountViewModel(
 
     fun updatePhoto(downloadUrl: String) {
         viewModelScope.launch {
-            println("[AccountViewModel] updatePhoto called, url='$downloadUrl'")
             _state.value = AccountUiState.Loading
             profileRepository.updateProfilePhoto(downloadUrl)
                 .onSuccess {
-                    println("[AccountViewModel] updatePhoto: success")
                     _state.value = AccountUiState.Success("Foto actualizada")
                 }
                 .onFailure {
-                    println("[AccountViewModel] updatePhoto: failure ${it.message}")
                     _state.value = AccountUiState.Error(it.message ?: "Error al subir la foto")
                 }
         }
@@ -200,15 +218,12 @@ class AccountViewModel(
      */
     fun deletePhoto() {
         viewModelScope.launch {
-            println("[AccountViewModel] deletePhoto called")
             _state.value = AccountUiState.Loading
             profileRepository.deleteProfilePhoto()
                 .onSuccess {
-                    println("[AccountViewModel] deletePhoto: success")
                     _state.value = AccountUiState.Success("Foto eliminada")
                 }
                 .onFailure {
-                    println("[AccountViewModel] deletePhoto: failure ${it.message}")
                     _state.value = AccountUiState.Error(it.message ?: "Error al eliminar la foto")
                 }
         }

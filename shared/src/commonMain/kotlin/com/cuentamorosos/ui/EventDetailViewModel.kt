@@ -75,9 +75,6 @@ class EventDetailViewModel(
                 if (id == null) flowOf(null) else eventRepository.observeEvent(id)
             }.collect { event ->
                 _currentEvent.value = event
-                if (event != null && event.state == EventState.OPEN && event.lastCalculationTimestamp != null) {
-                    eventRepository.saveEvent(event.copy(state = EventState.CALCULATED))
-                }
             }
         }
     }
@@ -98,6 +95,18 @@ class EventDetailViewModel(
 
     fun setEventId(id: String?) {
         _eventId.value = id
+        if (id != null) {
+            viewModelScope.launch {
+                try {
+                    val eventDebts = debtRepository.fetchDebtsForEvent(id)
+                    eventDebts.forEach { debtRepository.saveDebt(it) }
+                    val eventExpenses = expenseRepository.fetchExpensesForEvent(id)
+                    eventExpenses.forEach { expenseRepository.saveExpense(it) }
+                } catch (e: Exception) {
+                    println("[EventDetailVM] Pre-load failed: ${e.message}")
+                }
+            }
+        }
     }
 
     fun saveDebt(debt: EventDebtItem) {
@@ -128,24 +137,6 @@ class EventDetailViewModel(
         viewModelScope.launch {
             val event = _currentEvent.value ?: return@launch
             val result = event.canTransitionTo(EventState.CALCULATED, context)
-            when (result) {
-                is StateTransitionResult.Allowed -> {
-                    eventRepository.saveEvent(event.copy(state = result.newState))
-                }
-                is StateTransitionResult.AllowedWithWarning -> {
-                    _transitionWarning.value = result
-                }
-                is StateTransitionResult.Blocked -> {
-                    _validationErrors.value = result.reasons
-                }
-            }
-        }
-    }
-
-    fun openEvent(context: TransitionContext) {
-        viewModelScope.launch {
-            val event = _currentEvent.value ?: return@launch
-            val result = event.canTransitionTo(EventState.OPEN, context)
             when (result) {
                 is StateTransitionResult.Allowed -> {
                     eventRepository.saveEvent(event.copy(state = result.newState))

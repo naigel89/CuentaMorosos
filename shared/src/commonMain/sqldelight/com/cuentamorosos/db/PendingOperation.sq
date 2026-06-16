@@ -13,7 +13,7 @@ INSERT OR REPLACE INTO PendingOperation (id, entityType, entityId, operation, pa
 VALUES (?, ?, ?, ?, ?, ?, ?);
 
 selectPending:
-SELECT * FROM PendingOperation ORDER BY createdAt ASC LIMIT ?;
+SELECT * FROM PendingOperation WHERE retryCount < ? ORDER BY createdAt ASC LIMIT ?;
 
 deleteOperation:
 DELETE FROM PendingOperation WHERE id = ?;
@@ -22,4 +22,7 @@ updateRetryCount:
 UPDATE PendingOperation SET retryCount = retryCount + 1 WHERE id = ?;
 
 countPending:
-SELECT COUNT(*) FROM PendingOperation;
+SELECT COUNT(*) FROM PendingOperation WHERE retryCount < ?;
+
+deleteAll:
+DELETE FROM PendingOperation;

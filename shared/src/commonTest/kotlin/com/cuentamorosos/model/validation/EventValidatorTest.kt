@@ -160,29 +160,19 @@ class EventValidatorTest {
     }
 
     @Test
-    fun `EV-05 fewer than 2 participants — warning in DRAFT, error otherwise`() {
-        val draftEvent = testEvent(memberIds = listOf("a"))
-        val draftResult = EventValidator.validate(draftEvent)
-        assertTrue(draftResult.allErrors().none { it.field == "members" })
-        assertTrue(draftResult.allWarnings().any { it.field == "members" })
-
-        val openEvent = testEvent(memberIds = listOf("a")).copy(state = com.cuentamorosos.model.EventState.OPEN)
-        val openResult = EventValidator.validate(openEvent)
-        assertTrue(openResult.hasErrors())
-        assertTrue(openResult.allErrors().any { it.field == "members" })
+    fun `EV-05 fewer than 2 participants always returns error`() {
+        val event = testEvent(memberIds = listOf("a"))
+        val result = EventValidator.validate(event)
+        assertTrue(result.hasErrors())
+        assertTrue(result.allErrors().any { it.field == "members" })
     }
 
     @Test
-    fun `EV-05 zero participants — warning in DRAFT, error otherwise`() {
-        val draftEvent = testEvent(memberIds = emptyList())
-        val draftResult = EventValidator.validate(draftEvent)
-        assertTrue(draftResult.allErrors().none { it.field == "members" })
-        assertTrue(draftResult.allWarnings().any { it.field == "members" })
-
-        val openEvent = testEvent(memberIds = emptyList()).copy(state = com.cuentamorosos.model.EventState.OPEN)
-        val openResult = EventValidator.validate(openEvent)
-        assertTrue(openResult.hasErrors())
-        assertTrue(openResult.allErrors().any { it.field == "members" })
+    fun `EV-05 zero participants always returns error`() {
+        val event = testEvent(memberIds = emptyList())
+        val result = EventValidator.validate(event)
+        assertTrue(result.hasErrors())
+        assertTrue(result.allErrors().any { it.field == "members" })
     }
 
     // ── EV-06: No items warning ─────────────────────────────────────────────
@@ -195,15 +185,11 @@ class EventValidatorTest {
     }
 
     @Test
-    fun `EV-06 event has no items — warning only for non-draft events`() {
-        val draftEvent = testEvent()
-        val draftResult = EventValidator.validate(draftEvent, itemCount = 0)
-        assertTrue(draftResult.allWarnings().none { it.message.contains("gastos") })
-
-        val openEvent = testEvent().copy(state = com.cuentamorosos.model.EventState.OPEN)
-        val openResult = EventValidator.validate(openEvent, itemCount = 0)
-        assertTrue(openResult.hasWarnings())
-        assertTrue(openResult.allWarnings().any { it.message.contains("gastos") })
+    fun `EV-06 event has no items — always warns`() {
+        val event = testEvent()
+        val result = EventValidator.validate(event, itemCount = 0)
+        assertTrue(result.hasWarnings())
+        assertTrue(result.allWarnings().any { it.message.contains("gastos") })
     }
 
     // ── EV-07: Creator membership warning ───────────────────────────────────

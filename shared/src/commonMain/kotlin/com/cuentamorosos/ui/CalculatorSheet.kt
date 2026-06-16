@@ -77,6 +77,7 @@ fun CalculatorSheet(
     onApply: (CalculationResult) -> Unit,
     _deletedProfileIds: Set<String> = emptySet(),
     _priorSnapshot: CalculationSnapshot? = null,
+    currentUserUid: String? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -360,15 +361,8 @@ fun CalculatorSheet(
                     color = themeColors.outlineVariant,
                 )
 
-                // Preview breakdown from snapshot (if available)
+                // Transfer list panel (sole result display)
                 result.snapshot?.let { snapshot ->
-                    PreviewBreakdown(
-                        profiles = profiles,
-                        amounts = snapshot.participantBalances.values.toList(),
-                        summary = formatEuros(snapshot.totalExpense),
-                    )
-
-                    // Transfer list panel (replaces SettlementCard)
                     val profileNameResolver: (String) -> String = { id ->
                         profiles.find { it.id == id }?.name ?: id
                     }
@@ -376,6 +370,7 @@ fun CalculatorSheet(
                         snapshot = snapshot,
                         status = result.status,
                         profileNameResolver = profileNameResolver,
+                        profiles = profiles,
                         paidTransferIndices = paidTransferIndices,
                         onTogglePaid = { index ->
                             paidTransferIndices = if (index in paidTransferIndices) {
@@ -384,6 +379,7 @@ fun CalculatorSheet(
                                 paidTransferIndices + index
                             }
                         },
+                        currentProfileId = currentUserUid,
                     )
                 }
             }
@@ -498,11 +494,22 @@ fun ParameterInputRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "${profile.icon} ${profile.name}",
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.weight(1f),
-            style = typography.bodyMedium,
-        )
+        ) {
+            ProfileAvatar(
+                name = profile.name,
+                emoji = profile.icon,
+                photoUrl = profile.photoUrl,
+                size = 24.dp,
+            )
+            Text(
+                text = profile.name,
+                style = typography.bodyMedium,
+            )
+        }
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,

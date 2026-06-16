@@ -5,6 +5,7 @@ import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.SUPPORTED_CURRENCY
+import com.cuentamorosos.model.migrateMemberIdsToParticipants
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
@@ -21,9 +22,11 @@ class FirestoreEventRepository : EventRepository {
 
     override fun observeEvents(): Flow<List<EventItem>> = flow {
         val uid = auth.currentUser?.uid ?: run {
+            println("[FirestoreEventRepo] observeEvents: no current user, emitting empty")
             emit(emptyList())
             return@flow
         }
+        println("[FirestoreEventRepo] observeEvents: uid=$uid")
 
         val ownerFlow = collection.where { "ownerId" equalTo uid }.snapshots
         val memberFlow = collection.where { "memberIds" contains uid }.snapshots
@@ -33,6 +36,7 @@ class FirestoreEventRepository : EventRepository {
             val ownerEvents = ownerSnap.documents.mapNotNull { it.toEventItem() }
             val memberEvents = memberSnap.documents.mapNotNull { it.toEventItem() }
             val participantEvents = participantSnap.documents.mapNotNull { it.toEventItem() }
+            println("[FirestoreEventRepo] observeEvents snapshot: owner=${ownerEvents.size}, member=${memberEvents.size}, participant=${participantEvents.size}")
             (ownerEvents + memberEvents + participantEvents)
                 .associateBy { it.id }
                 .values
@@ -41,9 +45,58 @@ class FirestoreEventRepository : EventRepository {
     }
 
     override fun observeEvent(eventId: String): Flow<EventItem?> =
-        observeEvents().map { events ->
-            events.find { it.id == eventId }
+        collection.document(eventId).snapshots.map { snapshot ->
+            if (!snapshot.exists) null else snapshot.toEventItem()
         }
+
+    override suspend fun fetchEvents(): List<EventItem> {
+        val uid = auth.currentUser?.uid ?: run {
+            println("[FirestoreEventRepo] fetchEvents: no current user, returning empty")
+            return emptyList()
+        }
+        println("[FirestoreEventRepo] fetchEvents: starting for uid=$uid")
+
+        var ownerEvents = emptyList<EventItem>()
+        var memberEvents = emptyList<EventItem>()
+        var participantEvents = emptyList<EventItem>()
+
+        // Query 1: events owned by user
+        try {
+            val ownerSnap = collection.where { "ownerId" equalTo uid }.get()
+            ownerEvents = ownerSnap.documents.mapNotNull { it.toEventItem() }
+            println("[FirestoreEventRepo] fetchEvents: ownerId query returned ${ownerSnap.documents.size} docs, ${ownerEvents.size} valid events")
+        } catch (e: Exception) {
+            println("[FirestoreEventRepo] fetchEvents: ownerId query FAILED: ${e.message}")
+            e.printStackTrace()
+        }
+
+        // Query 2: events where user is in legacy memberIds
+        try {
+            val memberSnap = collection.where { "memberIds" contains uid }.get()
+            memberEvents = memberSnap.documents.mapNotNull { it.toEventItem() }
+            println("[FirestoreEventRepo] fetchEvents: memberIds query returned ${memberSnap.documents.size} docs, ${memberEvents.size} valid events")
+        } catch (e: Exception) {
+            println("[FirestoreEventRepo] fetchEvents: memberIds query FAILED: ${e.message}")
+            e.printStackTrace()
+        }
+
+        // Query 3: events where user is in participantIds
+        try {
+            val participantSnap = collection.where { "participantIds" contains uid }.get()
+            participantEvents = participantSnap.documents.mapNotNull { it.toEventItem() }
+            println("[FirestoreEventRepo] fetchEvents: participantIds query returned ${participantSnap.documents.size} docs, ${participantEvents.size} valid events")
+        } catch (e: Exception) {
+            println("[FirestoreEventRepo] fetchEvents: participantIds query FAILED: ${e.message}")
+            e.printStackTrace()
+        }
+
+        val allEvents = (ownerEvents + memberEvents + participantEvents)
+            .associateBy { it.id }
+            .values
+            .sortedByDescending { it.dateMillis }
+        println("[FirestoreEventRepo] fetchEvents: total unique events=${allEvents.size} (owner=${ownerEvents.size}, member=${memberEvents.size}, participant=${participantEvents.size})")
+        return allEvents
+    }
 
     override suspend fun saveEvent(event: EventItem) {
         collection.document(event.id).set(event.toMap())
@@ -86,14 +139,34 @@ class FirestoreEventRepository : EventRepository {
         snapshot.documents.chunked(499).forEach { chunk ->
             db.batch().apply {
                 chunk.forEach { doc ->
-                    val data = doc.data<Map<String, Any?>>()
+                    val data = doc.getRawData() ?: return@forEach
+
+                    // 1. Update memberIds
                     val memberIds = (data["memberIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
                     val newMemberIds = memberIds.map { if (it == oldId) newId else it }
-                    update(collection.document(doc.id), mapOf("memberIds" to newMemberIds))
+
+                    // 2. Update ownerId
                     val ownerId = data["ownerId"] as? String
-                    if (ownerId == oldId) {
-                        update(collection.document(doc.id), mapOf("ownerId" to newId))
+                    val newOwnerId = if (ownerId == oldId) newId else ownerId
+
+                    // 3. Update participants array — replace profileId in each participant map
+                    @Suppress("UNCHECKED_CAST")
+                    val participants = (data["participants"] as? List<Map<String, Any?>>) ?: emptyList()
+                    val newParticipants = participants.map { p ->
+                        if (p["profileId"] == oldId) p + ("profileId" to newId) else p
                     }
+
+                    // 4. Update participantIds — derived from updated participants
+                    val newParticipantIds = newParticipants.map { it["profileId"] }
+
+                    // Batch update all 4 fields atomically
+                    val docRef = collection.document(doc.id)
+                    update(docRef, mapOf(
+                        "memberIds" to newMemberIds,
+                        "ownerId" to newOwnerId,
+                        "participants" to newParticipants,
+                        "participantIds" to newParticipantIds
+                    ))
                 }
                 commit()
             }
@@ -136,13 +209,24 @@ class FirestoreEventRepository : EventRepository {
 
     private fun dev.gitlive.firebase.firestore.DocumentSnapshot.toEventItem(): EventItem? {
         return try {
-            val data = data<Map<String, Any?>>()
+            val data = this.getRawData() ?: run {
+                println("[FirestoreEventRepo] toEventItem: doc '${this.id}' has null data")
+                return null
+            }
             val participants = loadParticipantsFromFirestore(data)
-            EventItem(
-                id = data["id"] as? String ?: return null,
-                name = data["name"] as? String ?: return null,
-                dateMillis = (data["dateMillis"] as? Number)?.toLong() ?: return null,
-                ownerId = data["ownerId"] as? String ?: return null,
+            val id = data["id"] as? String
+            val name = data["name"] as? String
+            val dateMillis = (data["dateMillis"] as? Number)?.toLong()
+            val ownerId = data["ownerId"] as? String
+            if (id == null || name == null || dateMillis == null || ownerId == null) {
+                println("[FirestoreEventRepo] toEventItem: doc '${this.id}' missing required fields: id=$id, name=$name, dateMillis=$dateMillis, ownerId=$ownerId")
+                return null
+            }
+            migrateMemberIdsToParticipants(EventItem(
+                id = id,
+                name = name,
+                dateMillis = dateMillis,
+                ownerId = ownerId,
                 memberIds = (data["memberIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                 participants = participants,
                 baseCurrency = (data["baseCurrency"] as? String)?.takeIf { it.isNotBlank() } ?: SUPPORTED_CURRENCY,
@@ -151,8 +235,10 @@ class FirestoreEventRepository : EventRepository {
                 lastCalculationTimestamp = (data["lastCalculationTimestamp"] as? Number)?.toLong(),
                 lastCalculationSummary = data["lastCalculationSummary"] as? String,
                 state = computeStateFromFirestore(data, participants)
-            )
+            ))
         } catch (e: Exception) {
+            println("[FirestoreEventRepo] toEventItem: failed to parse doc '${this.id}': ${e.message}")
+            e.printStackTrace()
             null
         }
     }
@@ -163,7 +249,7 @@ class FirestoreEventRepository : EventRepository {
      * Heuristic for missing state:
      * - If `lastCalculationMode` is set → CALCULATED (event was calculated)
      * - If participants exist OR memberIds is non-empty → OPEN (event was opened)
-     * - Otherwise → DRAFT (new or untouched event)
+     * - Otherwise → OPEN (new or untouched event)
      */
     private fun computeStateFromFirestore(
         data: Map<String, Any?>,
@@ -171,7 +257,7 @@ class FirestoreEventRepository : EventRepository {
     ): EventState {
         val stateStr = data["state"] as? String
         if (!stateStr.isNullOrBlank()) {
-            return runCatching { EventState.valueOf(stateStr) }.getOrDefault(EventState.DRAFT)
+            return runCatching { EventState.valueOf(stateStr) }.getOrDefault(EventState.OPEN)
         }
         // Heuristic for old events without state field
         val hasCalculation = data["lastCalculationMode"] != null
@@ -189,7 +275,7 @@ class FirestoreEventRepository : EventRepository {
         return when {
             hasCalculation -> EventState.CALCULATED
             hasParticipants || hasMembers || hasParticipantIds -> EventState.OPEN
-            else -> EventState.DRAFT
+            else -> EventState.OPEN
         }
     }
 

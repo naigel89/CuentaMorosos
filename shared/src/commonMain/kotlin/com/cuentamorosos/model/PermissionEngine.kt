@@ -43,7 +43,7 @@ object PermissionEngine {
         is EventAction.EditExpense -> role == EventRole.OWNER ||
             (role == EventRole.CONTRIBUTOR && action.expenseOwnerId.isNotBlank())
         is EventAction.DeleteExpense -> role == EventRole.OWNER
-        EventAction.ManageParticipants,
+        EventAction.ManageParticipants -> role == EventRole.OWNER || role == EventRole.CONTRIBUTOR
         EventAction.AssignRoles,
         EventAction.Calculate,
         EventAction.Close,
@@ -63,7 +63,7 @@ object PermissionEngine {
             is EventAction.EditExpense -> role == EventRole.OWNER ||
                 (role == EventRole.CONTRIBUTOR && action.expenseOwnerId == profileId)
             is EventAction.DeleteExpense -> role == EventRole.OWNER
-            EventAction.ManageParticipants,
+            EventAction.ManageParticipants -> role == EventRole.OWNER || role == EventRole.CONTRIBUTOR
             EventAction.AssignRoles,
             EventAction.Calculate,
             EventAction.Close,

@@ -24,11 +24,6 @@ class IntegrityGuardTest {
         assertFalse(IntegrityGuard.canDeleteExpense(EventState.CLOSED, "exp1", emptyList()))
     }
 
-    @Test
-    fun `canDeleteExpense blocks when DRAFT`() {
-        assertFalse(IntegrityGuard.canDeleteExpense(EventState.DRAFT, "exp1", emptyList()))
-    }
-
     // ── canDeleteEvent ───────────────────────────────────────────────────────
 
     @Test

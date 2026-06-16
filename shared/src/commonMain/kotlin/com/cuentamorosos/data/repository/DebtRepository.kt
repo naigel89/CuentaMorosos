@@ -11,4 +11,5 @@ interface DebtRepository {
     /** Elimina todas las deudas asociadas a un perfil en todos los eventos. */
     suspend fun deleteDebtsForProfile(profileId: String)
     suspend fun replaceProfileId(oldId: String, newId: String)
+    suspend fun fetchDebtsForEvent(eventId: String): List<EventDebtItem>
 }

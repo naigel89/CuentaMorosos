@@ -3,6 +3,7 @@ package com.cuentamorosos.data
 import com.cuentamorosos.model.ProfileItem
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
@@ -115,9 +116,9 @@ class CuentaMorososLocalStoreProfileTest {
 
         assertEquals("legacy-id", loaded.id)
         assertEquals("Legacy User", loaded.name)
-        assertEquals(null, loaded.photoUrl, "Missing photoUrl should be null")
-        assertEquals(null, loaded.username, "Missing username should be null")
-        assertEquals(null, loaded.displayName, "Missing displayName should be null")
-        assertEquals(emptyMap(), loaded.customNames, "Missing customNames should be empty")
+        assertNull("Missing photoUrl should be null", loaded.photoUrl)
+        assertNull("Missing username should be null", loaded.username)
+        assertNull("Missing displayName should be null", loaded.displayName)
+        assertEquals(emptyMap<String, String>(), loaded.customNames)
     }
 }

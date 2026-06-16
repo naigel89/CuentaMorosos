@@ -1,6 +1,7 @@
 package com.cuentamorosos.data.repository
 
 import com.cuentamorosos.model.EventInvitation
+import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.InvitationStatus
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
@@ -39,9 +40,23 @@ class FirestoreInvitationRepository : InvitationRepository {
         val eventsCollection = db.collection("events")
         val doc = eventsCollection.document(invitation.eventId).get()
         val current = (doc.get("memberIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+
+        @Suppress("UNCHECKED_CAST")
+        val currentParticipants = (doc.get("participants") as? List<Map<String, Any?>>) ?: emptyList()
+
         if (!current.contains(uid)) {
+            val newParticipant = mapOf(
+                "profileId" to uid,
+                "role" to EventRole.CONTRIBUTOR.name,
+                "joinedAtMillis" to com.cuentamorosos.currentTimeMillis(),
+            )
+            val newParticipants = currentParticipants + newParticipant
             eventsCollection.document(invitation.eventId)
-                .update("memberIds" to (current + uid))
+                .update(
+                    "memberIds" to (current + uid),
+                    "participants" to newParticipants,
+                    "participantIds" to newParticipants.map { it["profileId"] },
+                )
         }
 
         invitationsCollection.document(invitation.id)
@@ -67,7 +82,7 @@ class FirestoreInvitationRepository : InvitationRepository {
 
     private fun dev.gitlive.firebase.firestore.DocumentSnapshot.toInvitation(): EventInvitation? {
         return try {
-            val data = data<Map<String, Any?>>()
+            val data = this.getRawData() ?: return null
             EventInvitation(
                 id = data["id"] as? String ?: return null,
                 eventId = data["eventId"] as? String ?: return null,

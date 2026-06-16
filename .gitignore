@@ -13,6 +13,10 @@ shared/build/
 # SDD artifacts (local, not shareable)
 .atl/
 
+# Keystore — NO SUBIR AL REPO
+keystore/
+*.jks
+
 # Firebase config files (sensitive — added via GitHub Secrets in CI)
 app/google-services.json
 iosApp/GoogleService-Info.plist

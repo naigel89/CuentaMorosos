@@ -11,10 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -33,50 +30,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cuentamorosos.data.ReminderMessage
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.UserPreferences
-
-// ── SegmentedControl ──────────────────────────────────────────────────────────
-
-@Composable
-private fun SegmentedControl(
-    modifier: Modifier = Modifier,
-    segments: List<String>,
-    selectedIndex: Int,
-    onSegmentSelected: (Int) -> Unit,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        segments.forEachIndexed { index, label ->
-            val isSelected = index == selectedIndex
-            val colors = LocalNeoFintechColors.current
-            Text(
-                text = label,
-                modifier = Modifier
-                    .weight(1f)
-                    .background(
-                        color = if (isSelected) colors.primaryContainer else colors.surfaceContainer,
-                        shape = NeoFintechShapes.md
-                    )
-                    .clickable { onSegmentSelected(index) }
-                    .padding(vertical = 12.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                color = if (isSelected) colors.surfaceContainerLowest else colors.onSurfaceVariant,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-    }
-}
 
 // ── SettingsScreen ────────────────────────────────────────────────────────────
 
@@ -95,156 +54,50 @@ fun SettingsScreen(
     var reminderDaysText by remember(preferences.reminderDays) { mutableStateOf(preferences.reminderDays.toString()) }
     var remindersEnabled by remember(preferences.remindersEnabled) { mutableStateOf(preferences.remindersEnabled) }
     var validationMessage by remember { mutableStateOf<String?>(null) }
-    var pushNotificationsEnabled by remember { mutableStateOf(true) }
-    var emailSummariesEnabled by remember { mutableStateOf(false) }
-    var selectedDensity by remember { mutableStateOf(1) } // 0=Compacto, 1=Estándar, 2=Amplio
-
-    val densityOptions = listOf("Compacto", "Estándar", "Amplio")
-
-    val themeModeIndex = when (selectedThemeMode) {
-        "light" -> 0
-        "dark" -> 1
-        else -> 1 // default to dark for "system"
-    }
 
     val colors = LocalNeoFintechColors.current
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val isWide = maxWidth >= 600.dp
+    val onSaveClick: () -> Unit = {
+        val parsedDays = reminderDaysText.toIntOrNull()
+        validationMessage = when {
+            parsedDays == null -> "Introduce un número de días válido."
+            parsedDays <= 0 -> "Los días deben ser mayores que 0."
+            else -> null
+        }
 
-        val activeNavItem = "preferences"
-        val navItems = listOf(
-            Triple("preferences", "\uD83C\uDF9B️", "Preferencias"),
-            Triple("security", "\uD83D\uDD12", "Seguridad"),
-            Triple("account", "\uD83D\uDC64", "Cuenta"),
-        )
-
-        val onSaveClick: () -> Unit = {
-            val parsedDays = reminderDaysText.toIntOrNull()
-            validationMessage = when {
-                parsedDays == null -> "Introduce un número de días válido."
-                parsedDays <= 0 -> "Los días deben ser mayores que 0."
-                else -> null
-            }
-
-            if (validationMessage == null && parsedDays != null) {
-                onSavePreferences(
-                    UserPreferences(
-                        themeMode = selectedThemeMode,
-                        reminderDays = parsedDays,
-                        remindersEnabled = remindersEnabled,
-                    )
+        if (validationMessage == null && parsedDays != null) {
+            onSavePreferences(
+                UserPreferences(
+                    themeMode = selectedThemeMode,
+                    reminderDays = parsedDays,
+                    remindersEnabled = remindersEnabled,
                 )
-            }
-        }
-
-        val onDaysTextChange: (String) -> Unit = {
-            reminderDaysText = it
-            validationMessage = null
-        }
-
-        val onThemeChange: (Int) -> Unit = { index ->
-            selectedThemeMode = when (index) {
-                0 -> "light"
-                1 -> "dark"
-                else -> "dark"
-            }
-        }
-
-        if (isWide) {
-        Row(
-            modifier = modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // Sidebar
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(top = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                navItems.forEach { item ->
-                    val (id, icon, label) = item
-                    val isActive = id == activeNavItem
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = if (isActive) colors.surfaceContainerHigh else colors.surface,
-                                shape = NeoFintechShapes.xl
-                            )
-                            .clickable(enabled = isActive) { }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = icon,
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 14.sp),
-                            color = if (isActive) colors.onSurface else colors.onSurfaceVariant,
-                            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    }
-                }
-            }
-            // Content
-            SettingsContent(
-                modifier = Modifier.weight(3f),
-                colors = colors,
-                themeModeIndex = themeModeIndex,
-                onThemeSelected = onThemeChange,
-                selectedDensity = selectedDensity,
-                densityOptions = densityOptions,
-                onDensitySelected = { selectedDensity = it },
-                pushNotificationsEnabled = pushNotificationsEnabled,
-                onPushNotificationsChanged = { pushNotificationsEnabled = it },
-                emailSummariesEnabled = emailSummariesEnabled,
-                onEmailSummariesChanged = { emailSummariesEnabled = it },
-                remindersEnabled = remindersEnabled,
-                onRemindersEnabledChanged = { remindersEnabled = it },
-                reminderDaysText = reminderDaysText,
-                onReminderDaysTextChanged = onDaysTextChange,
-                validationMessage = validationMessage,
-                onSaveClick = onSaveClick,
-                reminders = reminders,
-                onPostReminders = onPostReminders,
-                onSignOut = onSignOut,
-                currentProfile = currentProfile,
-                onOpenAccountSettings = onOpenAccountSettings,
             )
         }
-    } else {
-        SettingsContent(
-            modifier = modifier,
-            colors = colors,
-            themeModeIndex = themeModeIndex,
-            onThemeSelected = onThemeChange,
-            selectedDensity = selectedDensity,
-            densityOptions = densityOptions,
-            onDensitySelected = { selectedDensity = it },
-            pushNotificationsEnabled = pushNotificationsEnabled,
-            onPushNotificationsChanged = { pushNotificationsEnabled = it },
-            emailSummariesEnabled = emailSummariesEnabled,
-            onEmailSummariesChanged = { emailSummariesEnabled = it },
-            remindersEnabled = remindersEnabled,
-            onRemindersEnabledChanged = { remindersEnabled = it },
-            reminderDaysText = reminderDaysText,
-            onReminderDaysTextChanged = onDaysTextChange,
-            validationMessage = validationMessage,
-            onSaveClick = onSaveClick,
-            reminders = reminders,
-            onPostReminders = onPostReminders,
-            onSignOut = onSignOut,
-            currentProfile = currentProfile,
-            onOpenAccountSettings = onOpenAccountSettings,
-        )
     }
+
+    val onDaysTextChange: (String) -> Unit = {
+        reminderDaysText = it
+        validationMessage = null
     }
+
+    SettingsContent(
+        modifier = modifier,
+        colors = colors,
+        themeMode = selectedThemeMode,
+        onThemeChanged = { mode -> selectedThemeMode = mode },
+        remindersEnabled = remindersEnabled,
+        onRemindersEnabledChanged = { remindersEnabled = it },
+        reminderDaysText = reminderDaysText,
+        onReminderDaysTextChanged = onDaysTextChange,
+        validationMessage = validationMessage,
+        onSaveClick = onSaveClick,
+        reminders = reminders,
+        onPostReminders = onPostReminders,
+        onSignOut = onSignOut,
+        currentProfile = currentProfile,
+        onOpenAccountSettings = onOpenAccountSettings,
+    )
 }
 
 // ── SettingsContent ───────────────────────────────────────────────────────────
@@ -253,15 +106,8 @@ fun SettingsScreen(
 private fun SettingsContent(
     modifier: Modifier = Modifier,
     colors: NeoFintechColorSet,
-    themeModeIndex: Int,
-    onThemeSelected: (Int) -> Unit,
-    selectedDensity: Int,
-    densityOptions: List<String>,
-    onDensitySelected: (Int) -> Unit,
-    pushNotificationsEnabled: Boolean,
-    onPushNotificationsChanged: (Boolean) -> Unit,
-    emailSummariesEnabled: Boolean,
-    onEmailSummariesChanged: (Boolean) -> Unit,
+    themeMode: String,
+    onThemeChanged: (String) -> Unit,
     remindersEnabled: Boolean,
     onRemindersEnabledChanged: (Boolean) -> Unit,
     reminderDaysText: String,
@@ -313,147 +159,135 @@ private fun SettingsContent(
                 SectionHeader(text = "APARIENCIA", colors = colors)
                 Card(
                     modifier = Modifier.fillMaxWidth()
+                        .fadeInStaggered(index = 0)
                         .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
                         .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
                     colors = CardDefaults.cardColors(containerColor = colors.surface),
                     shape = NeoFintechShapes.lg,
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                        ToggleRow(
-                            title = "Tema",
-                            description = "Elegí tu modo visual preferido.",
-                            checked = themeModeIndex == 1,
-                            onCheckedChange = { onThemeSelected(if (it) 1 else 0) },
-                            colors = colors,
-                            showDivider = true,
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Tema",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = colors.onSurface,
                         )
-                        AccentColorRow(colors = colors, showDivider = true)
-                        DensityRow(
-                            selectedDensity = selectedDensity,
-                            densityOptions = densityOptions,
-                            onDensitySelected = onDensitySelected,
+                        Text(
+                            text = "Elegí el modo visual de la app.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                        )
+                        ThemeModeSelector(
+                            selectedMode = themeMode,
+                            onModeSelected = onThemeChanged,
                             colors = colors,
-                            showDivider = false,
                         )
                     }
                 }
             }
         }
 
-        // Notificaciones section
+        // Recordatorios section (todo en una card)
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader(text = "NOTIFICACIONES", colors = colors)
+                SectionHeader(text = "RECORDATORIOS", colors = colors)
                 Card(
                     modifier = Modifier.fillMaxWidth()
+                        .fadeInStaggered(index = 1)
                         .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
                         .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
                     colors = CardDefaults.cardColors(containerColor = colors.surface),
                     shape = NeoFintechShapes.lg,
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                        ToggleRow(
-                            title = "Notificaciones push",
-                            description = "Recibí alertas en tu dispositivo.",
-                            checked = pushNotificationsEnabled,
-                            onCheckedChange = onPushNotificationsChanged,
-                            colors = colors,
-                            showDivider = true,
-                        )
-                        ToggleRow(
-                            title = "Resúmenes por email",
-                            description = "Informe semanal de tu actividad.",
-                            checked = emailSummariesEnabled,
-                            onCheckedChange = onEmailSummariesChanged,
-                            colors = colors,
-                            showDivider = true,
-                        )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        // Toggle de recordatorios
                         ToggleRow(
                             title = "Activar recordatorios",
                             description = "Recordatorios de cuentas pendientes.",
                             checked = remindersEnabled,
                             onCheckedChange = onRemindersEnabledChanged,
                             colors = colors,
-                            showDivider = false,
+                            showDivider = true,
                         )
+
+                        // Configuración de días
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = reminderDaysText,
+                                onValueChange = onReminderDaysTextChanged,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Días antes del vencimiento") },
+                                singleLine = true,
+                                shape = NeoFintechShapes.md,
+                                enabled = remindersEnabled,
+                            )
+                            validationMessage?.let { message ->
+                                Text(
+                                    text = message,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+
+                        // Resumen y envío de recordatorios
+                        if (reminders.isNotEmpty()) {
+                            DividerLine(colors = colors)
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                ReminderSummaryCard(reminders = reminders)
+                                OutlinedButton(
+                                    onClick = { onPostReminders(reminders) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = remindersEnabled,
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = colors.onSurface,
+                                    ),
+                                    border = BorderStroke(1.dp, colors.outlineVariant),
+                                    shape = NeoFintechShapes.md,
+                                ) {
+                                    Text("Enviar ahora (${reminders.size})")
+                                }
+                            }
+                        } else if (remindersEnabled) {
+                            DividerLine(colors = colors)
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Text(
+                                    text = "No hay recordatorios activos",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colors.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Recordatorios config
+        // Botón global de guardar cambios
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth()
-                    .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
-                    .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
-                colors = CardDefaults.cardColors(containerColor = colors.surface),
-                shape = NeoFintechShapes.lg,
+            Button(
+                onClick = onSaveClick,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.buttonContainer,
+                    contentColor = colors.onButton,
+                ),
+                shape = NeoFintechShapes.md,
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "Configuración de recordatorios",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.onSurface,
-                    )
-                    OutlinedTextField(
-                        value = reminderDaysText,
-                        onValueChange = onReminderDaysTextChanged,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Días") },
-                        singleLine = true,
-                        shape = NeoFintechShapes.md,
-                    )
-                    validationMessage?.let { message ->
-                        Text(
-                            text = message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    Button(
-                        onClick = onSaveClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = NeoFintechShapes.md,
-                    ) {
-                        Text("Guardar preferencias")
-                    }
-                }
-            }
-        }
-
-        // Enviar recordatorios
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth()
-                    .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
-                    .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
-                colors = CardDefaults.cardColors(containerColor = colors.surface),
-                shape = NeoFintechShapes.lg,
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (reminders.isNotEmpty()) {
-                        ReminderSummaryCard(reminders = reminders)
-                    }
-                    OutlinedButton(
-                        onClick = { onPostReminders(reminders) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = remindersEnabled && reminders.isNotEmpty(),
-                        shape = NeoFintechShapes.md,
-                    ) {
-                        Text(
-                            if (reminders.isEmpty()) "Sin recordatorios activos"
-                            else "Enviar ahora (${reminders.size})"
-                        )
-                    }
-                }
+                Text("Guardar cambios")
             }
         }
 
@@ -462,6 +296,7 @@ private fun SettingsContent(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth()
+                        .fadeInStaggered(index = 2)
                         .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
                         .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
                     colors = CardDefaults.cardColors(containerColor = colors.surface),
@@ -475,12 +310,9 @@ private fun SettingsContent(
                             onClick = onSignOut,
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
+                                contentColor = colors.error,
                             ),
-                            border = BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.error
-                            ),
+                            border = BorderStroke(1.dp, colors.error),
                             shape = NeoFintechShapes.md,
                         ) {
                             Text("Cerrar sesión")
@@ -523,6 +355,53 @@ private fun DividerLine(colors: NeoFintechColorSet) {
     }
 }
 
+// ── ThemeModeSelector ─────────────────────────────────────────────────────────
+
+@Composable
+private fun ThemeModeSelector(
+    selectedMode: String,
+    onModeSelected: (String) -> Unit,
+    colors: NeoFintechColorSet,
+) {
+    val segments = listOf("Sistema", "Claro", "Oscuro")
+    val selectedIndex = when (selectedMode) {
+        "light" -> 1
+        "dark" -> 2
+        else -> 0 // "system"
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        segments.forEachIndexed { index, label ->
+            val isSelected = index == selectedIndex
+            Text(
+                text = label,
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        color = if (isSelected) colors.primaryContainer else colors.surfaceContainer,
+                        shape = NeoFintechShapes.md
+                    )
+                    .clickable {
+                        val mode = when (index) {
+                            0 -> "system"
+                            1 -> "light"
+                            else -> "dark"
+                        }
+                        onModeSelected(mode)
+                    }
+                    .padding(vertical = 12.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                color = if (isSelected) colors.surfaceContainerLowest else colors.onSurfaceVariant,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
 // ── ToggleRow ─────────────────────────────────────────────────────────────────
 
 @Composable
@@ -559,106 +438,6 @@ private fun ToggleRow(
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
-            )
-        }
-        if (showDivider) {
-            DividerLine(colors = colors)
-        }
-    }
-}
-
-// ── AccentColorRow ────────────────────────────────────────────────────────────
-
-@Composable
-private fun AccentColorRow(
-    colors: NeoFintechColorSet,
-    showDivider: Boolean = false,
-) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Color de acento",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = colors.onSurface,
-                )
-                Text(
-                    text = "Personalizá el color principal de la interfaz.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Neon green (selected) — with ring
-                Canvas(modifier = Modifier.size(28.dp)) {
-                    drawCircle(color = Color(0xFF39FF14))
-                }
-                Canvas(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .border(2.dp, colors.primaryContainer, NeoFintechShapes.full)
-                ) {
-                    drawCircle(color = Color(0xFF39FF14))
-                }
-                // Green
-                Canvas(modifier = Modifier.size(28.dp)) {
-                    drawCircle(color = Color(0xFF00C566))
-                }
-                // Gray
-                Canvas(modifier = Modifier.size(28.dp)) {
-                    drawCircle(color = colors.secondary)
-                }
-            }
-        }
-        if (showDivider) {
-            DividerLine(colors = colors)
-        }
-    }
-}
-
-// ── DensityRow ────────────────────────────────────────────────────────────────
-
-@Composable
-private fun DensityRow(
-    selectedDensity: Int,
-    densityOptions: List<String>,
-    onDensitySelected: (Int) -> Unit,
-    colors: NeoFintechColorSet,
-    showDivider: Boolean = false,
-) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Densidad de lista",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = colors.onSurface,
-                )
-                Text(
-                    text = "Ajustá el espaciado en las vistas de datos.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                )
-            }
-            SegmentedControl(
-                modifier = Modifier.weight(2f),
-                segments = densityOptions,
-                selectedIndex = selectedDensity,
-                onSegmentSelected = onDensitySelected,
             )
         }
         if (showDivider) {

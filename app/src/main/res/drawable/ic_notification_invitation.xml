@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Head: circle centered at (12,8) radius 3 -->
+    <path
+        android:pathData="M12,8m-3,0a3,3 0,1 0,6 0a3,3 0,1 0,-6 0"
+        android:strokeWidth="1.5"
+        android:strokeColor="@android:color/white"/>
+    <!-- Shoulders: arc from (5,20) curving up through center to (19,20) -->
+    <path
+        android:pathData="M5,20c0,-3.87 3.13,-7 7,-7s7,3.13 7,7"
+        android:strokeWidth="1.5"
+        android:strokeColor="@android:color/white"/>
+    <!-- Badge circle: centered at (19,5) radius 2 -->
+    <path
+        android:pathData="M19,5m-2,0a2,2 0,1 0,4 0a2,2 0,1 0,-4 0"
+        android:strokeWidth="1.5"
+        android:strokeColor="@android:color/white"/>
+    <!-- Plus sign inside badge: vertical + horizontal lines -->
+    <path
+        android:pathData="M19,4v2M18,5h2"
+        android:strokeWidth="1.5"
+        android:strokeColor="@android:color/white"/>
+</vector>

@@ -31,50 +31,22 @@ class StateMachineTest {
         pendingPayments = pendingPayments,
     )
 
-    // ── ST-01: DRAFT → OPEN ─────────────────────────────────────────────────
+    // ── OPEN default on creation ──────────────────────────────────────────────
 
     @Test
-    fun `ST-01 successful DRAFT to OPEN transition`() {
-        val ctx = defaultContext()
-        val result = attemptTransition(EventState.DRAFT, EventState.OPEN, ctx)
-        assertTrue(result is StateTransitionResult.Allowed)
-        assertEquals(EventState.OPEN, (result as StateTransitionResult.Allowed).newState)
+    fun `new EventItem defaults to OPEN state`() {
+        val event = EventItem(name = "Test", dateMillis = 0L, ownerId = "u1")
+        assertEquals(EventState.OPEN, event.state)
     }
 
-    @Test
-    fun `ST-01 DRAFT to OPEN blocked — blank name`() {
-        val ctx = defaultContext(eventName = "")
-        val result = attemptTransition(EventState.DRAFT, EventState.OPEN, ctx)
-        assertTrue(result is StateTransitionResult.Blocked)
-        val reasons = (result as StateTransitionResult.Blocked).reasons
-        assertTrue(reasons.any { it.contains("nombre") })
-    }
+    // ── EventState has exactly 3 values (no DRAFT) ───────────────────────────
 
     @Test
-    fun `ST-01 DRAFT to OPEN blocked — blank baseCurrency`() {
-        val ctx = defaultContext(eventBaseCurrency = "")
-        val result = attemptTransition(EventState.DRAFT, EventState.OPEN, ctx)
-        assertTrue(result is StateTransitionResult.Blocked)
-        val reasons = (result as StateTransitionResult.Blocked).reasons
-        assertTrue(reasons.any { it.contains("divisa") })
-    }
-
-    @Test
-    fun `ST-01 DRAFT to OPEN blocked — insufficient members`() {
-        val ctx = defaultContext(memberCount = 1)
-        val result = attemptTransition(EventState.DRAFT, EventState.OPEN, ctx)
-        assertTrue(result is StateTransitionResult.Blocked)
-        val reasons = (result as StateTransitionResult.Blocked).reasons
-        assertTrue(reasons.any { it.contains("2 participantes") })
-    }
-
-    @Test
-    fun `ST-01 DRAFT to OPEN blocked — multiple preconditions fail`() {
-        val ctx = defaultContext(eventName = "", eventBaseCurrency = "", memberCount = 1)
-        val result = attemptTransition(EventState.DRAFT, EventState.OPEN, ctx)
-        assertTrue(result is StateTransitionResult.Blocked)
-        val reasons = (result as StateTransitionResult.Blocked).reasons
-        assertEquals(3, reasons.size)
+    fun `EventState has exactly 3 values`() {
+        assertEquals(3, EventState.entries.size)
+        assertTrue(EventState.entries.contains(EventState.OPEN))
+        assertTrue(EventState.entries.contains(EventState.CALCULATED))
+        assertTrue(EventState.entries.contains(EventState.CLOSED))
     }
 
     // ── ST-02: OPEN → CALCULATED ────────────────────────────────────────────
@@ -166,15 +138,6 @@ class StateMachineTest {
     // ── ST-05: CLOSED State Immutability ─────────────────────────────────────
 
     @Test
-    fun `ST-05 CLOSED to DRAFT blocked`() {
-        val ctx = defaultContext()
-        val result = attemptTransition(EventState.CLOSED, EventState.DRAFT, ctx)
-        assertTrue(result is StateTransitionResult.Blocked)
-        val reasons = result.reasons
-        assertTrue(reasons.any { it.contains("cerrado") })
-    }
-
-    @Test
     fun `ST-05 CLOSED to OPEN blocked`() {
         val ctx = defaultContext()
         val result = attemptTransition(EventState.CLOSED, EventState.OPEN, ctx)
@@ -189,29 +152,6 @@ class StateMachineTest {
     }
 
     // ── Invalid transitions ──────────────────────────────────────────────────
-
-    @Test
-    fun `DRAFT to CALCULATED is invalid (skip state)`() {
-        val ctx = defaultContext()
-        val result = attemptTransition(EventState.DRAFT, EventState.CALCULATED, ctx)
-        assertTrue(result is StateTransitionResult.Blocked)
-        val reasons = result.reasons
-        assertTrue(reasons.any { it.contains("Transición no válida") })
-    }
-
-    @Test
-    fun `DRAFT to CLOSED is invalid (skip state)`() {
-        val ctx = defaultContext()
-        val result = attemptTransition(EventState.DRAFT, EventState.CLOSED, ctx)
-        assertTrue(result is StateTransitionResult.Blocked)
-    }
-
-    @Test
-    fun `OPEN to DRAFT is invalid (backward)`() {
-        val ctx = defaultContext()
-        val result = attemptTransition(EventState.OPEN, EventState.DRAFT, ctx)
-        assertTrue(result is StateTransitionResult.Blocked)
-    }
 
     @Test
     fun `OPEN to CLOSED is invalid (skip state)`() {
@@ -234,12 +174,6 @@ class StateMachineTest {
     // ── Helper functions ─────────────────────────────────────────────────────
 
     @Test
-    fun `isDraft returns true for DRAFT state`() {
-        val event = EventItem(name = "Test", dateMillis = 0L, ownerId = "u1", state = EventState.DRAFT)
-        assertTrue(event.isDraft())
-    }
-
-    @Test
     fun `isOpen returns true for OPEN state`() {
         val event = EventItem(name = "Test", dateMillis = 0L, ownerId = "u1", state = EventState.OPEN)
         assertTrue(event.isOpen())
@@ -259,7 +193,6 @@ class StateMachineTest {
 
     @Test
     fun `stateLabel returns correct Spanish labels`() {
-        assertEquals("Borrador", EventItem(name = "T", dateMillis = 0, ownerId = "u1", state = EventState.DRAFT).stateLabel())
         assertEquals("Abierto", EventItem(name = "T", dateMillis = 0, ownerId = "u1", state = EventState.OPEN).stateLabel())
         assertEquals("Calculado", EventItem(name = "T", dateMillis = 0, ownerId = "u1", state = EventState.CALCULATED).stateLabel())
         assertEquals("Cerrado", EventItem(name = "T", dateMillis = 0, ownerId = "u1", state = EventState.CLOSED).stateLabel())
@@ -267,9 +200,9 @@ class StateMachineTest {
 
     @Test
     fun `canTransitionTo delegates to attemptTransition`() {
-        val event = EventItem(name = "Test", dateMillis = 0L, ownerId = "u1", state = EventState.DRAFT)
-        val ctx = defaultContext()
-        val result = event.canTransitionTo(EventState.OPEN, ctx)
+        val event = EventItem(name = "Test", dateMillis = 0L, ownerId = "u1", state = EventState.OPEN)
+        val ctx = defaultContext(expenseCount = 2)
+        val result = event.canTransitionTo(EventState.CALCULATED, ctx)
         assertTrue(result is StateTransitionResult.Allowed)
     }
 

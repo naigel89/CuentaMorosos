@@ -32,10 +32,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberDateRangePickerState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -50,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.currentDateText
 import com.cuentamorosos.data.ReminderMessage
+import com.cuentamorosos.formatDateMillis
 import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventParticipant
@@ -104,36 +110,9 @@ fun EventsScreen(
     // Filtro: 0 = Todos, 1 = Con deuda, 2 = Sin deuda, 3 = Cerrados
     var activeFilter by remember { mutableStateOf(0) }
 
-    val totalPending by remember(pendingTotalsByEvent) {
-        derivedStateOf { pendingTotalsByEvent.values.sum() }
-    }
-    val activeEventCount by remember(pendingTotalsByEvent) {
-        derivedStateOf { pendingTotalsByEvent.count { it.value > 0.0 } }
-    }
-    val owedEventCount by remember(youAreOwedByEvent) {
-        derivedStateOf { youAreOwedByEvent.count { it.value > 0.0 } }
-    }
-
     val filteredEvents by remember(events, searchQuery, activeFilter, pendingTotalsByEvent) {
         derivedStateOf {
-            events
-                .filter { event ->
-                    when (activeFilter) {
-                        3 -> event.state == EventState.CLOSED
-                        else -> event.state != EventState.CLOSED
-                    }
-                }
-                .filter { event ->
-                    searchQuery.isBlank() ||
-                        event.name.contains(searchQuery.trim(), ignoreCase = true)
-                }
-                .filter { event ->
-                    when (activeFilter) {
-                        1 -> (pendingTotalsByEvent[event.id] ?: 0.0) > 0.0
-                        2 -> (pendingTotalsByEvent[event.id] ?: 0.0) == 0.0
-                        else -> true
-                    }
-                }
+            filterEventsList(events, searchQuery, activeFilter, pendingTotalsByEvent)
         }
     }
 
@@ -153,14 +132,6 @@ fun EventsScreen(
                 .fillMaxSize()
                 .padding(NeoFintechSpacing.md),
         ) {
-            // Compact Balance Summary
-            BalanceSummaryCard(
-                totalPending = totalPending,
-                activeEventCount = activeEventCount,
-                totalSpent = totalSpent,
-                _owedEventCount = owedEventCount,
-            )
-
             // Header row: title + create button
             Row(
                 modifier = Modifier
@@ -267,21 +238,23 @@ fun EventsScreen(
                             val role = PermissionEngine.getRole(profileId, event)
                             val canEdit = role == EventRole.OWNER
                             val canDelete = PermissionEngine.hasPermission(role, EventAction.DeleteEvent)
-                            EventCard(
-                                event = event,
-                                _participantCount = participantCountByEvent[event.id] ?: 0,
-                                _pendingTotal = pendingTotalsByEvent[event.id] ?: 0.0,
-                                totalExpense = totalExpensesByEvent[event.id] ?: 0.0,
-                                yourShare = yourShareByEvent[event.id] ?: 0.0,
-                                youAreOwed = youAreOwedByEvent[event.id] ?: 0.0,
-                                profiles = eventProfiles,
-                                category = ExpenseCategory.fromId("shared"),
-                                onTap = { onOpenEvent(event) },
-                                onEdit = { editableEvent = event },
-                                onDelete = { eventToDelete = event },
-                                canEdit = canEdit,
-                                canDelete = canDelete,
-                            )
+                            Box(modifier = Modifier.slideUp()) {
+                                EventCard(
+                                    event = event,
+                                    _participantCount = participantCountByEvent[event.id] ?: 0,
+                                    _pendingTotal = pendingTotalsByEvent[event.id] ?: 0.0,
+                                    totalExpense = totalExpensesByEvent[event.id] ?: 0.0,
+                                    yourShare = yourShareByEvent[event.id] ?: 0.0,
+                                    youAreOwed = youAreOwedByEvent[event.id] ?: 0.0,
+                                    profiles = eventProfiles,
+                                    category = ExpenseCategory.fromId("shared"),
+                                    onTap = { onOpenEvent(event) },
+                                    onEdit = { editableEvent = event },
+                                    onDelete = { eventToDelete = event },
+                                    canEdit = canEdit,
+                                    canDelete = canDelete,
+                                )
+                            }
                         }
                     }
                 }
@@ -411,6 +384,7 @@ private fun EmptyStateMessage(
 
 // ── EventEditorDialog ─────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EventEditorDialog(
     initialEvent: EventItem,
@@ -440,6 +414,8 @@ private fun EventEditorDialog(
     var useDateRange by remember(initialEvent.id) {
         mutableStateOf(initialEvent.endDateMillis != initialEvent.startDateMillis)
     }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
 
     val existingParticipantIds = initialEvent.participants.map { it.profileId }.toSet()
     var selectedProfileIds by remember(initialEvent.id) {
@@ -498,14 +474,11 @@ private fun EventEditorDialog(
                         )
                         OutlinedTextField(
                             value = startDateText,
-                            onValueChange = {
-                                startDateText = it
-                                validationErrors = emptyList()
-                                validationWarnings = emptyList()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
+                            onValueChange = {},
+                            modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
                             label = { Text(if (useDateRange) "Fecha inicio" else "Fecha") },
-                            supportingText = { Text("Formato dd/MM/yyyy") },
+                            readOnly = true,
+                            enabled = false,
                             singleLine = true,
                         )
                         Row(
@@ -529,14 +502,11 @@ private fun EventEditorDialog(
                         if (useDateRange) {
                             OutlinedTextField(
                                 value = endDateText,
-                                onValueChange = {
-                                    endDateText = it
-                                    validationErrors = emptyList()
-                                    validationWarnings = emptyList()
-                                },
-                                modifier = Modifier.fillMaxWidth(),
+                                onValueChange = {},
+                                modifier = Modifier.fillMaxWidth().clickable { showEndDatePicker = true },
                                 label = { Text("Fecha fin") },
-                                supportingText = { Text("Formato dd/MM/yyyy") },
+                                readOnly = true,
+                                enabled = false,
                                 singleLine = true,
                             )
                         }
@@ -645,7 +615,7 @@ private fun EventEditorDialog(
                         participants = newParticipants,
                         ownerId = ownerId,
                     )
-                    val result = EventValidator.validate(draftEvent, itemCount)
+                    val result = EventValidator.validate(draftEvent, itemCount, isNewlyCreated = isNew)
 
                     if (result.hasErrors()) {
                         validationErrors = result.allErrors()
@@ -667,4 +637,87 @@ private fun EventEditorDialog(
             }
         },
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = parseEventDate(startDateText) ?: currentTimeMillis(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        startDateText = formatDateMillis(millis)
+                    }
+                    showDatePicker = false
+                    validationErrors = emptyList()
+                    validationWarnings = emptyList()
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showEndDatePicker) {
+        val endDatePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = parseEventDate(endDateText),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showEndDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    endDatePickerState.selectedDateMillis?.let { millis ->
+                        endDateText = formatDateMillis(millis)
+                    }
+                    showEndDatePicker = false
+                    validationErrors = emptyList()
+                    validationWarnings = emptyList()
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEndDatePicker = false }) { Text("Cancelar") }
+            },
+        ) {
+            DatePicker(state = endDatePickerState)
+        }
+    }
+}
+
+/**
+ * Filters a list of events by state, search query, and debt status.
+ *
+ * @param events All events to filter.
+ * @param searchQuery Case-insensitive name search. Blank means match all.
+ * @param activeFilter 0=Todos (non-CLOSED), 1=Con deuda (pending>0), 2=Sin deuda (pending==0), 3=Cerrados.
+ * @param pendingTotalsByEvent Map of event ID → total pending amount.
+ * @return Filtered list preserving original order.
+ */
+internal fun filterEventsList(
+    events: List<EventItem>,
+    searchQuery: String,
+    activeFilter: Int,
+    pendingTotalsByEvent: Map<String, Double>,
+): List<EventItem> {
+    return events
+        .filter { event ->
+            when (activeFilter) {
+                3 -> event.state == EventState.CLOSED
+                else -> event.state != EventState.CLOSED
+            }
+        }
+        .filter { event ->
+            searchQuery.isBlank() ||
+                event.name.contains(searchQuery.trim(), ignoreCase = true)
+        }
+        .filter { event ->
+            when (activeFilter) {
+                1 -> (pendingTotalsByEvent[event.id] ?: 0.0) > 0.0
+                2 -> (pendingTotalsByEvent[event.id] ?: 0.0) == 0.0
+                else -> true
+            }
+        }
 }

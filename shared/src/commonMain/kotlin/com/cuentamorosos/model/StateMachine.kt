@@ -36,11 +36,9 @@ fun attemptTransition(
     target: EventState,
     context: TransitionContext,
 ): StateTransitionResult = when (current to target) {
-    EventState.DRAFT to EventState.OPEN -> guardDraftToOpen(context)
     EventState.OPEN to EventState.CALCULATED -> guardOpenToCalculated(context)
     EventState.CALCULATED to EventState.OPEN -> guardCalculatedToOpen(context)
     EventState.CALCULATED to EventState.CLOSED -> guardCalculatedToClosed(context)
-    EventState.CLOSED to EventState.DRAFT,
     EventState.CLOSED to EventState.OPEN,
     EventState.CLOSED to EventState.CALCULATED,
     -> guardFromClosed()
@@ -48,24 +46,6 @@ fun attemptTransition(
     else -> StateTransitionResult.Blocked(
         listOf("Transición no válida: ${current.name} → ${target.name}"),
     )
-}
-
-private fun guardDraftToOpen(context: TransitionContext): StateTransitionResult {
-    val reasons = mutableListOf<String>()
-    if (context.eventName.isBlank()) {
-        reasons.add("El evento necesita un nombre")
-    }
-    if (context.eventBaseCurrency.isBlank()) {
-        reasons.add("La divisa base es obligatoria")
-    }
-    if (context.memberCount < 2) {
-        reasons.add("Se necesitan al menos 2 participantes para abrir el evento")
-    }
-    return if (reasons.isEmpty()) {
-        StateTransitionResult.Allowed(EventState.OPEN)
-    } else {
-        StateTransitionResult.Blocked(reasons)
-    }
 }
 
 private fun guardOpenToCalculated(context: TransitionContext): StateTransitionResult {
