@@ -125,6 +125,13 @@ fun CalculatorSheet(
                 }.toMap()
                 eventExpenses.map { it.copy(splitMode = "PARTS", profileWeights = profileWeights) }
             }
+            SplitMode.CUSTOM_PERCENTAGE -> {
+                val profileWeights = profiles.mapIndexedNotNull { index, profile ->
+                    val pct = parseDecimalValue(percentageInputs[index])
+                    if (pct != null) profile.id to pct else null
+                }.toMap()
+                eventExpenses.map { it.copy(splitMode = "CUSTOM_PERCENTAGE", profileWeights = profileWeights) }
+            }
             else -> eventExpenses
         }
 

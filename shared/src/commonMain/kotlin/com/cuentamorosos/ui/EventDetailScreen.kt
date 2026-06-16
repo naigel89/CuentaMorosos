@@ -698,9 +698,8 @@ private fun ExpenseEditorSheet(
     val isNew = expense.name.isBlank() && expense.amountEuros == 0.0
     val title = if (isNew) "Nuevo gasto" else "Editar gasto"
 
-    // Split profiles into current event members and others
+    // Only show profiles that are part of the event
     val currentParticipants = allProfiles.filter { it.id in effectiveMemberIds }
-    val otherProfiles = allProfiles.filter { it.id !in effectiveMemberIds }
 
     fun updateSelectedProfiles(newSelection: List<String>) {
         selectedProfileIds = newSelection
@@ -755,6 +754,8 @@ private fun ExpenseEditorSheet(
                 name = name.trim(),
                 amountEuros = parsedAmount,
                 category = selectedCategory.id,
+                splitMode = if (selectedCategory != ExpenseCategory.SHARED && showCustomSplit)
+                    "CUSTOM_PERCENTAGE" else "SIMPLE_AVG",
                 assignedProfileIds = if (selectedCategory == ExpenseCategory.SHARED) {
                     emptyList()
                 } else {
@@ -898,7 +899,7 @@ private fun ExpenseEditorSheet(
                             )
                         }
                     }
-                    items(allProfiles, key = { "paid_${it.id}" }) { profile ->
+                    items(currentParticipants, key = { "paid_${it.id}" }) { profile ->
                         val isSelected = selectedPaidByProfileId == profile.id
                         Surface(
                             onClick = { selectedPaidByProfileId = profile.id },
@@ -1030,32 +1031,7 @@ private fun ExpenseEditorSheet(
                         }
                     }
 
-                    // Other profiles section
-                    if (otherProfiles.isNotEmpty()) {
-                        HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.2f))
-                        Text(
-                            text = "Añadir participantes",
-                            style = typography.bodySmall,
-                            color = colors.onSurfaceVariant,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        otherProfiles.forEach { profile ->
-                            ProfileCheckboxRow(
-                                profile = profile,
-                                isChecked = selectedProfileIds.contains(profile.id),
-                                onToggle = { checked ->
-                                    val newSelection = if (checked) {
-                                        selectedProfileIds + profile.id
-                                    } else {
-                                        selectedProfileIds - profile.id
-                                    }
-                                    updateSelectedProfiles(newSelection)
-                                },
-                                colors = colors,
-                                typography = typography,
-                            )
-                        }
-                    }
+
                 }
             }
 
