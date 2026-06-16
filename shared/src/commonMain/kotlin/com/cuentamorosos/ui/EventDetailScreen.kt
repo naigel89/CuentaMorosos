@@ -899,7 +899,7 @@ private fun ExpenseEditorSheet(
                             )
                         }
                     }
-                    items(currentParticipants, key = { "paid_${it.id}" }) { profile ->
+                    items(currentParticipants.filter { it.id != currentUid }, key = { "paid_${it.id}" }) { profile ->
                         val isSelected = selectedPaidByProfileId == profile.id
                         Surface(
                             onClick = { selectedPaidByProfileId = profile.id },
