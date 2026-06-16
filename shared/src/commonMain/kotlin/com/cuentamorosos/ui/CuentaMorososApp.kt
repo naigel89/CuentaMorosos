@@ -479,16 +479,6 @@ fun CuentaMorososApp(
                             },
                             currentRole = currentRole,
                             canDo = { action -> eventDetailViewModel.canDo(action) },
-                            onOpenEvent = {
-                                val ctx = TransitionContext(
-                                    eventName = currentEvent.name,
-                                    eventBaseCurrency = currentEvent.baseCurrency,
-                                    memberCount = currentEvent.effectiveMemberIds.size,
-                                    expenseCount = expenses.filter { it.eventId == currentEvent.id }.size,
-                                    isOwner = currentRole == EventRole.OWNER,
-                                )
-                                eventDetailViewModel.openEvent(ctx)
-                            },
                             onCloseEvent = {
                                 val eventDebts = debts.filter { it.eventId == currentEvent.id }
                                 val ctx = TransitionContext(

@@ -1,5 +1,6 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.model.CalculationSnapshot
@@ -48,9 +50,16 @@ fun TransferListPanel(
     val monoFont = JetBrainsMonoFontFamily()
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = NeoFintechElevation.cardShadowElevation,
+                shape = NeoFintechElevation.cardShadowShape,
+                clip = false,
+            ),
         colors = CardDefaults.cardColors(containerColor = themeColors.surface),
         shape = shapes.lg,
+        border = BorderStroke(1.dp, themeColors.outline),
     ) {
         Column(
             modifier = Modifier.padding(24.dp),

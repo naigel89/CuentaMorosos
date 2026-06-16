@@ -360,15 +360,8 @@ fun CalculatorSheet(
                     color = themeColors.outlineVariant,
                 )
 
-                // Preview breakdown from snapshot (if available)
+                // Transfer list panel (sole result display)
                 result.snapshot?.let { snapshot ->
-                    PreviewBreakdown(
-                        profiles = profiles,
-                        amounts = snapshot.participantBalances.values.toList(),
-                        summary = formatEuros(snapshot.totalExpense),
-                    )
-
-                    // Transfer list panel (replaces SettlementCard)
                     val profileNameResolver: (String) -> String = { id ->
                         profiles.find { it.id == id }?.name ?: id
                     }
