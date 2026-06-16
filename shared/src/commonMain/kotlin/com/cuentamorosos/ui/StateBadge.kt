@@ -18,7 +18,6 @@ import com.cuentamorosos.model.EventState
  */
 fun EventState.stateBadgeColor(colors: NeoFintechColorSet): Color =
     when (this) {
-        EventState.DRAFT -> colors.onSurfaceVariant.copy(alpha = 0.3f)
         EventState.OPEN -> colors.primaryContainer.copy(alpha = 0.25f)
         EventState.CALCULATED -> colors.tertiaryContainer.copy(alpha = 0.35f)
         EventState.CLOSED -> Color(0xFF9C27B0).copy(alpha = 0.25f)
@@ -29,7 +28,6 @@ fun EventState.stateBadgeColor(colors: NeoFintechColorSet): Color =
  */
 fun EventState.stateBadgeLabel(): String =
     when (this) {
-        EventState.DRAFT -> "Borrador"
         EventState.OPEN -> "Abierto"
         EventState.CALCULATED -> "Calculado"
         EventState.CLOSED -> "Cerrado"
@@ -40,7 +38,6 @@ fun EventState.stateBadgeLabel(): String =
  * for an [EventState] with color-coded background.
  *
  * Color mapping:
- * - DRAFT → gray (onSurfaceVariant 30%)
  * - OPEN → blue/green (primaryContainer 25%)
  * - CALCULATED → green (tertiaryContainer 35%)
  * - CLOSED → purple (0xFF9C27B0 25%)

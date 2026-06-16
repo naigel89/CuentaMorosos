@@ -86,7 +86,6 @@ fun EventDetailScreen(
     _onRemoveMember: (String) -> Unit,
     currentRole: EventRole = EventRole.OWNER,
     canDo: (EventAction) -> Boolean = { true },
-    onOpenEvent: (() -> Unit)? = null,
     onCloseEvent: (() -> Unit)? = null,
 ) {
     val profileById = profiles.associateBy { it.id }
@@ -121,7 +120,6 @@ fun EventDetailScreen(
                 onBack = onBack,
                 isWide = isWide,
                 currentRole = currentRole,
-                onOpenEvent = onOpenEvent,
             )
 
             // ── Main content ───────────────────────────────────────────────
@@ -398,7 +396,6 @@ private fun HeaderSection(
     onBack: () -> Unit,
     isWide: Boolean,
     currentRole: EventRole = EventRole.OWNER,
-    onOpenEvent: (() -> Unit)? = null,
 ) {
     val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
@@ -483,24 +480,6 @@ private fun HeaderSection(
                 style = MaterialTheme.typography.bodyMedium,
                 color = themeColors.onSurfaceVariant,
             )
-        }
-
-        // "Abrir evento" button — visible only for DRAFT events with OWNER/CONTRIBUTOR role
-        if (event.state == EventState.DRAFT &&
-            (currentRole == EventRole.OWNER || currentRole == EventRole.CONTRIBUTOR) &&
-            onOpenEvent != null
-        ) {
-            Button(
-                onClick = onOpenEvent,
-                modifier = Modifier.padding(top = 4.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.primaryContainer,
-                    contentColor = colors.onPrimaryContainer,
-                ),
-                shape = NeoFintechShapes.lg,
-            ) {
-                Text("Abrir evento", fontWeight = FontWeight.Bold)
-            }
         }
     }
 }

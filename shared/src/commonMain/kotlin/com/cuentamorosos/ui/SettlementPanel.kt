@@ -61,7 +61,7 @@ fun SettlementPanel(
     canCalculate: Boolean = true,
     canManageParticipants: Boolean = true,
     canInvite: Boolean = true,
-    eventState: EventState = EventState.DRAFT,
+    eventState: EventState = EventState.OPEN,
     canClose: Boolean = false,
     onCloseEvent: (() -> Unit)? = null,
     onRemoveMember: ((String) -> Unit)? = null,
