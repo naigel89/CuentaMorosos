@@ -1,5 +1,8 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +56,7 @@ import com.cuentamorosos.shortWeekDayNames
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.formatEuros
+import kotlinx.datetime.LocalDate
 
 private val spanishMonthNames = listOf(
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -72,12 +77,14 @@ fun CalendarScreen(
     var displayYear by remember { mutableStateOf(todayFields.year) }
     var displayMonth by remember { mutableStateOf(todayFields.month) }
     var selectedDay by remember { mutableStateOf<Int?>(null) }
+    var calendarVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { calendarVisible = true }
 
     val dayRangeMillis by remember(displayYear, displayMonth) {
         derivedStateOf {
             val fields = calendarFieldsForYearMonth(displayYear, displayMonth)
-            val startOfMonth = dateToMillis(displayYear, displayMonth, 1)
-            val endOfMonth = dateToMillis(displayYear, displayMonth, fields.daysInMonth) + 86400000L
+            val startOfMonth = LocalDate(displayYear, displayMonth, 1).toEpochDays() * 86_400_000L
+            val endOfMonth = LocalDate(displayYear, displayMonth, fields.daysInMonth).toEpochDays() * 86_400_000L + 86_400_000L
             startOfMonth to endOfMonth
         }
     }
@@ -92,7 +99,7 @@ fun CalendarScreen(
                 if (start > end) return@forEach
                 var dayStart = start
                 while (dayStart <= end) {
-                    val dayOfMonth = millisToDayOfMonth(dayStart)
+                    val dayOfMonth = LocalDate.fromEpochDays((dayStart / 86_400_000L).toInt()).dayOfMonth
                     if (dayOfMonth > 0) {
                         map.getOrPut(dayOfMonth) { mutableListOf() }.add(event)
                     }
@@ -129,7 +136,7 @@ fun CalendarScreen(
         derivedStateOf {
             if (todayFieldsNow.year == displayYear && todayFieldsNow.month == displayMonth) {
                 val todayMillis = currentTimeMillis()
-                millisToDayOfMonth(todayMillis)
+                LocalDate.fromEpochDays((todayMillis / 86_400_000L).toInt()).dayOfMonth
             } else -1
         }
     }
@@ -159,100 +166,108 @@ fun CalendarScreen(
             }
         }
 
-        // ── Week day headers ───────────────────────────────────────
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-            weekDayLabels.forEach { label ->
-                Text(
-                    text = label,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Spacer(Modifier.height(4.dp))
+        AnimatedVisibility(
+            visible = calendarVisible,
+            enter = fadeIn() + slideInVertically { -it / 4 },
+        ) {
+            Column {
+                // ── Week day headers ─────────────────────────────────
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                    weekDayLabels.forEach { label ->
+                        Text(
+                            text = label,
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
 
-        // ── Day grid with badges ────────────────────────────────────
-        calGrid.chunked(7).forEach { week ->
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-                week.forEach { day ->
-                    Box(
-                        modifier = Modifier.weight(1f).aspectRatio(0.9f).padding(1.dp)
-                            .then(if (day != null) Modifier.clickable {
-                                selectedDay = if (selectedDay == day) null else day
-                            } else Modifier),
-                    ) {
-                        if (day != null) {
-                            val isSelected = selectedDay == day
-                            val isToday = day == todayDay
-                            val dayEvents = eventsByDay[day] ?: emptyList()
-                            val eventCount = dayEvents.size
+                // ── Day grid with badges ────────────────────────────
+                calGrid.chunked(7).forEach { week ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                        week.forEach { day ->
+                            Box(
+                                modifier = Modifier.weight(1f).aspectRatio(0.9f).padding(1.dp)
+                                    .then(if (day != null) Modifier.clickable {
+                                        selectedDay = if (selectedDay == day) null else day
+                                    } else Modifier),
+                                contentAlignment = Alignment.TopCenter,
+                            ) {
+                                if (day != null) {
+                                    val isSelected = selectedDay == day
+                                    val isToday = day == todayDay
+                                    val dayEvents = eventsByDay[day] ?: emptyList()
+                                    val eventCount = dayEvents.size
 
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                // Day number circle
-                                Box(
-                                    modifier = Modifier.size(28.dp).then(
-                                        when {
-                                            isSelected -> Modifier.background(
-                                                MaterialTheme.colorScheme.primary, CircleShape
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        // Day number circle
+                                        Box(
+                                            modifier = Modifier.size(28.dp).then(
+                                                when {
+                                                    isSelected -> Modifier.background(
+                                                        MaterialTheme.colorScheme.primary, CircleShape
+                                                    )
+                                                    isToday -> Modifier.background(
+                                                        MaterialTheme.colorScheme.primaryContainer, CircleShape
+                                                    )
+                                                    else -> Modifier
+                                                }
+                                            ),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = day.toString(),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = when {
+                                                    isSelected -> MaterialTheme.colorScheme.onPrimary
+                                                    isToday -> MaterialTheme.colorScheme.onPrimaryContainer
+                                                    else -> MaterialTheme.colorScheme.onSurface
+                                                },
                                             )
-                                            isToday -> Modifier.background(
-                                                MaterialTheme.colorScheme.primaryContainer, CircleShape
-                                            )
-                                            else -> Modifier
                                         }
-                                    ),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        text = day.toString(),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = when {
-                                            isSelected -> MaterialTheme.colorScheme.onPrimary
-                                            isToday -> MaterialTheme.colorScheme.onPrimaryContainer
-                                            else -> MaterialTheme.colorScheme.onSurface
-                                        },
-                                    )
-                                }
 
-                                // Badge pills
-                                Spacer(Modifier.height(2.dp))
-                                dayEvents.take(MAX_VISIBLE_BADGES).forEach { event ->
-                                    EventBadge(event = event)
-                                }
-                                if (eventCount > MAX_VISIBLE_BADGES) {
-                                    Text(
-                                        text = "+${eventCount - MAX_VISIBLE_BADGES} más",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontSize = 8.sp,
-                                            lineHeight = 10.sp,
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                    )
+                                        // Badge pills
+                                        Spacer(Modifier.height(2.dp))
+                                        dayEvents.take(MAX_VISIBLE_BADGES).forEach { event ->
+                                            EventBadge(event = event)
+                                        }
+                                        if (eventCount > MAX_VISIBLE_BADGES) {
+                                            Text(
+                                                text = "+${eventCount - MAX_VISIBLE_BADGES} más",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontSize = 8.sp,
+                                                    lineHeight = 10.sp,
+                                                ),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
+
+                // ── Day Detail Panel ────────────────────────────────
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                Spacer(Modifier.height(4.dp))
+
+                DayDetailPanel(
+                    selectedDay = selectedDay,
+                    displayMonth = displayMonth,
+                    displayYear = displayYear,
+                    events = selectedDayEvents,
+                    pendingTotalsByEvent = pendingTotalsByEvent,
+                    onOpenEvent = onOpenEvent,
+                )
             }
         }
-
-        // ── Day Detail Panel ────────────────────────────────────────
-        Spacer(Modifier.height(8.dp))
-        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-        Spacer(Modifier.height(4.dp))
-
-        DayDetailPanel(
-            selectedDay = selectedDay,
-            displayMonth = displayMonth,
-            displayYear = displayYear,
-            events = selectedDayEvents,
-            pendingTotalsByEvent = pendingTotalsByEvent,
-            onOpenEvent = onOpenEvent,
-        )
     }
 }
 
@@ -409,38 +424,4 @@ private fun DayDetailPanel(
     Spacer(Modifier.height(16.dp))
 }
 
-// ── Date helpers (KMP-compatible) ────────────────────────────────────
 
-private fun dateToMillis(year: Int, month: Int, day: Int): Long {
-    var totalDays = 0L
-    for (y in 1970 until year) {
-        totalDays += if (isLeapYear(y)) 366 else 365
-    }
-    val monthDays = if (isLeapYear(year)) leapYearMonthStarts else commonYearMonthStarts
-    totalDays += monthDays[month - 1]
-    totalDays += (day - 1)
-    return totalDays * 86400000L
-}
-
-private fun millisToDayOfMonth(millis: Long): Int {
-    val days = millis / 86400000L
-    var remaining = days
-    var y = 1970
-    while (true) {
-        val daysInYear = if (isLeapYear(y)) 366 else 365
-        if (remaining < daysInYear) break
-        remaining -= daysInYear
-        y++
-    }
-    val monthDays = if (isLeapYear(y)) leapYearMonthStarts else commonYearMonthStarts
-    for (m in monthDays.indices) {
-        if (remaining < monthDays[m]) return (remaining - (if (m > 0) monthDays[m - 1] else 0)).toInt() + 1
-    }
-    return (remaining - monthDays[11] + 1).toInt() + 1
-}
-
-private fun isLeapYear(year: Int): Boolean =
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-
-private val commonYearMonthStarts = listOf(0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334)
-private val leapYearMonthStarts = listOf(0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335)

@@ -14,8 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,24 +66,33 @@ fun DashboardScreen(
                         .clickable(onClick = onOpenCalendar),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("\uD83D\uDCC5", style = MaterialTheme.typography.bodyLarge)
+                    Icon(
+                        Icons.Default.CalendarMonth,
+                        contentDescription = "Abrir calendario",
+                        modifier = Modifier.size(24.dp),
+                        tint = colors.onPrimaryContainer,
+                    )
                 }
             }
         }
 
-        // Financial Summary Row
-        item(key = "financial-summary") {
-            FinancialSummaryRow(
-                debes = summary.debes,
-                teDeben = summary.teDeben,
-                debesCount = summary.debesCount,
-                teDebenCount = summary.teDebenCount,
-            )
+        // Financial Summary Row — only show when there are amounts
+        if (summary.debes > 0.0 || summary.teDeben > 0.0) {
+            item(key = "financial-summary") {
+                FinancialSummaryRow(
+                    debes = summary.debes,
+                    teDeben = summary.teDeben,
+                    debesCount = summary.debesCount,
+                    teDebenCount = summary.teDebenCount,
+                )
+            }
         }
 
-        // Net Balance Card
-        item(key = "net-balance") {
-            NetBalanceCard(balance = summary.netBalance)
+        // Net Balance Card — only show when non-zero
+        if (summary.netBalance != 0.0) {
+            item(key = "net-balance") {
+                NetBalanceCard(balance = summary.netBalance)
+            }
         }
 
         // Unified debts card (all profiles in one list)

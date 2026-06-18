@@ -151,7 +151,7 @@ fun TransferListPanel(
  * Uses theme-aware accent colors.
  */
 @Composable
-private fun StatusBanner(status: CalculationStatus) {
+internal fun StatusBanner(status: CalculationStatus) {
     val colors = LocalNeoFintechColors.current
 
     val (bgColor, dotColor) = when (status) {
@@ -195,7 +195,7 @@ private fun StatusBanner(status: CalculationStatus) {
 // ─── Total hero ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun TotalHero(snapshot: CalculationSnapshot) {
+internal fun TotalHero(snapshot: CalculationSnapshot) {
     val colors = LocalNeoFintechColors.current
 
     val participantCount = snapshot.participantBalances.size
@@ -256,7 +256,7 @@ private fun TotalHero(snapshot: CalculationSnapshot) {
 // ─── Section label ────────────────────────────────────────────────────────────
 
 @Composable
-private fun SectionLabel(text: String) {
+internal fun SectionLabel(text: String) {
     val colors = LocalNeoFintechColors.current
 
     Text(
@@ -275,7 +275,7 @@ private fun SectionLabel(text: String) {
  * Paid transfers: lower alpha + check icon.
  */
 @Composable
-private fun TransferRow(
+internal fun TransferRow(
     transfer: com.cuentamorosos.model.SettlementTransfer,
     profileNameResolver: (String) -> String,
     profiles: List<ProfileItem>,
@@ -378,7 +378,7 @@ private fun TransferRow(
  * [maxAbs] is the largest absolute balance in the list, used to scale the bars.
  */
 @Composable
-private fun BalanceRow(
+internal fun BalanceRow(
     name: String,
     profile: ProfileItem?,
     balance: Double,

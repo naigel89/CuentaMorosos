@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
+import com.cuentamorosos.SystemBackHandler
 import com.cuentamorosos.data.CuentaMorososLocalStore
 import com.cuentamorosos.data.FirebaseUserSyncManager
 import com.cuentamorosos.data.NetworkMonitorFactory
@@ -346,6 +347,13 @@ private fun AuthFlow(
     var showLogin by remember { mutableStateOf(true) }
     var showRegister by remember { mutableStateOf(false) }
     var showForgotPassword by remember { mutableStateOf(false) }
+
+    // Botón de retroceso del sistema: Register/ForgotPassword → Login
+    SystemBackHandler(enabled = showRegister || showForgotPassword) {
+        showRegister = false
+        showForgotPassword = false
+        showLogin = true
+    }
 
     if (showLogin) {
         LoginScreen(

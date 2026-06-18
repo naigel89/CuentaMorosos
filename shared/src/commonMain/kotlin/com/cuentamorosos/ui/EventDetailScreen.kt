@@ -61,6 +61,7 @@ import com.cuentamorosos.model.displayNameFor
 import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEuroAmount
+import com.cuentamorosos.model.toCalculationSnapshot
 import kotlinx.coroutines.launch
 
 // ── EventDetailScreen ─────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ fun EventDetailScreen(
     var showInviteMemberDialog by remember { mutableStateOf(false) }
     var showRemoveOwnerConfirm by remember { mutableStateOf<EventDebtItem?>(null) }
     var profileToRemove by remember { mutableStateOf<String?>(null) }
+    var showReceiptDialog by remember { mutableStateOf(false) }
     val currentUid = currentUserUid ?: ""
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -182,6 +184,7 @@ fun EventDetailScreen(
                             onCloseEvent = onCloseEvent,
                             onRemoveMember = { profileToRemove = it },
                             lastCalculationSummary = event.lastCalculationSummary,
+                            onViewReceipt = { showReceiptDialog = true },
                         )
                     }
                 }
@@ -240,6 +243,7 @@ fun EventDetailScreen(
                         onCloseEvent = onCloseEvent,
                         onRemoveMember = { profileToRemove = it },
                         lastCalculationSummary = event.lastCalculationSummary,
+                        onViewReceipt = { showReceiptDialog = true },
                     )
                 }
             }
@@ -346,7 +350,23 @@ fun EventDetailScreen(
         )
     }
 
-    // Dialog 6: InviteMemberDialog
+    // Dialog 6: ReceiptPanel — full breakdown of calculated event
+    if (showReceiptDialog && event.state == EventState.CALCULATED) {
+        val snapshot = event.lastCalculationSummary?.toCalculationSnapshot()
+        if (snapshot != null) {
+            ReceiptPanel(
+                event = event,
+                snapshot = snapshot,
+                profiles = eventParticipants,
+                onDismiss = { showReceiptDialog = false },
+            )
+        } else {
+            // No valid snapshot — close dialog and reset
+            showReceiptDialog = false
+        }
+    }
+
+    // Dialog 7: InviteMemberDialog
     if (showInviteMemberDialog && canDo(EventAction.ManageParticipants)) {
         InviteMemberDialog(
             onDismiss = { showInviteMemberDialog = false },
@@ -357,7 +377,7 @@ fun EventDetailScreen(
         )
     }
 
-    // Dialog 7: RemoveParticipantConfirmation
+    // Dialog 8: RemoveParticipantConfirmation
     if (profileToRemove != null) {
         val profileName = profileById[profileToRemove]?.displayNameFor(currentUserUid ?: "") ?: "Este participante"
         AlertDialog(

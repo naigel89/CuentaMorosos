@@ -60,6 +60,10 @@ object NeoFintechAnimations {
 
     // Max simultaneous animations (performance guard)
     const val MAX_SIMULTANEOUS_ANIMATIONS = 4
+
+    // Money explosion celebration animation tokens
+    const val EXPLOSION_DURATION_MS = 1500
+    const val EXPLOSION_MAX_PARTICLES = 25
 }
 
 // ═══════════════════════════════════════════════════════════════════

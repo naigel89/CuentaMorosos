@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 
 /**
  * End-to-end test: FCM service → NotificationDispatcher → NotificationManager.
@@ -30,7 +31,7 @@ class FcmIntegrationTest {
 
     @Test
     fun `FCM service to dispatcher end-to-end posts notification`() {
-        val service = CuentaMorososFirebaseMessagingService()
+        val service = Robolectric.buildService(CuentaMorososFirebaseMessagingService::class.java).create().get()
 
         val remoteMessage = RemoteMessage.Builder("test")
             .addData("type", "invitation_received")
@@ -47,7 +48,7 @@ class FcmIntegrationTest {
 
     @Test
     fun `multiple FCM messages produce multiple notifications`() {
-        val service = CuentaMorososFirebaseMessagingService()
+        val service = Robolectric.buildService(CuentaMorososFirebaseMessagingService::class.java).create().get()
 
         val message1 = RemoteMessage.Builder("test1")
             .addData("type", "invitation_received")

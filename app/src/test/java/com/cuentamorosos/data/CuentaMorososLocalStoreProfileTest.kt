@@ -34,22 +34,24 @@ class CuentaMorososLocalStoreProfileTest {
             customNames = mapOf("friend1" to "Friend Name"),
         )
 
-        // ── Serialize (mirrors CuentaMorososLocalStore.saveProfiles) ──────────
-        val json = JSONObject().apply {
-            put("id", original.id)
-            put("name", original.name)
-            put("icon", original.icon)
-            put("totalPendingEuros", original.totalPendingEuros)
-            put("isGhost", original.isGhost)
-            put("linkedEmail", original.linkedEmail)
-            put("ownerId", original.ownerId)
-            put("photoUrl", original.photoUrl)
-            put("username", original.username)
-            put("displayName", original.displayName)
-            put("customNames", JSONObject().apply {
-                original.customNames.forEach { (k, v) -> put(k, v) }
-            })
-        }
+        // ── Serialize via raw JSON string (avoids Android mock JSONObject.put()) ─
+        val json = JSONObject(
+            """
+            {
+                "id": "test-id",
+                "name": "Test User",
+                "icon": "\uD83D\uDE0E",
+                "totalPendingEuros": 42.0,
+                "isGhost": false,
+                "linkedEmail": "test@test.com",
+                "ownerId": "owner-id",
+                "photoUrl": "https://example.com/photo.jpg",
+                "username": "@testuser",
+                "displayName": "Test Display",
+                "customNames": {"friend1": "Friend Name"}
+            }
+            """.trimIndent()
+        )
 
         // ── Deserialize (mirrors CuentaMorososLocalStore.loadProfiles) ────────
         val loaded = ProfileItem(
@@ -86,16 +88,19 @@ class CuentaMorososLocalStoreProfileTest {
     @Test
     fun `profile JSON backward compatibility - missing new fields defaults to null`() {
         // Simulate a JSON object with only the original 7 fields
-        val json = JSONObject().apply {
-            put("id", "legacy-id")
-            put("name", "Legacy User")
-            put("icon", "\uD83D\uDC64")
-            put("totalPendingEuros", 10.0)
-            put("isGhost", false)
-            put("linkedEmail", "")
-            put("ownerId", "owner-id")
-            // No photoUrl, username, displayName, customNames
-        }
+        val json = JSONObject(
+            """
+            {
+                "id": "legacy-id",
+                "name": "Legacy User",
+                "icon": "\uD83D\uDC64",
+                "totalPendingEuros": 10.0,
+                "isGhost": false,
+                "linkedEmail": "",
+                "ownerId": "owner-id"
+            }
+            """.trimIndent()
+        )
 
         val loaded = ProfileItem(
             id = json.optString("id"),

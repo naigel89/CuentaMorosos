@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.model.formatEuros
+import kotlin.math.abs
 
 // ── Color tokens for the avatar circles ─────────────────────────────────────
 // These are intentional absolute colours to guarantee the "semáforo visual"
@@ -197,14 +198,26 @@ private fun UnifiedDebtRow(
 // ── Event breakdown dialog ───────────────────────────────────────────────────
 
 @Composable
-private fun EventBreakdownDialog(
+internal fun EventBreakdownDialog(
     item: UnifiedDebtItem,
     onDismiss: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
     val colors = LocalNeoFintechColors.current
     val isOwedToYou = item.direction == DebtDirection.OWED_TO_YOU
     val accentColor = if (isOwedToYou) OwedToYouAvatarFg else YouOweAvatarFg
-    val prefix = if (isOwedToYou) "+" else "-"
+
+    // Determine if events have mixed signs (netted profile) or all one direction
+    val hasPositiveEvents = item.events.any { it.amount >= 0 }
+    val hasNegativeEvents = item.events.any { it.amount < 0 }
+    val hasMixedSigns = hasPositiveEvents && hasNegativeEvents
+
+    val subtitle = when {
+        hasMixedSigns -> "Desglose de eventos"
+        isOwedToYou -> "Eventos donde te debe dinero"
+        else -> "Eventos donde le debes dinero"
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -219,7 +232,7 @@ private fun EventBreakdownDialog(
                     color = colors.onSurface,
                 )
                 Text(
-                    text = if (isOwedToYou) "Eventos donde te debe dinero" else "Eventos donde le debes dinero",
+                    text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
                 )
@@ -235,6 +248,9 @@ private fun EventBreakdownDialog(
                     )
                 } else {
                     item.events.forEach { event ->
+                        val eventColor = if (event.amount >= 0) OwedToYouAvatarFg else YouOweAvatarFg
+                        val eventPrefix = if (event.amount >= 0) "+" else "-"
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -247,11 +263,11 @@ private fun EventBreakdownDialog(
                                 modifier = Modifier.weight(1f),
                             )
                             Text(
-                                text = "$prefix${formatEuros(event.amount)}",
+                                text = "$eventPrefix${formatEuros(abs(event.amount))}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontFamily = JetBrainsMonoFontFamily(),
                                 fontWeight = FontWeight.SemiBold,
-                                color = accentColor,
+                                color = eventColor,
                             )
                         }
                     }
@@ -273,7 +289,7 @@ private fun EventBreakdownDialog(
                             color = colors.onSurface,
                         )
                         Text(
-                            text = "$prefix${formatEuros(item.amount)}",
+                            text = "${if (isOwedToYou) "+" else "-"}${formatEuros(item.amount)}",
                             style = MaterialTheme.typography.bodyLarge,
                             fontFamily = JetBrainsMonoFontFamily(),
                             fontWeight = FontWeight.Bold,
@@ -284,8 +300,26 @@ private fun EventBreakdownDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cerrar")
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (onDelete != null) {
+                    TextButton(onClick = {
+                        onDismiss()
+                        onDelete()
+                    }) {
+                        Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                if (onEdit != null) {
+                    TextButton(onClick = {
+                        onDismiss()
+                        onEdit()
+                    }) {
+                        Text("Editar", color = colors.primaryContainer)
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cerrar")
+                }
             }
         },
     )

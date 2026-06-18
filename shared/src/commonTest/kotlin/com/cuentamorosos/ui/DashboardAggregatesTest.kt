@@ -25,41 +25,62 @@ class DashboardAggregatesTest {
         val uid = currentUserUid ?: ""
 
         val activeTotalsByProfile = mutableMapOf<String, Double>()
+        val creditorAmounts = mutableMapOf<String, Double>()
         val pendingTotalsByEvent = mutableMapOf<String, Double>()
         val participantCountByEvent = mutableMapOf<String, Int>()
         val yourShareByEvent = mutableMapOf<String, Double>()
         val youAreOwedByEvent = mutableMapOf<String, Double>()
-        val pendingEventsByProfile = mutableMapOf<String, MutableList<String>>()
+        val pendingEventsByProfile = mutableMapOf<String, MutableList<EventDebt>>()
+        val owedToProfileEvents = mutableMapOf<String, MutableList<EventDebt>>()
+
+        val eventMap = events.associateBy { it.id }
 
         allDebts.forEach { debt ->
             participantCountByEvent[debt.eventId] =
                 (participantCountByEvent[debt.eventId] ?: 0) + 1
 
-            if (!debt.paid) {
-                activeTotalsByProfile[debt.profileId] =
-                    (activeTotalsByProfile[debt.profileId] ?: 0.0) + debt.amountEuros
+            if (!debt.paid && debt.amountEuros > 0.0) {
+                val event = eventMap[debt.eventId]
+
+                if (debt.profileId == uid) {
+                    // Current user owes → resolve creditor
+                    yourShareByEvent[debt.eventId] =
+                        (yourShareByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
+
+                    val creditorId = resolveEventCreditor(debt, allExpenses, eventMap, uid)
+                    creditorAmounts[creditorId] =
+                        (creditorAmounts[creditorId] ?: 0.0) + debt.amountEuros
+
+                    if (event != null) {
+                        owedToProfileEvents.getOrPut(creditorId) { mutableListOf() }
+                            .add(EventDebt(event.id, event.name, -debt.amountEuros))
+                    }
+                } else {
+                    // Other profile owes
+                    activeTotalsByProfile[debt.profileId] =
+                        (activeTotalsByProfile[debt.profileId] ?: 0.0) + debt.amountEuros
+                    youAreOwedByEvent[debt.eventId] =
+                        (youAreOwedByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
+
+                    if (event != null) {
+                        pendingEventsByProfile.getOrPut(debt.profileId) { mutableListOf() }
+                            .add(EventDebt(event.id, event.name, debt.amountEuros))
+                    }
+                }
 
                 pendingTotalsByEvent[debt.eventId] =
                     (pendingTotalsByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
-
-                if (debt.profileId == uid) {
-                    yourShareByEvent[debt.eventId] =
-                        (yourShareByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
-                } else {
-                    youAreOwedByEvent[debt.eventId] =
-                        (youAreOwedByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
-                }
-
-                val event = events.firstOrNull { it.id == debt.eventId }
-                if (event != null) {
-                    pendingEventsByProfile.getOrPut(debt.profileId) { mutableListOf() }
-                        .add("${event.name} · ${debt.amountEuros}€")
-                }
             }
+        }
+
+        owedToProfileEvents.forEach { (profileId, events) ->
+            pendingEventsByProfile.getOrPut(profileId) { mutableListOf() }
+                .addAll(events)
         }
 
         return DashboardAggregates(
             activeTotalsByProfile = activeTotalsByProfile,
+            creditorAmounts = creditorAmounts,
             pendingTotalsByEvent = pendingTotalsByEvent,
             totalSpent = allExpenses.sumOf { it.amountEuros },
             participantCountByEvent = participantCountByEvent,
@@ -103,9 +124,12 @@ class DashboardAggregatesTest {
 
         val result = computeAggregates(debts, emptyList(), events, "user-1")
 
-        // activeTotalsByProfile
-        assertEquals(10.0, result.activeTotalsByProfile["user-1"])
+        // activeTotalsByProfile (only other profiles' debts)
+        assertTrue(result.activeTotalsByProfile["user-1"] == null || result.activeTotalsByProfile["user-1"] == 0.0)
         assertEquals(20.0, result.activeTotalsByProfile["user-2"])
+
+        // creditorAmounts (current user's debts → resolved to event ID as fallback)
+        assertEquals(10.0, result.creditorAmounts["evt-1"])
 
         // pendingTotalsByEvent
         assertEquals(30.0, result.pendingTotalsByEvent["evt-1"])
@@ -120,7 +144,8 @@ class DashboardAggregatesTest {
         assertEquals(20.0, result.youAreOwedByEvent["evt-1"])
 
         // pendingEventsByProfile
-        assertEquals(1, result.pendingEventsByProfile["user-1"]?.size)
+        // user-1's debt resolved to creditor evt-1 (fallback), not to user-1
+        assertTrue(result.pendingEventsByProfile["user-1"] == null || result.pendingEventsByProfile["user-1"]!!.isEmpty())
         assertEquals(1, result.pendingEventsByProfile["user-2"]?.size)
     }
 
@@ -163,10 +188,14 @@ class DashboardAggregatesTest {
 
         val result = computeAggregates(debts, emptyList(), events, "user-1")
 
-        // user-1 total pending: 10 + 5 = 15
-        assertEquals(15.0, result.activeTotalsByProfile["user-1"])
+        // user-1's own debts go to creditorAmounts, not activeTotalsByProfile
+        assertTrue(result.activeTotalsByProfile["user-1"] == null || result.activeTotalsByProfile["user-1"] == 0.0)
         assertEquals(15.0, result.activeTotalsByProfile["user-2"])
         assertEquals(25.0, result.activeTotalsByProfile["user-3"])
+
+        // creditorAmounts: user-1's debts resolved to event IDs (ownerId == uid)
+        assertEquals(10.0, result.creditorAmounts["evt-1"])
+        assertEquals(5.0, result.creditorAmounts["evt-2"])
 
         // evt-1: 10 + 15 = 25, evt-2: 5 + 25 = 30
         assertEquals(25.0, result.pendingTotalsByEvent["evt-1"])

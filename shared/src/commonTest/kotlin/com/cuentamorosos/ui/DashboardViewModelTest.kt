@@ -248,4 +248,184 @@ class DashboardViewModelTest {
         val result = calculateTotalOwedToYou(debts, "user-alice")
         assertEquals(0.0, result)
     }
+
+    // ── buildUnifiedBreakdown profile netting ─────────────────────────
+
+    @Test
+    fun `dual-direction profile nets positive owed-to-you`() {
+        val owedToYou = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 80.0,
+                events = listOf(EventDebt("evt1", "Evento 1", 80.0)),
+            ),
+        )
+        val youOwe = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 20.0,
+                events = listOf(EventDebt("evt2", "Evento 2", 20.0)),
+            ),
+        )
+
+        val result = buildUnifiedBreakdown(owedToYou, youOwe)
+
+        assertEquals(1, result.size)
+        assertEquals("Bob", result[0].profileName)
+        assertEquals(60.0, result[0].amount)
+        assertEquals(DebtDirection.OWED_TO_YOU, result[0].direction)
+    }
+
+    @Test
+    fun `dual-direction profile nets negative you-owe`() {
+        val owedToYou = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 30.0,
+                events = listOf(EventDebt("evt1", "Evento 1", 30.0)),
+            ),
+        )
+        val youOwe = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 80.0,
+                events = listOf(EventDebt("evt2", "Evento 2", 80.0)),
+            ),
+        )
+
+        val result = buildUnifiedBreakdown(owedToYou, youOwe)
+
+        assertEquals(1, result.size)
+        assertEquals("Bob", result[0].profileName)
+        assertEquals(50.0, result[0].amount)
+        assertEquals(DebtDirection.YOU_OWE, result[0].direction)
+    }
+
+    @Test
+    fun `zero net profile is excluded from results`() {
+        val owedToYou = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 50.0,
+                events = listOf(EventDebt("evt1", "Evento 1", 50.0)),
+            ),
+        )
+        val youOwe = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 50.0,
+                events = listOf(EventDebt("evt2", "Evento 2", 50.0)),
+            ),
+        )
+
+        val result = buildUnifiedBreakdown(owedToYou, youOwe)
+
+        assertTrue(result.isEmpty(), "Zero net profile should be excluded")
+    }
+
+    @Test
+    fun `single-direction owed-to-you profile unchanged`() {
+        val owedToYou = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 30.0,
+                events = listOf(EventDebt("evt1", "Evento 1", 30.0)),
+            ),
+        )
+        val youOwe = emptyList<DebtBreakdownItem>()
+
+        val result = buildUnifiedBreakdown(owedToYou, youOwe)
+
+        assertEquals(1, result.size)
+        assertEquals("Bob", result[0].profileName)
+        assertEquals(30.0, result[0].amount)
+        assertEquals(DebtDirection.OWED_TO_YOU, result[0].direction)
+        assertEquals(1, result[0].events.size)
+        assertEquals(30.0, result[0].events[0].amount)
+    }
+
+    @Test
+    fun `multiple events same direction aggregation works`() {
+        val owedToYou = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 80.0, // 50 + 30
+                events = listOf(
+                    EventDebt("evt1", "Evento 1", 50.0),
+                    EventDebt("evt2", "Evento 2", 30.0),
+                ),
+            ),
+        )
+        val youOwe = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 20.0,
+                events = listOf(EventDebt("evt3", "Evento 3", 20.0)),
+            ),
+        )
+
+        val result = buildUnifiedBreakdown(owedToYou, youOwe)
+
+        assertEquals(1, result.size)
+        assertEquals("Bob", result[0].profileName)
+        assertEquals(60.0, result[0].amount)
+        assertEquals(DebtDirection.OWED_TO_YOU, result[0].direction)
+        assertEquals(3, result[0].events.size)
+    }
+
+    @Test
+    fun `merged events preserve correct sign for each source`() {
+        val owedToYou = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 80.0,
+                events = listOf(EventDebt("evt1", "Evento 1", 80.0)),
+            ),
+        )
+        val youOwe = listOf(
+            DebtBreakdownItem(
+                profileId = "bob",
+                profileName = "Bob",
+                amount = 20.0,
+                events = listOf(EventDebt("evt2", "Evento 2", 20.0)),
+            ),
+        )
+
+        val result = buildUnifiedBreakdown(owedToYou, youOwe)
+
+        val events = result[0].events
+        assertEquals(2, events.size)
+
+        val ev1 = events.first { it.eventId == "evt1" }
+        assertTrue(ev1.amount >= 0, "OwedToYou event should be positive")
+        assertEquals(80.0, ev1.amount)
+
+        val ev2 = events.first { it.eventId == "evt2" }
+        assertTrue(ev2.amount < 0, "YouOwe event should be negative in merged list")
+        assertEquals(-20.0, ev2.amount)
+    }
+
+    @Test
+    fun `unified breakdown sorted by amount descending`() {
+        val owedToYou = listOf(
+            DebtBreakdownItem(profileId = "bob", profileName = "Bob", amount = 10.0, events = listOf(EventDebt("evt1", "E1", 10.0))),
+            DebtBreakdownItem(profileId = "charlie", profileName = "Charlie", amount = 50.0, events = listOf(EventDebt("evt2", "E2", 50.0))),
+            DebtBreakdownItem(profileId = "dave", profileName = "Dave", amount = 30.0, events = listOf(EventDebt("evt3", "E3", 30.0))),
+        )
+        val youOwe = emptyList<DebtBreakdownItem>()
+
+        val result = buildUnifiedBreakdown(owedToYou, youOwe)
+
+        assertEquals(listOf("Charlie", "Dave", "Bob"), result.map { it.profileName })
+    }
 }

@@ -37,7 +37,7 @@ Replace the Events list as the default app entry point with a Dashboard (Panel d
    - `recentActivity`: sorted list of recent events by `dateMillis` and `lastCalculationTimestamp`, limited to last 20 entries
 
 2. **DashboardScreen** — single composable following UI0007B1 design spec:
-   - Top row: two indicator cards ("Total Te Deben" / "Total Debés") with semantic color borders (green/red)
+   - Top row: two indicator cards ("Total Te Deben" / "Total Debes") with semantic color borders (green/red)
    - Smart Alerts section: actionable warnings with severity icons (group_off, receipt_long, calculate) and navigation to relevant events
    - Recent Activity feed: lazy column with event name, relative timestamp, amount, status badge (Active/Settling/Closed)
 

@@ -89,6 +89,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModelProvider.Factory
+import com.cuentamorosos.SystemBackHandler
 import com.cuentamorosos.calendarFieldsForYearMonth
 import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.currentYearMonth
@@ -107,6 +108,7 @@ import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ExpenseCategory
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.UserPreferences
@@ -120,17 +122,52 @@ import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.TransitionContext
 
 /**
+ * Resolves who should be credited for a debt where [currentUserUid] is the debtor.
+ *
+ * Priority:
+ * 1. First expense's [EventExpenseItem.paidByProfileId] for the same event (excluding current user)
+ * 2. Event [EventItem.ownerId] (excluding current user)
+ * 3. Event ID as fallback
+ */
+internal fun resolveEventCreditor(
+    debt: EventDebtItem,
+    expenses: List<EventExpenseItem>,
+    eventMap: Map<String, EventItem>,
+    currentUserUid: String,
+): String {
+    val eventExpenses = expenses.filter { it.eventId == debt.eventId }
+    val nonUserPayers = eventExpenses
+        .map { it.paidByProfileId }
+        .filter { it != currentUserUid && it.isNotBlank() }
+        .distinct()
+    if (nonUserPayers.isNotEmpty()) return nonUserPayers.first()
+
+    val event = eventMap[debt.eventId]
+    if (event != null && event.ownerId != currentUserUid && event.ownerId.isNotBlank()) {
+        return event.ownerId
+    }
+
+    return debt.eventId
+}
+
+/**
  * Consolidated dashboard aggregates computed in a single pass over allDebts/allExpenses.
- * Replaces 7 independent derivedStateOf blocks that each iterated the same lists.
+ *
+ * @property activeTotalsByProfile Total amount each profile owes (debtor-side).
+ * @property creditorAmounts Total amount owed TO each profile (creditor-side), resolved from
+ *   debts where the current user is the debtor.
+ * @property pendingTotalsByEvent Total pending amount per event.
+ * @property netBalancesPerProfile Net balance per profile (activeTotalsByProfile - creditorAmounts).
  */
 data class DashboardAggregates(
     val activeTotalsByProfile: Map<String, Double>,
+    val creditorAmounts: Map<String, Double>,
     val pendingTotalsByEvent: Map<String, Double>,
     val totalSpent: Double,
     val participantCountByEvent: Map<String, Int>,
     val yourShareByEvent: Map<String, Double>,
     val youAreOwedByEvent: Map<String, Double>,
-    val pendingEventsByProfile: Map<String, List<String>>,
+    val pendingEventsByProfile: Map<String, List<EventDebt>>,
 )
 
 private enum class MainSection(
@@ -216,46 +253,68 @@ fun CuentaMorososApp(
 
             // Single pass over allDebts
             val activeTotalsByProfile = mutableMapOf<String, Double>()
+            val creditorAmounts = mutableMapOf<String, Double>()
             val pendingTotalsByEvent = mutableMapOf<String, Double>()
             val participantCountByEvent = mutableMapOf<String, Int>()
             val yourShareByEvent = mutableMapOf<String, Double>()
             val youAreOwedByEvent = mutableMapOf<String, Double>()
-            val pendingEventsByProfile = mutableMapOf<String, MutableList<String>>()
+            val pendingEventsByProfile = mutableMapOf<String, MutableList<EventDebt>>()
+            val owedToProfileEvents = mutableMapOf<String, MutableList<EventDebt>>()
+
+            // Build event map for creditor resolution
+            val eventMap = events.associateBy { it.id }
 
             allDebts.forEach { debt ->
                 // participantCountByEvent (includes paid)
                 participantCountByEvent[debt.eventId] =
                     (participantCountByEvent[debt.eventId] ?: 0) + 1
 
-                if (!debt.paid) {
-                    // activeTotalsByProfile
-                    activeTotalsByProfile[debt.profileId] =
-                        (activeTotalsByProfile[debt.profileId] ?: 0.0) + debt.amountEuros
+                if (!debt.paid && debt.amountEuros > 0.0) {
+                    val event = eventMap[debt.eventId]
 
-                    // pendingTotalsByEvent
-                    pendingTotalsByEvent[debt.eventId] =
-                        (pendingTotalsByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
-
-                    // yourShareByEvent / youAreOwedByEvent
                     if (debt.profileId == uid) {
+                        // Current user owes → resolve creditor
                         yourShareByEvent[debt.eventId] =
                             (yourShareByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
+
+                        val creditorId = resolveEventCreditor(debt, allExpenses, eventMap, uid)
+                        creditorAmounts[creditorId] =
+                            (creditorAmounts[creditorId] ?: 0.0) + debt.amountEuros
+
+                        // Track events where user owes TO this profile (negative in net)
+                        if (event != null) {
+                            owedToProfileEvents.getOrPut(creditorId) { mutableListOf() }
+                                .add(EventDebt(event.id, event.name, -debt.amountEuros))
+                        }
                     } else {
+                        // Other profile owes
+                        activeTotalsByProfile[debt.profileId] =
+                            (activeTotalsByProfile[debt.profileId] ?: 0.0) + debt.amountEuros
                         youAreOwedByEvent[debt.eventId] =
                             (youAreOwedByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
+
+                        // Track events where profile owes (positive in net)
+                        if (event != null) {
+                            pendingEventsByProfile.getOrPut(debt.profileId) { mutableListOf() }
+                                .add(EventDebt(event.id, event.name, debt.amountEuros))
+                        }
                     }
 
-                    // pendingEventsByProfile
-                    val event = events.firstOrNull { it.id == debt.eventId }
-                    if (event != null) {
-                        pendingEventsByProfile.getOrPut(debt.profileId) { mutableListOf() }
-                            .add("${event.name} · ${formatEuros(debt.amountEuros)}")
-                    }
+                    // pendingTotalsByEvent (total pending regardless of direction)
+                    pendingTotalsByEvent[debt.eventId] =
+                        (pendingTotalsByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
                 }
+            }
+
+            // Merge both directions into pendingEventsByProfile for a complete picture
+            owedToProfileEvents.forEach { (profileId, events) ->
+                pendingEventsByProfile.getOrPut(profileId) { mutableListOf() }
+                    .addAll(events)
             }
 
             DashboardAggregates(
                 activeTotalsByProfile = activeTotalsByProfile,
+                creditorAmounts = creditorAmounts,
                 pendingTotalsByEvent = pendingTotalsByEvent,
                 totalSpent = allExpenses.sumOf { it.amountEuros },
                 participantCountByEvent = participantCountByEvent,
@@ -268,12 +327,23 @@ fun CuentaMorososApp(
 
     // Destructure for call sites
     val activeTotalsByProfile = aggregates.activeTotalsByProfile
+    val creditorAmounts = aggregates.creditorAmounts
     val pendingTotalsByEvent = aggregates.pendingTotalsByEvent
     val totalSpent = aggregates.totalSpent
     val participantCountByEvent = aggregates.participantCountByEvent
     val yourShareByEvent = aggregates.yourShareByEvent
     val youAreOwedByEvent = aggregates.youAreOwedByEvent
     val pendingEventsByProfile = aggregates.pendingEventsByProfile
+
+    // Net balance per profile: positive = they owe you, negative = you owe them
+    val netBalances by remember(activeTotalsByProfile, creditorAmounts) {
+        derivedStateOf {
+            val allProfileIds = activeTotalsByProfile.keys + creditorAmounts.keys
+            allProfileIds.associateWith { profileId ->
+                (activeTotalsByProfile[profileId] ?: 0.0) - (creditorAmounts[profileId] ?: 0.0)
+            }
+        }
+    }
 
     val selectedEvent by eventDetailViewModel.currentEvent.collectAsState()
 
@@ -447,17 +517,11 @@ fun CuentaMorososApp(
                                         lastCalculationMode = currentEvent.lastCalculationMode,
                                         lastCalculationTotal = result.snapshot?.totalExpense,
                                         lastCalculationTimestamp = currentTimeMillis(),
-                                        lastCalculationSummary = result.snapshot?.toJson()
+                                        lastCalculationSummary = result.snapshot?.toJson(),
+                                        state = EventState.CALCULATED,
                                     )
                                 )
                                 feedbackMessage = "Cálculo aplicado al evento."
-
-                                val ctx = TransitionContext(
-                                    memberCount = currentEvent.effectiveMemberIds.size,
-                                    expenseCount = expenses.filter { it.eventId == currentEvent.id }.size,
-                                    isOwner = currentRole == EventRole.OWNER,
-                                )
-                                eventDetailViewModel.calculateEvent(ctx)
                             },
                             onInviteMember = { email ->
                                 if (currentUserUid != null) {
@@ -600,7 +664,7 @@ fun CuentaMorososApp(
                                     .fillMaxSize()
                                     .padding(innerPadding),
                                 profiles = profiles.map { profile ->
-                                    profile.copy(totalPendingEuros = activeTotalsByProfile[profile.id] ?: 0.0)
+                                    profile.copy(totalPendingEuros = netBalances[profile.id] ?: 0.0)
                                 },
                                 currentUid = currentUserUid,
                                 _eventCount = events.size,
@@ -659,6 +723,17 @@ fun CuentaMorososApp(
                 if (!isOnline) {
                     OfflineBanner()
                 }
+            }
+
+            // ── System back button handling ──────────────────────────────
+            SystemBackHandler(enabled = selectedEvent != null) {
+                eventDetailViewModel.setEventId(null)
+            }
+            SystemBackHandler(enabled = showCalendar) {
+                showCalendar = false
+            }
+            SystemBackHandler(enabled = showAccountScreen) {
+                showAccountScreen = false
             }
 
             if (showCalendar) {

@@ -121,7 +121,7 @@ fun ProfileCard(
 }
 
 /**
- * Balance-based badges: "Te debe" / "Debés" / "Saldado".
+ * Balance-based badges: "Te debe" / "Debes" / "Saldado".
  * Plus an optional "Tú" marker for own profiles.
  */
 @Composable
@@ -137,7 +137,7 @@ private fun BalanceBadges(
         if (balance > 0) {
             BalanceBadge(text = "Te debe", bgColor = colors.primaryContainer.copy(alpha = 0.15f), textColor = colors.primaryContainer)
         } else if (balance < 0) {
-            BalanceBadge(text = "Debés", bgColor = colors.error.copy(alpha = 0.15f), textColor = colors.error)
+            BalanceBadge(text = "Debes", bgColor = colors.error.copy(alpha = 0.15f), textColor = colors.error)
         } else {
             BalanceBadge(text = "Saldado", bgColor = colors.onSurfaceVariant.copy(alpha = 0.15f), textColor = colors.onSurfaceVariant)
         }

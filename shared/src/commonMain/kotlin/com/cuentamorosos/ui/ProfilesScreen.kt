@@ -45,6 +45,7 @@ import com.cuentamorosos.model.validation.ProfileValidator
 import com.cuentamorosos.model.validation.ValidationError
 import com.cuentamorosos.model.validation.allErrors
 import com.cuentamorosos.model.validation.hasErrors
+import kotlin.math.abs
 
 // ── ProfilesScreen ────────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ fun ProfilesScreen(
     profiles: List<ProfileItem>,
     currentUid: String?,
     _eventCount: Int,
-    pendingEventsByProfile: Map<String, List<String>>,
+    pendingEventsByProfile: Map<String, List<EventDebt>>,
     onSaveProfile: (ProfileItem) -> Unit,
     onDeleteProfile: (ProfileItem) -> Unit,
 ) {
@@ -157,9 +158,17 @@ fun ProfilesScreen(
     // ── Dialogs ───────────────────────────────────────────────────────────
 
     selectedProfile?.let { profile ->
-        ProfileDetailDialog(
-            profile = profile,
-            pendingEvents = pendingEventsByProfile[profile.id].orEmpty(),
+        val netBalance = profile.totalPendingEuros
+        val events = pendingEventsByProfile[profile.id].orEmpty()
+        val direction = if (netBalance >= 0) DebtDirection.OWED_TO_YOU else DebtDirection.YOU_OWE
+        EventBreakdownDialog(
+            item = UnifiedDebtItem(
+                profileId = profile.id,
+                profileName = profile.name,
+                amount = abs(netBalance),
+                direction = direction,
+                events = events,
+            ),
             onDismiss = { selectedProfile = null },
             onEdit = {
                 selectedProfile = null
@@ -449,95 +458,4 @@ private fun ProfileEditorDialog(
     )
 }
 
-// ── ProfileDetailDialog ───────────────────────────────────────────────────────
 
-@Composable
-private fun ProfileDetailDialog(
-    profile: ProfileItem,
-    pendingEvents: List<String>,
-    onDismiss: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    val colors = LocalNeoFintechColors.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = colors.surface,
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl, size = 32.dp)
-                Text(
-                    text = profile.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.onSurface,
-                )
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = "Total pendiente:",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.onSurfaceVariant,
-                    )
-                    Text(
-                        text = formatEuros(profile.totalPendingEuros),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontFamily = JetBrainsMonoFontFamily(),
-                        fontWeight = FontWeight.Bold,
-                        color = if (profile.totalPendingEuros >= 0) colors.primaryContainer else colors.error,
-                    )
-                }
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    color = colors.outlineVariant,
-                )
-                if (pendingEvents.isEmpty()) {
-                    Text(
-                        text = "No tiene deudas activas ahora mismo.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.onSurfaceVariant,
-                    )
-                } else {
-                    Text(
-                        text = "Eventos pendientes:",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.onSurface,
-                    )
-                    pendingEvents.forEach { summary ->
-                        Text(
-                            text = "• $summary",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onEdit) {
-                Text("Editar", color = colors.primaryContainer)
-            }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = onDelete) {
-                    Text("Eliminar", color = colors.error)
-                }
-                TextButton(onClick = onDismiss) {
-                    Text("Cerrar", color = colors.onSurfaceVariant)
-                }
-            }
-        },
-        shape = NeoFintechShapes.xl,
-    )
-}

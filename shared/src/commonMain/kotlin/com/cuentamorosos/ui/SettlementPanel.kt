@@ -2,13 +2,16 @@ package com.cuentamorosos.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -19,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -66,6 +70,7 @@ fun SettlementPanel(
     onCloseEvent: (() -> Unit)? = null,
     onRemoveMember: ((String) -> Unit)? = null,
     lastCalculationSummary: String? = null,
+    onViewReceipt: () -> Unit = {},
 ) {
     val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
@@ -118,22 +123,50 @@ fun SettlementPanel(
                     color = themeColors.onSurface,
                 )
 
-                // Calculate Totals button (full width, neon green, bold)
-                Button(
-                    onClick = onCalculateTotals,
-                    enabled = canCalculate,
+                // Calculate + Receipt button row
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colors.primaryContainer,
-                        contentColor = colors.onPrimaryContainer,
-                    ),
-                    shape = NeoFintechShapes.lg,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = "Calcular Totales",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
+                    // Calculate Totals button
+                    Button(
+                        onClick = onCalculateTotals,
+                        enabled = canCalculate,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colors.primaryContainer,
+                            contentColor = colors.onPrimaryContainer,
+                        ),
+                        shape = NeoFintechShapes.lg,
+                    ) {
+                        Text(
+                            text = "Calcular Totales",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+
+                    // Receipt button — circular, visible only when event is CALCULATED
+                    val receiptEnabled = eventState == EventState.CALCULATED && snapshot != null
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape),
+                    ) {
+                        IconButton(
+                            onClick = onViewReceipt,
+                            enabled = receiptEnabled,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Receipt,
+                                contentDescription = "Ver recibo del evento",
+                                tint = if (receiptEnabled) colors.primaryContainer
+                                       else themeColors.onSurfaceVariant.copy(alpha = 0.38f),
+                            )
+                        }
+                    }
                 }
 
                 // Close Event button — visible only for CALCULATED events

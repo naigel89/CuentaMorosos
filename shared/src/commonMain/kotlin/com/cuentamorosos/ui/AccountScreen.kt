@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.cuentamorosos.SystemBackHandler
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.displayNameFor
 
@@ -72,6 +73,10 @@ fun AccountScreen(
     modifier: Modifier = Modifier,
 ) {
     val subScreenIndex by viewModel.subScreenIndex.collectAsState()
+
+    SystemBackHandler(enabled = subScreenIndex > 0) {
+        viewModel.onBackToMenu()
+    }
 
     AnimatedContent(
         targetState = subScreenIndex,

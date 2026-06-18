@@ -47,6 +47,7 @@ kotlin {
             implementation(compose.components.resources)
 
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
             implementation("dev.gitlive:firebase-auth:1.13.0")
             implementation("dev.gitlive:firebase-firestore:1.13.0")
 

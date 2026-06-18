@@ -1,6 +1,7 @@
 package com.cuentamorosos.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -96,6 +97,10 @@ fun CalculatorSheet(
     var calculationResult by remember { mutableStateOf<CalculationResult?>(null) }
     var paidTransferIndices by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
+    // Celebration animation state (Feature: money explosion)
+    var showCelebration by remember { mutableStateOf(false) }
+    var hasCalculatedOnce by remember { mutableStateOf(false) }
+
     val totalValue = parseEuroAmount(totalText)
     val selectedMode = SplitMode.fromId(selectedModeId)
 
@@ -108,6 +113,8 @@ fun CalculatorSheet(
         if (isCalculating) return
         isCalculating = true
         paidTransferIndices = emptySet()
+        // Cancel any ongoing celebration before recalculating
+        showCelebration = false
 
         // Apply mode-specific weights to expenses for EXACT and PARTS modes
         val adjustedExpenses = when (selectedMode) {
@@ -142,6 +149,13 @@ fun CalculatorSheet(
         )
 
         isCalculating = false
+
+        // Trigger celebration on first successful calculation
+        val result = calculationResult
+        if (result?.isSuccess == true && !hasCalculatedOnce) {
+            showCelebration = true
+            hasCalculatedOnce = true
+        }
     }
 
     ModalBottomSheet(
@@ -149,13 +163,14 @@ fun CalculatorSheet(
         sheetState = sheetState,
         containerColor = themeColors.surfaceContainerLow,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
             // Title
             Text(
                 text = "Calculadora automática",
@@ -479,6 +494,13 @@ fun CalculatorSheet(
                     Text("Cancelar")
                 }
             }
+        }
+
+        // Money Explosion celebration overlay (Feature: money explosion)
+        MoneyExplosionAnimation(
+            isVisible = showCelebration,
+            onDismiss = { showCelebration = false },
+        )
         }
     }
 }
