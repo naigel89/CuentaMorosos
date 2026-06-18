@@ -4,6 +4,7 @@ import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventState
+import com.cuentamorosos.model.resolveEventCreditor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

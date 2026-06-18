@@ -11,6 +11,7 @@ import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.resolveEventCreditor
 import com.cuentamorosos.notifications.NotificationEvent
 import kotlin.math.abs
 import kotlinx.coroutines.delay

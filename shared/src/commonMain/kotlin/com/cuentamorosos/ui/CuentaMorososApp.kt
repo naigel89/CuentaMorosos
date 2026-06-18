@@ -120,35 +120,7 @@ import com.cuentamorosos.model.parseEuroAmount
 import com.cuentamorosos.model.EventInvitation
 import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.TransitionContext
-
-/**
- * Resolves who should be credited for a debt where [currentUserUid] is the debtor.
- *
- * Priority:
- * 1. First expense's [EventExpenseItem.paidByProfileId] for the same event (excluding current user)
- * 2. Event [EventItem.ownerId] (excluding current user)
- * 3. Event ID as fallback
- */
-internal fun resolveEventCreditor(
-    debt: EventDebtItem,
-    expenses: List<EventExpenseItem>,
-    eventMap: Map<String, EventItem>,
-    currentUserUid: String,
-): String {
-    val eventExpenses = expenses.filter { it.eventId == debt.eventId }
-    val nonUserPayers = eventExpenses
-        .map { it.paidByProfileId }
-        .filter { it != currentUserUid && it.isNotBlank() }
-        .distinct()
-    if (nonUserPayers.isNotEmpty()) return nonUserPayers.first()
-
-    val event = eventMap[debt.eventId]
-    if (event != null && event.ownerId != currentUserUid && event.ownerId.isNotBlank()) {
-        return event.ownerId
-    }
-
-    return debt.eventId
-}
+import com.cuentamorosos.model.resolveEventCreditor
 
 /**
  * Consolidated dashboard aggregates computed in a single pass over allDebts/allExpenses.
@@ -190,7 +162,6 @@ fun CuentaMorososApp(
     onSavePreferences: (UserPreferences) -> Unit,
     onScheduleReminders: () -> Unit,
     onCancelReminders: () -> Unit,
-    onPostReminders: (List<ReminderMessage>) -> Unit,
     networkMonitor: NetworkMonitor,
     onSignOut: (() -> Unit)? = null,
     onPickPhoto: ((OnPhotoReady) -> Unit)? = null,
@@ -347,12 +318,15 @@ fun CuentaMorososApp(
 
     val selectedEvent by eventDetailViewModel.currentEvent.collectAsState()
 
-    val reminderMessages by remember(events, debts, expenses, preferences) {
+    val reminderMessages by remember(events, allDebts, allExpenses, profiles, currentUserUid, preferences) {
         derivedStateOf {
+            val uid = currentUserUid ?: ""
             ReminderService.buildReminderMessages(
                 events = events,
-                debts = debts,
-                expenses = expenses,
+                debts = allDebts,
+                expenses = allExpenses,
+                profiles = profiles,
+                currentUserUid = uid,
                 reminderDays = preferences.reminderDays,
                 remindersEnabled = preferences.remindersEnabled,
             )
@@ -709,7 +683,6 @@ fun CuentaMorososApp(
                                     }
                                     feedbackMessage = "Preferencias actualizadas."
                                 },
-                                onPostReminders = onPostReminders,
                                 onSignOut = onSignOut,
                                 currentProfile = currentProfile,
                                 onOpenAccountSettings = { showAccountScreen = true },

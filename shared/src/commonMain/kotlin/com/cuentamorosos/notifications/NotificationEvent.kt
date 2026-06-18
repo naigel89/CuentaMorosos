@@ -22,10 +22,10 @@ sealed class NotificationEvent {
         val amountOwed: Double,
     ) : NotificationEvent()
 
-    data class UpcomingEvent(
+    data class PaymentReminder(
         override val eventId: String,
-        val eventName: String,
-        val daysUntil: Int,
-        val dateFormatted: String,
+        val profileName: String,
+        val amountEuros: Double,
+        val isOwedToYou: Boolean,
     ) : NotificationEvent()
 }
