@@ -70,20 +70,38 @@ class NotificationDispatcherTest {
     }
 
     @Test
-    fun `dispatch UpcomingEvent includes days and date in body`() {
-        val event = NotificationEvent.UpcomingEvent(
+    fun `dispatch PaymentReminder te-debe direction`() {
+        val event = NotificationEvent.PaymentReminder(
             eventId = "evt-101",
-            eventName = "Viaje",
-            daysUntil = 3,
-            dateFormatted = "15/06/2026",
+            profileName = "Luis",
+            amountEuros = 15.50,
+            isOwedToYou = true,
         )
 
         dispatcher.dispatch(event)
 
-        val notification = shadowManager().getNotification("UPCOMING_EVENT", "evt-101".hashCode())
+        val notification = shadowManager().getNotification("PAYMENT_REMINDER", "evt-101".hashCode())
         assertNotNull(notification)
-        assertEquals("El evento 'Viaje' es en 3 días (15/06/2026)", notification!!.extras.getString(NotificationCompat.EXTRA_TEXT))
-        assertEquals("ch_upcoming_events", notification.channelId)
+        assertEquals("Luis te debe €15.50", notification!!.extras.getString(NotificationCompat.EXTRA_TEXT))
+        assertEquals("ch_reminders", notification.channelId)
+        assertEquals("Recordatorio de pago", notification.extras.getString(NotificationCompat.EXTRA_TITLE))
+    }
+
+    @Test
+    fun `dispatch PaymentReminder debes-a direction`() {
+        val event = NotificationEvent.PaymentReminder(
+            eventId = "evt-202",
+            profileName = "Ana",
+            amountEuros = 8.00,
+            isOwedToYou = false,
+        )
+
+        dispatcher.dispatch(event)
+
+        val notification = shadowManager().getNotification("PAYMENT_REMINDER", "evt-202".hashCode())
+        assertNotNull(notification)
+        assertEquals("Debes €8.00 a Ana", notification!!.extras.getString(NotificationCompat.EXTRA_TEXT))
+        assertEquals("ch_reminders", notification.channelId)
     }
 
     @Test
@@ -104,8 +122,8 @@ class NotificationDispatcherTest {
 
     @Test
     fun `notificationId is deterministic for same eventId`() {
-        val event1 = NotificationEvent.UpcomingEvent("evt-same", "Test", 1, "01/01")
-        val event2 = NotificationEvent.UpcomingEvent("evt-same", "Test", 2, "02/02")
+        val event1 = NotificationEvent.PaymentReminder("evt-same", "Luis", 1.0, true)
+        val event2 = NotificationEvent.PaymentReminder("evt-same", "Luis", 2.0, false)
 
         dispatcher.dispatch(event1)
         dispatcher.dispatch(event2)
@@ -115,7 +133,7 @@ class NotificationDispatcherTest {
     }
 
     @Test
-    fun `ensureChannels creates exactly 4 channels`() {
+    fun `ensureChannels creates exactly 3 channels - no ch_upcoming_events`() {
         dispatcher.dispatch(
             NotificationEvent.InvitationReceived("inv-1", "evt-1", "Ana", "Test")
         )
@@ -126,7 +144,6 @@ class NotificationDispatcherTest {
         assert(channelIds.contains("ch_invitations"))
         assert(channelIds.contains("ch_calculations"))
         assert(channelIds.contains("ch_reminders"))
-        assert(channelIds.contains("ch_upcoming_events"))
     }
 
     // ── Dedup: fingerprintFor deterministic output ────────────────────────
@@ -155,12 +172,12 @@ class NotificationDispatcherTest {
     }
 
     @Test
-    fun `fingerprintFor UpcomingEvent includes daysUntil and dateFormatted`() {
-        val event = NotificationEvent.UpcomingEvent(
-            eventId = "evt-x", eventName = "Viaje", daysUntil = 3, dateFormatted = "15/06"
+    fun `fingerprintFor PaymentReminder uses eventId and profileName`() {
+        val event = NotificationEvent.PaymentReminder(
+            eventId = "evt-x", profileName = "Luis", amountEuros = 15.50, isOwedToYou = true,
         )
         assertEquals(
-            "UPCOMING_EVENT:evt-x:3:15/06",
+            "PAYMENT_REMINDER:evt-x:Luis",
             NotificationDispatcher.fingerprintFor(event)
         )
     }
@@ -248,5 +265,48 @@ class NotificationDispatcherTest {
         dispatcherNoStore.dispatch(event2)
 
         assertEquals(2, shadowManager().size())
+    }
+
+    // ── PaymentReminder dedup ───────────────────────────────────────────
+
+    @Test
+    fun `fingerprintFor different PaymentReminder profiles produce different fingerprints`() {
+        val fp1 = NotificationDispatcher.fingerprintFor(
+            NotificationEvent.PaymentReminder("evt-1", "Luis", 10.0, true)
+        )
+        val fp2 = NotificationDispatcher.fingerprintFor(
+            NotificationEvent.PaymentReminder("evt-1", "Ana", 10.0, true)
+        )
+
+        assertTrue("Different profiles produce different fingerprints", fp1 != fp2)
+    }
+
+    @Test
+    fun `dispatch PaymentReminder records fingerprint for dedup`() {
+        val store = CuentaMorososLocalStore(context)
+        store.clearAll()
+        val event = NotificationEvent.PaymentReminder("evt-dedup-pay", "Luis", 15.50, true)
+
+        val fingerprint = NotificationDispatcher.fingerprintFor(event)
+        assertFalse(store.hasNotificationBeenSent(fingerprint))
+
+        val dispatcherWithStore = NotificationDispatcher(context, localStore = store)
+        dispatcherWithStore.dispatch(event)
+
+        assertTrue("Fingerprint must be recorded after dispatch", store.hasNotificationBeenSent(fingerprint))
+    }
+
+    @Test
+    fun `dispatch skips PaymentReminder when already sent`() {
+        val store = CuentaMorososLocalStore(context)
+        store.clearAll()
+        val event = NotificationEvent.PaymentReminder("evt-skip-pay", "Luis", 10.0, true)
+
+        val dispatcherWithStore = NotificationDispatcher(context, localStore = store)
+        dispatcherWithStore.dispatch(event)
+        assertEquals(1, shadowManager().size())
+
+        dispatcherWithStore.dispatch(event)
+        assertEquals("Second dispatch must be suppressed", 1, shadowManager().size())
     }
 }

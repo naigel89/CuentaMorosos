@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.os.Build
@@ -41,7 +42,7 @@ class NotificationDispatcher(
         const val TAG_INVITATION_RECEIVED = "INVITATION_RECEIVED"
         const val TAG_INVITATION_ACCEPTED = "INVITATION_ACCEPTED"
         const val TAG_CALCULATION_COMPLETED = "CALCULATION_COMPLETED"
-        const val TAG_UPCOMING_EVENT = "UPCOMING_EVENT"
+        const val TAG_PAYMENT_REMINDER = "PAYMENT_REMINDER"
 
         // Pager page indices (match MainSection enum order)
         const val PAGE_DASHBOARD = 0
@@ -61,12 +62,12 @@ class NotificationDispatcher(
                 "$TAG_INVITATION_ACCEPTED:${event.eventId}:${event.inviteeName}"
             is NotificationEvent.CalculationCompleted ->
                 "$TAG_CALCULATION_COMPLETED:${event.eventId}"
-            is NotificationEvent.UpcomingEvent ->
-                "$TAG_UPCOMING_EVENT:${event.eventId}:${event.daysUntil}:${event.dateFormatted}"
+            is NotificationEvent.PaymentReminder ->
+                "$TAG_PAYMENT_REMINDER:${event.eventId}:${event.profileName}"
         }
     }
 
-    private val iconCache = ConcurrentHashMap<NotificationType, Bitmap>()
+    private val iconCache = ConcurrentHashMap<NotificationType, Bitmap>(4)
     private var channelsCreated = false
 
     // ── Public API ──────────────────────────────────────────────────────────
@@ -119,18 +120,11 @@ class NotificationDispatcher(
             CH_REMINDERS, NotificationManagerCompat.IMPORTANCE_DEFAULT
         )
             .setName("Recordatorios")
-            .setDescription("Recordatorios de deudas pendientes y eventos incompletos")
-            .build()
-
-        val upcomingChannel = androidx.core.app.NotificationChannelCompat.Builder(
-            CH_UPCOMING_EVENTS, NotificationManagerCompat.IMPORTANCE_DEFAULT
-        )
-            .setName("Próximos eventos")
-            .setDescription("Avisos de eventos que se acercan")
+            .setDescription("Recordatorios de deudas pendientes")
             .build()
 
         manager.createNotificationChannelsCompat(
-            listOf(invitationsChannel, calculationsChannel, remindersChannel, upcomingChannel)
+            listOf(invitationsChannel, calculationsChannel, remindersChannel)
         )
         channelsCreated = true
     }
@@ -141,7 +135,7 @@ class NotificationDispatcher(
         val type = notificationType(event)
         val channelId = channelIdFor(type)
         val smallIconRes = smallIconResFor(type)
-        val largeIcon = getLargeIcon(type)
+        val largeIcon = getLargeIcon(event, type)
 
         return NotificationCompat.Builder(context, channelId)
             .setSmallIcon(smallIconRes)
@@ -161,25 +155,25 @@ class NotificationDispatcher(
         is NotificationEvent.InvitationReceived -> NotificationType.INVITATION
         is NotificationEvent.InvitationAccepted -> NotificationType.INVITATION_ACCEPTED
         is NotificationEvent.CalculationCompleted -> NotificationType.CALCULATION
-        is NotificationEvent.UpcomingEvent -> NotificationType.UPCOMING_EVENT
+        is NotificationEvent.PaymentReminder -> NotificationType.PAYMENT_REMINDER
     }
 
     private fun channelIdFor(type: NotificationType): String = when (type) {
         NotificationType.INVITATION, NotificationType.INVITATION_ACCEPTED -> CH_INVITATIONS
         NotificationType.CALCULATION -> CH_CALCULATIONS
-        NotificationType.UPCOMING_EVENT -> CH_UPCOMING_EVENTS
+        NotificationType.PAYMENT_REMINDER -> CH_REMINDERS
     }
 
     private fun smallIconResFor(type: NotificationType): Int = when (type) {
         NotificationType.INVITATION, NotificationType.INVITATION_ACCEPTED -> R.drawable.ic_notification_invitation
         NotificationType.CALCULATION -> R.drawable.ic_notification_calc
-        NotificationType.UPCOMING_EVENT -> R.drawable.ic_notification_calendar
+        NotificationType.PAYMENT_REMINDER -> R.drawable.ic_notification_calc
     }
 
     private fun priorityFor(type: NotificationType): Int = when (type) {
         NotificationType.INVITATION, NotificationType.INVITATION_ACCEPTED -> NotificationCompat.PRIORITY_HIGH
         NotificationType.CALCULATION -> NotificationCompat.PRIORITY_DEFAULT
-        NotificationType.UPCOMING_EVENT -> NotificationCompat.PRIORITY_DEFAULT
+        NotificationType.PAYMENT_REMINDER -> NotificationCompat.PRIORITY_DEFAULT
     }
 
     // ── Title & Body ────────────────────────────────────────────────────────
@@ -188,7 +182,7 @@ class NotificationDispatcher(
         is NotificationEvent.InvitationReceived -> "Invitación recibida"
         is NotificationEvent.InvitationAccepted -> "Invitación aceptada"
         is NotificationEvent.CalculationCompleted -> "Cálculo completado"
-        is NotificationEvent.UpcomingEvent -> "Próximo evento"
+        is NotificationEvent.PaymentReminder -> "Recordatorio de pago"
     }
 
     private fun bodyFor(event: NotificationEvent): String = when (event) {
@@ -200,8 +194,14 @@ class NotificationDispatcher(
             val formatted = String.format("%.2f", event.amountOwed)
             "Se calcularon los gastos de '${event.eventName}'. Debes €$formatted"
         }
-        is NotificationEvent.UpcomingEvent ->
-            "El evento '${event.eventName}' es en ${event.daysUntil} días (${event.dateFormatted})"
+        is NotificationEvent.PaymentReminder -> {
+            val formatted = formatAmount(event.amountEuros)
+            if (event.isOwedToYou) {
+                "${event.profileName} te debe $formatted"
+            } else {
+                "Debes $formatted a ${event.profileName}"
+            }
+        }
     }
 
     // ── Tag & ID ────────────────────────────────────────────────────────────
@@ -210,7 +210,7 @@ class NotificationDispatcher(
         is NotificationEvent.InvitationReceived -> TAG_INVITATION_RECEIVED
         is NotificationEvent.InvitationAccepted -> TAG_INVITATION_ACCEPTED
         is NotificationEvent.CalculationCompleted -> TAG_CALCULATION_COMPLETED
-        is NotificationEvent.UpcomingEvent -> TAG_UPCOMING_EVENT
+        is NotificationEvent.PaymentReminder -> TAG_PAYMENT_REMINDER
     }
 
     private fun notificationId(event: NotificationEvent): Int {
@@ -258,7 +258,7 @@ class NotificationDispatcher(
                 )
             }
             is NotificationEvent.CalculationCompleted,
-            is NotificationEvent.UpcomingEvent,
+            is NotificationEvent.PaymentReminder,
             is NotificationEvent.InvitationAccepted -> {
                 // "Ver detalles" action → same as tapping the notification
                 val detailIntent = createContentIntent(event)
@@ -293,6 +293,7 @@ class NotificationDispatcher(
 
     private fun pagerPageFor(event: NotificationEvent): Int = when (event) {
         is NotificationEvent.InvitationReceived -> PAGE_INVITATIONS  // page 3
+        is NotificationEvent.PaymentReminder -> PAGE_DASHBOARD       // page 0
         else -> PAGE_DASHBOARD  // page 0
     }
 
@@ -315,7 +316,13 @@ class NotificationDispatcher(
 
     // ── Large Icon Generation ───────────────────────────────────────────────
 
-    private fun getLargeIcon(type: NotificationType): Bitmap {
+    private fun getLargeIcon(event: NotificationEvent, type: NotificationType): Bitmap {
+        if (event is NotificationEvent.PaymentReminder) {
+            return iconCache.getOrPut(type) {
+                getAppLogoBitmap()
+            }
+        }
+
         return iconCache.getOrPut(type) {
             val bgColor = bgColorFor(type)
             val iconRes = smallIconResFor(type)
@@ -323,11 +330,15 @@ class NotificationDispatcher(
         }
     }
 
+    private fun getAppLogoBitmap(): Bitmap {
+        return BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
+    }
+
     private fun bgColorFor(type: NotificationType): Int = when (type) {
         NotificationType.INVITATION -> 0xFF191C1D.toInt()       // NeoFintech onSurface (black)
         NotificationType.INVITATION_ACCEPTED -> 0xFF191C1D.toInt() // same black
         NotificationType.CALCULATION -> 0xFF191C1D.toInt()          // same black
-        NotificationType.UPCOMING_EVENT -> 0xFF191C1D.toInt()       // same black
+        NotificationType.PAYMENT_REMINDER -> 0xFF191C1D.toInt()     // same black
     }
 
     private fun createLargeIcon(iconRes: Int, bgColor: Int): Bitmap {
@@ -353,12 +364,19 @@ class NotificationDispatcher(
         return bitmap
     }
 
+    // ── Formatting Helpers ──────────────────────────────────────────────────
+
+    private fun formatAmount(amount: Double): String {
+        val formatted = String.format("%.2f", amount)
+        return "€$formatted"
+    }
+
     // ── Internal enum ───────────────────────────────────────────────────────
 
     private enum class NotificationType {
         INVITATION,
         INVITATION_ACCEPTED,
         CALCULATION,
-        UPCOMING_EVENT,
+        PAYMENT_REMINDER,
     }
 }

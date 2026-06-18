@@ -45,7 +45,6 @@ class CuentaMorososFirebaseMessagingService : FirebaseMessagingService() {
             "invitation_received" -> parseInvitationReceived(data)
             "invitation_accepted" -> parseInvitationAccepted(data)
             "calculation_completed" -> parseCalculationCompleted(data)
-            "upcoming_event" -> parseUpcomingEvent(data)
             else -> {
                 Log.w(TAG, "Unknown FCM type: $type")
                 return
@@ -99,19 +98,6 @@ class CuentaMorososFirebaseMessagingService : FirebaseMessagingService() {
             eventId = eventId,
             eventName = eventName,
             amountOwed = amountOwed,
-        )
-    }
-
-    private fun parseUpcomingEvent(data: Map<String, String>): NotificationEvent? {
-        val eventId = data["eventId"] ?: return null
-        val eventName = data["eventName"] ?: return null
-        val daysUntil = data["daysUntil"]?.toIntOrNull() ?: return null
-        val dateFormatted = data["dateFormatted"] ?: return null
-        return NotificationEvent.UpcomingEvent(
-            eventId = eventId,
-            eventName = eventName,
-            daysUntil = daysUntil,
-            dateFormatted = dateFormatted,
         )
     }
 }

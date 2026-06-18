@@ -80,7 +80,7 @@ class FcmParsingTest {
     }
 
     @Test
-    fun `onMessageReceived parses upcoming_event correctly`() {
+    fun `onMessageReceived ignores upcoming_event type after removal`() {
         val service = Robolectric.buildService(CuentaMorososFirebaseMessagingService::class.java).create().get()
         val remoteMessage = RemoteMessage.Builder("test")
             .addData("type", "upcoming_event")
@@ -92,8 +92,8 @@ class FcmParsingTest {
 
         service.onMessageReceived(remoteMessage)
 
-        val notification = shadowManager().getNotification("UPCOMING_EVENT", "evt-4".hashCode())
-        assertNotNull(notification)
+        // upcoming_event type is no longer handled — no notification should be posted
+        assertEquals(0, shadowManager().size())
     }
 
     // ── Missing fields ────────────────────────────────────────────────────────
