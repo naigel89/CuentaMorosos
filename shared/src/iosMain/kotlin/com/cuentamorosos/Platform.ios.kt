@@ -70,7 +70,7 @@ actual fun calendarFieldsForYearMonth(year: Int, month: Int): CalendarFields {
 
     // Days in month
     val rangeResult = cal.rangeOfUnit(NSCalendarUnitDay, NSCalendarUnitMonth, date)
-    val daysInMonth = rangeResult.length.toInt()
+    val daysInMonth = rangeResult.useContents { this.length.toInt() }
 
     // First weekday offset (Monday = 0)
     val startComps = cal.components(
