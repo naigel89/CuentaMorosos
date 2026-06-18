@@ -1,1 +1,0 @@
-# FR0007A1: Creador de evento opcional en el reparto\n\nPermite que el organizador del evento se elimine de la lista de participantes si no ha consumido nada, manteniendo la propiedad del evento para edición.

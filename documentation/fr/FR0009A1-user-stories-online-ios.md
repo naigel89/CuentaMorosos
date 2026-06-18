@@ -1,4 +1,4 @@
-# User Stories
+# FR0009A1: User Stories — Online y Compatibilidad iOS
 
 ## Épica 1: Autenticación y Cuenta de Usuario
 
@@ -163,3 +163,11 @@
 **Criterios de aceptación:**
 - Un cambio realizado desde Android es visible en iOS en menos de 5 segundos y viceversa.
 - No hay pérdida de datos al sincronizar entre plataformas distintas.
+
+---
+
+## Changelog
+| Fecha | Versión | Revisión | Tipo de cambio | Descripción |
+|---|---|---|---|---|
+| 2026-04-05 | A | 1 | Alta | User stories para autenticación, eventos online, colaboración, modo offline y compatibilidad iOS. |
+| 2026-06-18 | A | 2 | Actualización | Código reasignado de FR0006A1 a FR0009A1 para resolver colisión con `FR0006A1-perfiles-fantasma.md`. |

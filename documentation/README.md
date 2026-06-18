@@ -42,6 +42,9 @@ Esta carpeta centraliza la documentación funcional, técnica, de planificación
 - `FR0003A1-control-deudas-pagos-y-notas.md`
 - `FR0004A1-notificaciones-y-recordatorios.md`
 - `FR0005A1-calculadora-automatica-cuentas-por-evento.md`
+- `FR0006A1-perfiles-fantasma.md`
+- `FR0008A1-divisiones-porcentuales-item.md`
+- `FR0009A1-user-stories-online-ios.md`
 
 ### Requisitos no funcionales
 - `NFR0001A1-experiencia-visual-y-personalizacion.md` — Versión A (TT Hoves Pro, gradients)
@@ -56,6 +59,9 @@ Esta carpeta centraliza la documentación funcional, técnica, de planificación
 ### Diseño detallado
 - `DD0001A1-modelo-funcional-base.md`
 - `DD0002A1-diseno-calculadora-automatica-por-evento.md`
+- `DD0003A1-especificaciones-tecnicas-online.md`
+- `DD0004A1-guia-migracion-datos-firebase.md`
+- `DD0005A1-configuracion-multiplatform-ios.md`
 
 ### UI — Versión A (vigente)
 - `UI0001A1-pantalla-eventos.md`
@@ -115,3 +121,4 @@ Los archivos `DESIGN.md` en `neo_fintech_precision_1/` y `neo_fintech_precision_
 | 2026-04-05 | A | 4 | Actualización | Se añade el índice documental completo de CuentaMorosos. |
 | 2026-04-05 | A | 5 | Actualización | Se incorpora la funcionalidad de calculadora automática de cuentas por evento. |
 | 2026-05-14 | B | 1 | Alta | Rediseño Neo-Fintech Precision: 6 documentos UI versión B + NFR0001B1 con sistema de diseño completo, paleta dual, Geist + JetBrains Mono y guía de animaciones. Nueva pantalla Panel de Control (UI0007B1). Referencias de diseño añadidas. |
+| 2026-06-18 | B | 2 | Actualización | Índice completado: añadidos FR0006A1, FR0008A1, FR0009A1, DD0003A1, DD0004A1, DD0005A1. Eliminado FR0007A1. |
