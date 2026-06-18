@@ -1,3 +1,5 @@
+> ⚠️ DEPRECATED — Replaced by [UI0005B1](UI0005B1-calculadora-automatica-por-evento.md) (Neo-Fintech rediseño). This document is kept for historical reference only.
+
 # UI0005A1: Calculadora automática por evento
 
 > **Código:** UI0005A1

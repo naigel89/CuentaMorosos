@@ -1,3 +1,5 @@
+> ⚠️ DEPRECATED — Replaced by [UI0001B1](UI0001B1-pantalla-eventos.md) (Neo-Fintech rediseño). This document is kept for historical reference only.
+
 # UI0001A1: Pantalla de eventos
 
 > **Código:** UI0001A1

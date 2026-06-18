@@ -1,3 +1,5 @@
+> ⚠️ DEPRECATED — Replaced by [UI0004B1](UI0004B1-ajustes-y-apariencia.md) (Neo-Fintech rediseño). This document is kept for historical reference only.
+
 # UI0004A1: Ajustes y apariencia
 
 > **Código:** UI0004A1

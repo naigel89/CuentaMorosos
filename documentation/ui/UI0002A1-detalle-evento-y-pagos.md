@@ -1,3 +1,5 @@
+> ⚠️ DEPRECATED — Replaced by [UI0002B1](UI0002B1-detalle-evento-y-pagos.md) (Neo-Fintech rediseño). This document is kept for historical reference only.
+
 # UI0002A1: Detalle de evento y pagos
 
 > **Código:** UI0002A1

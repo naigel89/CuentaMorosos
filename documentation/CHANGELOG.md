@@ -58,3 +58,43 @@ Registro global de los documentos creados o actualizados dentro de `documentatio
 | 2026-04-06 | SPR0003A3 | `documentation/sprints/SPR0003A1-sprint-03-recordatorios-y-apariencia.md` | A | 3 | Actualización | Se registra el canal de notificaciones local y el pulido visual de ajustes dentro del sprint 03. |
 | 2026-04-06 | BKL0001A8 | `documentation/sprints/BKL0001A1-product-backlog.md` | A | 8 | Actualización | Se actualiza el backlog para reflejar el cierre funcional del sprint 03. |
 | 2026-04-06 | SPR0003A4 | `documentation/sprints/SPR0003A1-sprint-03-recordatorios-y-apariencia.md` | A | 4 | Actualización | Se marca como completado el sprint 03 al cerrar recordatorios locales, ajustes persistentes y pulido visual base. |
+| 2026-04-30 | SPR0004A1 | `documentation/sprints/SPR0004A1-sprint-04-deuda-tecnica-y-completitud.md` | A | 1 | Alta | Se crea el sprint 04 para deuda técnica y completitud funcional. |
+| 2026-04-30 | SPR0005A1 | `documentation/sprints/SPR0005A1-sprint-05-calendario-y-busqueda.md` | A | 1 | Alta | Se crea el sprint 05 para vista de calendario y búsqueda de eventos. |
+| 2026-04-30 | DD0003A1 | `documentation/dd/DD0003A1-especificaciones-tecnicas-online.md` | A | 1 | Alta | Se documentan las especificaciones técnicas de la arquitectura online con Firebase. |
+| 2026-04-30 | DD0004A1 | `documentation/dd/DD0004A1-guia-migracion-datos-firebase.md` | A | 1 | Alta | Se documenta la guía de migración de datos locales a Firebase. |
+| 2026-04-30 | DD0005A1 | `documentation/dd/DD0005A1-configuracion-multiplatform-ios.md` | A | 1 | Alta | Se documenta la guía de configuración KMP para compilación iOS. |
+| 2026-04-30 | FR0006A1 | `documentation/fr/FR0006A1-user-stories-online-ios.md` | A | 1 | Alta | Se documentan las user stories de funcionalidad online y compatibilidad iOS (luego renombrado a FR0009A1). |
+| 2026-04-30 | SPR0006A1 | `documentation/sprints/SPR0006A1-sprint-06-autenticacion-firebase.md` | A | 1 | Alta | Se crea el sprint 06 para autenticación con Firebase Auth. |
+| 2026-04-30 | SPR0007A1 | `documentation/sprints/SPR0007A1-sprint-07-sincronizacion-datos-online.md` | A | 1 | Alta | Se crea el sprint 07 para sincronización de datos online con Firestore. |
+| 2026-04-30 | SPR0008A1 | `documentation/sprints/SPR0008A1-sprint-08-colaboracion-eventos-compartidos.md` | A | 1 | Alta | Se crea el sprint 08 para colaboración en eventos compartidos. |
+| 2026-04-30 | SPR0009A1 | `documentation/sprints/SPR0009A1-sprint-09-compose-multiplatform-ios.md` | A | 1 | Alta | Se crea el sprint 09 para migración a Compose Multiplatform (iOS). |
+| 2026-04-30 | SPR0010A1 | `documentation/sprints/SPR0010A1-sprint-10-optimizacion-offline-publicacion.md` | A | 1 | Alta | Se crea el sprint 10 para optimización offline y publicación. |
+| 2026-05-02 | FR0006A1 | `documentation/fr/FR0006A1-perfiles-fantasma.md` | A | 1 | Alta | Se documenta el requisito de perfiles fantasma y vinculación manual (código reasignado). |
+| 2026-05-02 | FR0007A1 | `documentation/fr/FR0007A1-creador-opcional.md` | A | 1 | Alta | Se crea stub del requisito de creador opcional en reparto (eliminado 2026-06-18 por estar cubierto en FR0001A1/FR0003A1). |
+| 2026-05-02 | FR0008A1 | `documentation/fr/FR0008A1-divisiones-porcentuales-item.md` | A | 1 | Alta | Se documenta el requisito de divisiones porcentuales por ítem. |
+| 2026-05-02 | UI0006A1 | `documentation/ui/UI0006A1-simplificacion-calculadora.md` | A | 1 | Alta | Se documenta la propuesta de simplificación de calculadora (deprecada 2026-06-18). |
+| 2026-05-02 | SPR0008B1 | `documentation/sprints/SPR0008B1-sprint-08B-1-usabilidad-basica.md` | B | 1 | Alta | Se crea el sprint 08B.1 para usabilidad básica. |
+| 2026-05-02 | SPR0008B2 | `documentation/sprints/SPR0008B2-sprint-08B-2-usabilidad-avanzada.md` | B | 1 | Alta | Se crea el sprint 08B.2 para usabilidad avanzada. |
+| 2026-05-14 | NFR0001B1 | `documentation/nfr/NFR0001B1-experiencia-visual-y-personalizacion.md` | B | 1 | Alta | Rediseño Neo-Fintech Precision: sistema de diseño completo con paleta dual, tipografía Geist + JetBrains Mono, espaciado, elevación y guía de animaciones. |
+| 2026-05-14 | UI0001B1 | `documentation/ui/UI0001B1-pantalla-eventos.md` | B | 1 | Alta | Rediseño pantalla de eventos con layout Bento Grid y balance summary. |
+| 2026-05-14 | UI0002B1 | `documentation/ui/UI0002B1-detalle-evento-y-pagos.md` | B | 1 | Alta | Rediseño detalle de evento con dos columnas y panel de settlement. |
+| 2026-05-14 | UI0003B1 | `documentation/ui/UI0003B1-pantalla-perfiles.md` | B | 1 | Alta | Rediseño pantalla de perfiles con dashboard de balance y badges de estado. |
+| 2026-05-14 | UI0004B1 | `documentation/ui/UI0004B1-ajustes-y-apariencia.md` | B | 1 | Alta | Rediseño ajustes con layout dos columnas y toggles neón. |
+| 2026-05-14 | UI0005B1 | `documentation/ui/UI0005B1-calculadora-automatica-por-evento.md` | B | 1 | Alta | Rediseño calculadora simplificada (Consumo Real). |
+| 2026-05-14 | UI0007B1 | `documentation/ui/UI0007B1-panel-de-control.md` | B | 1 | Alta | Nueva pantalla Panel de Control (Dashboard) con indicadores financieros y Smart Alerts. |
+| 2026-05-14 | SPR0011B1 | `documentation/sprints/SPR0011B1-sprint-11-redisenno-ui-neo-fintech.md` | B | 1 | Alta | Sprint 11 para rediseño UI Neo-Fintech Precision. |
+| 2026-05-14 | DOC0001B1 | `documentation/README.md` | B | 1 | Actualización | Índice actualizado con documentos UI versión B y referencias de diseño Neo-Fintech. |
+| 2026-05-02 | GIT0001A1 | `documentation/GITHUB_ACTIONS_SETUP.md` | A | 1 | Alta | Guía de configuración de GitHub Actions para CI/CD del proyecto. |
+| 2026-06-18 | NFR0001B1 | `documentation/nfr/NFR0001B1-experiencia-visual-y-personalizacion.md` | B | 2 | Actualización | Corregidos tokens de color Primary Container para coincidir con NeoFintechColors.kt (WCAG AA). |
+| 2026-06-18 | FR0009A1 | `documentation/fr/FR0009A1-user-stories-online-ios.md` | A | 2 | Actualización | Renombrado de FR0006A1 a FR0009A1 para resolver colisión de código. |
+| 2026-06-18 | DOC0001B2 | `documentation/README.md` | B | 2 | Actualización | Índice completado con FR0006A1, FR0008A1, FR0009A1, DD0003A1–DD0005A1. |
+| 2026-06-18 | UI0007B1 | `documentation/ui/UI0007B1-panel-de-control.md` | B | 2 | Actualización | Sincronizado con código real (DashboardScreen.kt): removidos Smart Alerts/Recent Activity/Top App Bar. |
+| 2026-06-18 | UI0001B1 | `documentation/ui/UI0001B1-pantalla-eventos.md` | B | 2 | Actualización | Sincronizado con código real (EventsScreen.kt): LazyVerticalGrid, filter chips, removido Balance Summary. |
+| 2026-06-18 | UI0003B1 | `documentation/ui/UI0003B1-pantalla-perfiles.md` | B | 2 | Actualización | Sincronizado con código real (ProfilesScreen.kt): removidos Bento Grid y Filter button. |
+| 2026-06-18 | UI0004B1 | `documentation/ui/UI0004B1-ajustes-y-apariencia.md` | B | 2 | Actualización | Sincronizado con código real (SettingsScreen.kt): removidos sidebar, SegmentedControl, color swatches. |
+| 2026-06-18 | UI0005B1 | `documentation/ui/UI0005B1-calculadora-automatica-por-evento.md` | B | 2 | Actualización | Sincronizado con código real (ComparisonCard.kt): 6 modos SplitMode visibles como tabs. |
+| 2026-06-18 | UI0008B1 | `documentation/ui/UI0008B1-autenticacion-firebase.md` | B | 1 | Alta | Nueva documentación de pantallas de autenticación Firebase (Login, Register, ForgotPassword). |
+| 2026-06-18 | DD0001A1 | `documentation/dd/DD0001A1-modelo-funcional-base.md` | A | 2 | Actualización | Tipografía actualizada de TT Hoves Pro a Geist + JetBrains Mono. |
+| 2026-06-18 | DD0005A1 | `documentation/dd/DD0005A1-configuracion-multiplatform-ios.md` | A | 2 | Actualización | Actualizado `androidApp/` → `app/` en estructura de directorios. |
+| 2026-06-18 | — | `documentation/nfr/NFR0001A1-*.md`, `documentation/ui/UI0001A1-*.md` a `UI0006A1-*.md` | A | 1 | Actualización | Añadidos banners de deprecación a todos los documentos Versión A (reemplazados por Versión B). |
+| 2026-06-18 | AGT0001B1 | `AGENTS.md` | B | 1 | Actualización | Corregidas rutas de arquitectura a `shared/src/commonMain/kotlin/...` y referencia de persistencia a `saveEvents()`/`saveProfiles()`. |

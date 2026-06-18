@@ -1,4 +1,4 @@
-> ⚠️ DEPRECATED — This simplification was never implemented. All 6 SplitMode tabs remain visible in `ComparisonCard.kt` (line 105: `SplitMode.entries.forEach`). This document is kept for historical design intent only.
+> ⚠️ DEPRECATED — No Version B equivalent exists. Replaced in practice by [UI0005B1](UI0005B1-calculadora-automatica-por-evento.md) (all 6 SplitMode tabs visible). The simplification was never implemented. This document is kept for historical design intent only.
 
 # UI0006A1: Simplificación de la interfaz de modos de cálculo
 

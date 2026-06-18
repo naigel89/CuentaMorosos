@@ -39,7 +39,7 @@ CuentaMorosos/
 │       ├── androidMain/kotlin/      ← Código específico Android
 │       └── iosMain/kotlin/          ← Código específico iOS
 │
-├── androidApp/                      ← Módulo Android (UI Compose)
+├── app/                             ← Módulo Android (UI Compose)
 │   └── src/main/java/com/cuentamorosos/
 │       └── ui/                      ← Pantallas Compose (Android)
 │
@@ -191,3 +191,9 @@ Ejemplos de código que necesitará `expect/actual`:
 | Permisos               | `AndroidManifest.xml`        | `Info.plist`                 |
 
 Se recomienda revisar las [Human Interface Guidelines de Apple](https://developer.apple.com/design/human-interface-guidelines/) para asegurar que la experiencia en iOS sea natural para los usuarios de ese ecosistema.
+
+## Changelog
+| Fecha | Versión | Revisión | Tipo de cambio | Descripción |
+|---|---|---|---|---|
+| 2026-04-05 | A | 1 | Alta | Creación inicial de la guía de configuración KMP para iOS. |
+| 2026-06-18 | A | 2 | Actualización | Actualizado `androidApp/` → `app/` en árbol de directorios para reflejar estructura real del proyecto. |

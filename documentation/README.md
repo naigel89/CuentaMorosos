@@ -72,12 +72,13 @@ Esta carpeta centraliza la documentación funcional, técnica, de planificación
 - `UI0006A1-simplificacion-calculadora.md`
 
 ### UI — Versión B (rediseño Neo-Fintech Precision)
-- `UI0001B1-pantalla-eventos.md` — Eventos con layout Bento Grid y balance summary
-- `UI0002B1-detalle-evento-y-pagos.md` — Detalle con dos columnas y panel de settlement
-- `UI0003B1-pantalla-perfiles.md` — Perfiles con dashboard de balance y badges de estado
-- `UI0004B1-ajustes-y-apariencia.md` — Ajustes con layout dos columnas y toggles neón
-- `UI0005B1-calculadora-automatica-por-evento.md` — Calculadora simplificada (Consumo Real)
-- `UI0007B1-panel-de-control.md` — **NUEVA**: Dashboard principal con indicadores y Smart Alerts
+- `UI0001B1-pantalla-eventos.md` — Eventos con LazyVerticalGrid y filter chips
+- `UI0002B1-detalle-evento-y-pagos.md` — Detalle con panel de settlement y recepción de pagos
+- `UI0003B1-pantalla-perfiles.md` — Perfiles con avatar, monto y color semántico
+- `UI0004B1-ajustes-y-apariencia.md` — Ajustes con theme selector, reminders y sign-out
+- `UI0005B1-calculadora-automatica-por-evento.md` — Calculadora con 6 modos SplitMode visibles
+- `UI0007B1-panel-de-control.md` — Dashboard con Financial Summary, Net Balance y Unified Debts
+- `UI0008B1-autenticacion-firebase.md` — **NUEVA**: Pantallas de autenticación Firebase (Login, Register, ForgotPassword)
 
 ### API
 - `API0001A1-servicios-locales-y-notificaciones.md`

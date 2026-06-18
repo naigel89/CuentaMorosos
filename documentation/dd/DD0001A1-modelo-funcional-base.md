@@ -36,7 +36,7 @@ Como usuario, quiero registrar eventos y perfiles con sus importes pendientes pa
 
 ## Dependencias y riesgos
 - selección de imágenes para fotos de perfil
-- licencia de la tipografía `TT Hoves Pro`
+- licencia de la tipografía `Geist + JetBrains Mono (Neo-Fintech)`
 - implementación fiable de recordatorios en Android
 
 ## Decisiones técnicas
@@ -52,3 +52,4 @@ Como usuario, quiero registrar eventos y perfiles con sus importes pendientes pa
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
 | 2026-04-05 | A | 1 | Alta | Creación inicial del diseño detallado funcional base del proyecto. |
+| 2026-06-18 | A | 2 | Actualización | Tipografía actualizada de TT Hoves Pro a Geist + JetBrains Mono (Neo-Fintech). |

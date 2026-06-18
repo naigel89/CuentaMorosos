@@ -1,3 +1,5 @@
+> ⚠️ DEPRECATED — Replaced by [NFR0001B1](NFR0001B1-experiencia-visual-y-personalizacion.md) (Neo-Fintech Precision). This document is kept for historical reference only.
+
 # NFR0001A1: Experiencia visual y personalización
 
 > **Código:** NFR0001A1

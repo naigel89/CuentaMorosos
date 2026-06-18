@@ -26,15 +26,15 @@ La app debe ofrecer dos temas completos con los siguientes tokens:
 | Surface Container Lowest | #FFFFFF | #0E0E0E | Superficie más elevada |
 | On Surface | #191C1D | #E5E2E1 | Texto principal |
 | On Surface Variant | #3C4B35 | #BACC B0 | Texto secundario |
-| Primary Container | #39FF14 | #39FF14 | Verde neón (acento principal) |
-| Primary Fixed Dim | #2AE500 | #2AE500 | Verde neón alternativo |
+| Primary Container | #00A651 | #00C853 | Verde WCAG AA (acento principal) |
+| Primary Fixed Dim | #008F47 | #00B84A | Verde alternativo WCAG AA |
 | Error | #BA1A1A | #FFB4AB | Deudas y alertas |
 | Error Container | #FFDAD6 | #93000A | Fondo de errores |
 | Outline Variant | #BACC B0 | #3C4B35 | Bordes y separadores |
 | Tertiary Container | #D6DDED | #DFDCE1 | Información neutral |
 | Secondary | #5E5E5E | #C8C5CB | Texto e iconos secundarios |
 
-**Nota clave**: el verde neón (#39FF14) es idéntico en ambos modos. Lo que cambia es su comportamiento visual: en modo claro se usa como acento sutil (bordes, badges), en modo oscuro como fondo sólido de botones primarios.
+**Nota de cumplimiento WCAG AA**: El verde neón original del diseño conceptual (#39FF14) fue ajustado a #00A651 (claro) / #00C853 (oscuro) para garantizar contraste WCAG AA mínimo en todos los pares texto/fondo. Los valores originales (#39FF14) provenían de un diseño aspiracional; los valores actuales son los definidos en `NeoFintechColors.kt`. El comportamiento visual se mantiene: en modo claro se usa como acento sutil (bordes, badges), en modo oscuro como fondo sólido de botones primarios.
 
 ### Tipografía
 - **Fuente principal**: Geist (reemplaza a TT Hoves Pro y Hanken Grotesk/Inter de la versión A)
@@ -88,7 +88,7 @@ La versión A usaba un enfoque visual genérico con gradients suaves. La versió
 ## Validación
 - Revisión visual de todas las pantallas en modo claro y oscuro
 - Comprobación de contraste WCAG AA mínimo en todos los pares de color texto/fondo
-- Verificación de que el verde neón (#39FF14) es consistente en ambos modos
+- Verificación de que los verdes WCAG AA (#00A651 / #00C853) son consistentes con NeoFintechColors.kt
 - Comprobación de que Geist y JetBrains Mono cargan correctamente
 - Verificación de animaciones: transiciones suaves, sin jank, respetando preferencias de reduced-motion
 
@@ -140,3 +140,4 @@ La versión A usaba un enfoque visual genérico con gradients suaves. La versió
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
 | 2026-05-14 | B | 1 | Alta | Sistema de diseño completo Neo-Fintech Precision: paleta dual, tipografía Geist + JetBrains Mono, espaciado, elevación, animaciones y componentes. Reemplaza NFR0001A1 como referencia visual principal. |
+| 2026-06-18 | B | 2 | Actualización | Corregidos tokens Primary Container y Primary Fixed Dim para coincidir con NeoFintechColors.kt (#00A651/#00C853 y #008F47/#00B84A). Añadida nota de cumplimiento WCAG AA. |

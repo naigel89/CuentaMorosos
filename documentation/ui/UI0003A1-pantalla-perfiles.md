@@ -1,3 +1,5 @@
+> ⚠️ DEPRECATED — Replaced by [UI0003B1](UI0003B1-pantalla-perfiles.md) (Neo-Fintech rediseño). This document is kept for historical reference only.
+
 # UI0003A1: Pantalla de perfiles
 
 > **Código:** UI0003A1

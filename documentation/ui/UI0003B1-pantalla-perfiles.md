@@ -2,69 +2,56 @@
 
 > **Código:** UI0003B1
 > **Versión:** B
-> **Revisión:** 1
-> **Fecha:** 2026-05-14
+> **Revisión:** 2
+> **Fecha:** 2026-06-18
 
 ## Resumen
-Rediseño de la pantalla de perfiles con dashboard de resumen (Bento Grid), botones de acción y lista de perfiles con avatares, saldos y badges de estado.
+Pantalla de perfiles con lista de perfiles (avatar, nombre, monto total pendiente), balance unificado por perfil y FAB para añadir nuevos perfiles. Implementada en `ProfilesScreen.kt` dentro de `shared/src/commonMain/kotlin/com/cuentamorosos/ui/`.
 
 ## Historia de usuario relacionada
 Como usuario, quiero ver de un vistazo cuánto me debe cada persona y cuánto debo yo, con acceso rápido al detalle de sus eventos pendientes.
 
 ## Objetivo de la pantalla
-Ofrecer una vista agregada por persona con métricas de balance global y estados visuales claros (te debe / debes / saldado).
+Ofrecer una vista agregada por persona con indicación visual clara de la dirección de la deuda (te debe / debes) y el monto total pendiente.
 
 ## Componentes visibles
 | Componente | Tipo | Descripción | Obligatorio |
 |---|---|---|---|
-| Summary Dashboard | Bento Grid | "Total Owed to You" (+$1,240.50) vs "Total You Owe" (-$350.00) | Sí |
-| Tarjeta Te deben | card | Monto positivo en verde, icono arrow_downward, contador de perfiles | Sí |
-| Tarjeta Debes | card | Monto negativo en rojo, icono arrow_upward, contador de perfiles | Sí |
-| Botones de acción | fila | "Add Profile" (primario neón) + "Filter" (secundario) | Sí |
-| Lista de perfiles | lista | Avatar, nombre, eventos compartidos, monto, badge de estado | Sí |
-| Badge de estado | chip | "Owes you" (verde), "You owe" (rojo), "Settled up" (gris) | Sí |
-| Bottom Navigation | barra | Events, Profiles (activo), Settings | Sí |
-| Desktop nav flotante | pill bar | Barra pill flotante centrada en la parte inferior | Sí (desktop) |
+| Section Header | texto | "Perfiles" como título de sección | Sí |
+| Profile List | LazyColumn | Lista de perfiles con avatar, nombre y monto | Sí |
+| Profile Row | fila | Avatar circular, nombre del perfil, monto con signo (+/−) y color semántico | Sí |
+| Add Profile FAB | botón flotante | Botón circular con icono + para crear perfil | Sí |
+| Add Profile Dialog | modal | Formulario con nombre para nuevo perfil | Sí |
+| Bottom Navigation | barra | Events, Profiles, Settings | Sí |
 
 ## Estados de la interfaz
-- Sin perfiles: lista vacía con mensaje y botón "Add Profile" destacado
-- Perfiles con deuda: monto en verde neón o rojo según dirección
-- Perfiles saldados: opacidad 75%, badge "Settled up" en gris
-- Avatares: foto real o iniciales sobre fondo de color primario
-- Hover en perfil: fondo surface-container-low con transition-colors
+- Sin perfiles: lista vacía con mensaje y FAB visible para crear el primero
+- Perfiles con deuda a favor: monto en verde (`primaryContainer`) con signo +
+- Perfiles con deuda en contra: monto en rojo (`error`) con signo −
+- Perfiles saldados: monto $0.00 en color neutro
 
 ## Reglas de interacción
 - Pulsar un perfil abre el desglose de eventos pendientes de esa persona
-- "Add Profile" abre formulario de creación de perfil
-- "Filter" abre opciones de filtrado (por deuda, alfabético, eventos)
+- FAB abre el diálogo de creación de perfil
 - El monto visible excluye eventos ya pagados
-- Bottom nav: ítem activo con icon relleno y fondo surface-container
+- Bottom nav: ítem activo con icono relleno
 
 ## Navegación
-- Origen: bottom nav o navegación principal
+- Origen: Bottom nav (segunda pestaña)
 - Destino secundario: detalle del perfil con desglose por evento
-- Desktop: barra de navegación flotante tipo pill en la parte inferior central
 
 ## Consideraciones UX/UI
-- **Bento Grid**: las dos tarjetas de resumen ocupan 2 columnas en desktop, apiladas en móvil
-- **Tipografía**: Geist para nombres y títulos, JetBrains Mono para montos (figuras tabulares)
-- **Badges de estado**: pills con fondo tintado al 10-20% del color y texto en color completo
-- **Avatares**: si no hay foto, se muestran iniciales sobre fondo primary-container con texto en on-primary-container
-- **Animaciones**:
-  - Entrada del dashboard: fade-in con count-up en los montos grandes
-  - Hover en perfiles: transition-colors duration-200
-  - Bottom nav: scale-98 en ítem activo con transition-all duration-200
-  - Desktop nav pill: aparece con slide-up + fade al cargar
-- **Colores**: verde neón (#39FF14) para "Owes you", rojo error para "You owe", gris tertiary para "Settled up"
+- **Avatar**: iniciales del perfil sobre fondo `primaryContainer`
+- **Color semántico**: verde (`primaryContainer`) para "te debe", rojo (`error`) para "debes"
+- **Montos**: JetBrains Mono para alineación tabular de cifras
+- **FAB**: color `primaryContainer`, posición bottom-end
 
 ## Referencias de diseño
-- Modo claro: `app/documentation/Concepto Diseño Pantallas/stitch_splitflow_expenses/perfiles_neon_edit_1/`
-- Modo oscuro: `app/documentation/Concepto Diseño Pantallas/stitch_splitflow_expenses/perfiles_neon_edit_2/`
-- Guía de estilo light: `app/documentation/Concepto Diseño Pantallas/stitch_splitflow_expenses/neo_fintech_precision_1/DESIGN.md`
-- Guía de estilo dark: `app/documentation/Concepto Diseño Pantallas/stitch_splitflow_expenses/neo_fintech_precision_2/DESIGN.md`
 - Sistema visual completo: `documentation/nfr/NFR0001B1-experiencia-visual-y-personalizacion.md`
+- Código fuente: `shared/src/commonMain/kotlin/com/cuentamorosos/ui/ProfilesScreen.kt`
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
 | 2026-05-14 | B | 1 | Alta | Rediseño con dashboard Bento Grid de balance, badges de estado con tintes de color, avatares con iniciales fallback. Basado en concepto Neo-Fintech Precision. |
+| 2026-06-18 | B | 2 | Actualización | Sincronizado con código real: eliminados Bento Grid dashboard, Filter button y badges de estado con tintes. Documentados LazyColumn de perfiles con avatar+nombre+monto y add-profile dialog. |
