@@ -2,6 +2,7 @@ package com.cuentamorosos.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.data.repository.ProfileRepository
 import com.cuentamorosos.model.ProfileItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -113,7 +114,7 @@ class AccountViewModel(
                 .distinctUntilChanged()
                 .map { username ->
                     // Rate limit: skip if checked too recently
-                    val now = System.currentTimeMillis()
+                    val now = currentTimeMillis()
                     if (now - lastUsernameCheckTime < usernameCheckIntervalMs) {
                         return@map _usernameAvailability.value
                     }

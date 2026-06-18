@@ -1,6 +1,7 @@
 package com.cuentamorosos.data
 
 import app.cash.sqldelight.db.SqlDriver
+import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.db.CuentaMorososDatabase
 import com.cuentamorosos.db.PendingOperation
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +34,7 @@ class PendingOperationQueue(
             entityId = entityId,
             operation = operation,
             payload = payload,
-            createdAt = System.currentTimeMillis(),
+            createdAt = currentTimeMillis(),
             retryCount = 0L,
         )
     }

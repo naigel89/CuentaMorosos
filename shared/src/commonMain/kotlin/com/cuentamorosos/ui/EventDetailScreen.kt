@@ -62,6 +62,7 @@ import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEuroAmount
 import com.cuentamorosos.model.toCalculationSnapshot
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 // ── EventDetailScreen ─────────────────────────────────────────────────────────
@@ -1131,7 +1132,7 @@ private fun ExpenseEditorSheet(
                         }
                     }
                     Text(
-                        text = "Total: ${String.format("%.2f", totalWeight)}% (debe ser 100%)",
+                        text = "Total: ${(totalWeight * 100.0).roundToInt() / 100.0}% (debe ser 100%)",
                         style = typography.bodySmall,
                         color = if (kotlin.math.abs(totalWeight - 100.0) < 0.01) themeColors.primary
                                 else colors.error,

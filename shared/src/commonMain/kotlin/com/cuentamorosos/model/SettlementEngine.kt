@@ -4,6 +4,9 @@ import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.model.validation.ItemValidator
 import com.cuentamorosos.model.validation.allErrors
 import com.cuentamorosos.model.validation.hasErrors
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -18,42 +21,50 @@ object SettlementEngine {
 
     /**
      * In-memory lock to prevent concurrent calculations for the same event.
-     * Uses @Volatile + timestamp map for multiplatform compatibility (no atomicfu).
+     * Uses Mutex from kotlinx.coroutines for KMP compatibility.
      */
     object CalculationLock {
-        @Volatile
+        private val mutex = Mutex()
         private var locks: MutableMap<String, Long> = mutableMapOf()
         private const val TIMEOUT_MS = 30_000L
 
-        fun tryAcquire(eventId: String): Boolean = synchronized(locks) {
-            val now = currentTimeMillis()
-            val lockedAt = locks[eventId]
-            if (lockedAt != null) {
-                if (now - lockedAt > TIMEOUT_MS) {
-                    // Stale lock — auto-release and acquire
+        fun tryAcquire(eventId: String): Boolean = runBlocking {
+            mutex.withLock {
+                val now = currentTimeMillis()
+                val lockedAt = locks[eventId]
+                if (lockedAt != null) {
+                    if (now - lockedAt > TIMEOUT_MS) {
+                        // Stale lock — auto-release and acquire
+                        locks[eventId] = now
+                        true
+                    } else {
+                        false // Active lock, cannot acquire
+                    }
+                } else {
                     locks[eventId] = now
                     true
-                } else {
-                    false // Active lock, cannot acquire
                 }
-            } else {
-                locks[eventId] = now
-                true
             }
         }
 
-        fun release(eventId: String) = synchronized(locks) {
-            locks.remove(eventId)
+        fun release(eventId: String) = runBlocking {
+            mutex.withLock {
+                locks.remove(eventId)
+            }
         }
 
         /** Test-only: set a lock timestamp for simulating stale locks. */
-        internal fun setLockForTest(eventId: String, timestamp: Long) = synchronized(locks) {
-            locks[eventId] = timestamp
+        internal fun setLockForTest(eventId: String, timestamp: Long) = runBlocking {
+            mutex.withLock {
+                locks[eventId] = timestamp
+            }
         }
 
         /** Test-only: clear all locks. */
-        internal fun clearAllForTest() = synchronized(locks) {
-            locks.clear()
+        internal fun clearAllForTest() = runBlocking {
+            mutex.withLock {
+                locks.clear()
+            }
         }
     }
 

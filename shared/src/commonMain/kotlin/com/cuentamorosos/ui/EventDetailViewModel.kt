@@ -235,12 +235,12 @@ class EventDetailViewModel(
         for (expense in expenses) {
             for ((payerId, amount) in expense.payerContributions) {
                 val cents = (amount * 100).roundToInt()
-                balances[payerId] = balances.getOrDefault(payerId, 0) + cents
+                balances[payerId] = (balances[payerId] ?: 0) + cents
             }
             val debtorAmounts = computeDebtorAmountsForExpense(expense)
             for ((debtorId, amount) in debtorAmounts) {
                 val cents = (amount * 100).roundToInt()
-                balances[debtorId] = balances.getOrDefault(debtorId, 0) - cents
+                balances[debtorId] = (balances[debtorId] ?: 0) - cents
             }
         }
         return balances
