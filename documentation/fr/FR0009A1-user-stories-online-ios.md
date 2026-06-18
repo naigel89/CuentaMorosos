@@ -170,4 +170,4 @@
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
 | 2026-04-05 | A | 1 | Alta | User stories para autenticación, eventos online, colaboración, modo offline y compatibilidad iOS. |
-| 2026-06-18 | A | 2 | Actualización | Código reasignado de FR0006A1 a FR0009A1 para resolver colisión con `FR0006A1-perfiles-fantasma.md`. |
+| 2026-06-18 | A | 2 | Actualización | Código reasignado a FR0009A1 para resolver colisión con el documento de perfiles fantasma. |
