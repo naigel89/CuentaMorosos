@@ -10,6 +10,7 @@ import androidx.work.WorkerParameters
 import com.cuentamorosos.CuentaMorososApp
 import com.cuentamorosos.notifications.NotificationDispatcher
 import com.cuentamorosos.notifications.NotificationEvent
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
@@ -79,18 +80,19 @@ class ReminderWorker(
             // First-launch migration: seed fingerprints for already-calculated events
             store.seedDedupMigration(events)
 
-            // Build reminder messages (existing + upcoming events)
+            // Fetch live data via repositories
+            val profiles = repoProvider.profileRepository.observeProfiles().first()
+            val currentUserUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+            // Build payment reminder messages per unpaid debt
             val messages = ReminderService.buildReminderMessages(
                 events = events,
                 debts = debts,
                 expenses = expenses,
+                profiles = profiles,
+                currentUserUid = currentUserUid,
                 reminderDays = preferences.reminderDays,
                 remindersEnabled = preferences.remindersEnabled,
-            )
-
-            val upcomingMessages = ReminderService.buildUpcomingEventMessages(
-                events = events,
-                reminderDays = preferences.reminderDays,
             )
 
             // Dispatch all notifications with dedup guard
@@ -98,22 +100,11 @@ class ReminderWorker(
 
             messages.forEach { message ->
                 dispatcher.dispatch(
-                    NotificationEvent.UpcomingEvent(
+                    NotificationEvent.PaymentReminder(
                         eventId = message.eventId ?: "",
-                        eventName = message.title,
-                        daysUntil = message.daysUntil ?: 0,
-                        dateFormatted = message.dateFormatted ?: "",
-                    )
-                )
-            }
-
-            upcomingMessages.forEach { message ->
-                dispatcher.dispatch(
-                    NotificationEvent.UpcomingEvent(
-                        eventId = message.eventId ?: "",
-                        eventName = message.title.removePrefix("Próximo evento: "),
-                        daysUntil = message.daysUntil ?: 0,
-                        dateFormatted = message.dateFormatted ?: "",
+                        profileName = message.profileName ?: "",
+                        amountEuros = message.amountEuros ?: 0.0,
+                        isOwedToYou = message.isOwedToYou,
                     )
                 )
             }

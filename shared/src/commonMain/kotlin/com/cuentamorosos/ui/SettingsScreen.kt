@@ -45,7 +45,6 @@ fun SettingsScreen(
     preferences: UserPreferences,
     reminders: List<ReminderMessage>,
     onSavePreferences: (UserPreferences) -> Unit,
-    onPostReminders: (List<ReminderMessage>) -> Unit,
     onSignOut: (() -> Unit)? = null,
     currentProfile: ProfileItem? = null,
     onOpenAccountSettings: () -> Unit = {},
@@ -93,7 +92,6 @@ fun SettingsScreen(
         validationMessage = validationMessage,
         onSaveClick = onSaveClick,
         reminders = reminders,
-        onPostReminders = onPostReminders,
         onSignOut = onSignOut,
         currentProfile = currentProfile,
         onOpenAccountSettings = onOpenAccountSettings,
@@ -115,7 +113,6 @@ private fun SettingsContent(
     validationMessage: String?,
     onSaveClick: () -> Unit,
     reminders: List<ReminderMessage>,
-    onPostReminders: (List<ReminderMessage>) -> Unit,
     onSignOut: (() -> Unit)?,
     currentProfile: ProfileItem? = null,
     onOpenAccountSettings: () -> Unit = {},
@@ -238,7 +235,7 @@ private fun SettingsContent(
                             }
                         }
 
-                        // Resumen y envío de recordatorios
+                        // Resumen de recordatorios
                         if (reminders.isNotEmpty()) {
                             DividerLine(colors = colors)
                             Column(
@@ -246,18 +243,6 @@ private fun SettingsContent(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 ReminderSummaryCard(reminders = reminders)
-                                OutlinedButton(
-                                    onClick = { onPostReminders(reminders) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = remindersEnabled,
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = colors.onSurface,
-                                    ),
-                                    border = BorderStroke(1.dp, colors.outlineVariant),
-                                    shape = NeoFintechShapes.md,
-                                ) {
-                                    Text("Enviar ahora (${reminders.size})")
-                                }
                             }
                         } else if (remindersEnabled) {
                             DividerLine(colors = colors)

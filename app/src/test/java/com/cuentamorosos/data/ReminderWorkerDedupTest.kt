@@ -18,7 +18,7 @@ import org.robolectric.shadows.ShadowNotificationManager
  * Tests proving ReminderWorker idempotency through the NotificationDispatcher
  * dedup guard when [CuentaMorososLocalStore] is wired into the dispatch path.
  *
- * The worker dispatches [NotificationEvent.UpcomingEvent] notifications;
+ * The worker dispatches [NotificationEvent.PaymentReminder] notifications;
  * dedup comes from passing the store to [NotificationDispatcher].
  */
 @RunWith(AndroidJUnit4::class)
@@ -39,44 +39,44 @@ class ReminderWorkerDedupTest {
         return org.robolectric.Shadows.shadowOf(manager)
     }
 
-    // ── Fingerprint format used by worker's UpcomingEvent dispatches ────
+    // ── Fingerprint format used by worker's PaymentReminder dispatches ──
 
     @Test
-    fun `worker UpcomingEvent fingerprint format matches dispatcher fingerprintFor`() {
-        val event = NotificationEvent.UpcomingEvent(
+    fun `worker PaymentReminder fingerprint format matches dispatcher fingerprintFor`() {
+        val event = NotificationEvent.PaymentReminder(
             eventId = "evt-w1",
-            eventName = "Test Event",
-            daysUntil = 3,
-            dateFormatted = "15/06/2026",
+            profileName = "Luis",
+            amountEuros = 15.50,
+            isOwedToYou = true,
         )
 
         val fp = NotificationDispatcher.fingerprintFor(event)
 
         assertEquals(
-            "UPCOMING_EVENT:evt-w1:3:15/06/2026",
+            "PAYMENT_REMINDER:evt-w1:Luis",
             fp
         )
     }
 
     @Test
-    fun `worker UpcomingEvent fingerprint is deterministic`() {
-        val event1 = NotificationEvent.UpcomingEvent("evt-1", "A", 1, "01/01")
-        val event2 = NotificationEvent.UpcomingEvent("evt-1", "A", 1, "01/01")
+    fun `worker PaymentReminder fingerprint is deterministic`() {
+        val event1 = NotificationEvent.PaymentReminder("evt-1", "Luis", 10.0, true)
+        val event2 = NotificationEvent.PaymentReminder("evt-1", "Luis", 10.0, true)
 
         assertEquals(
-            "Same UpcomingEvent fields must produce identical fingerprint",
+            "Same PaymentReminder fields must produce identical fingerprint",
             NotificationDispatcher.fingerprintFor(event1),
             NotificationDispatcher.fingerprintFor(event2),
         )
     }
 
     @Test
-    fun `different eventIds produce different UpcomingEvent fingerprints`() {
+    fun `different eventIds produce different PaymentReminder fingerprints`() {
         val fp1 = NotificationDispatcher.fingerprintFor(
-            NotificationEvent.UpcomingEvent("evt-a", "A", 1, "01/01")
+            NotificationEvent.PaymentReminder("evt-a", "Luis", 10.0, true)
         )
         val fp2 = NotificationDispatcher.fingerprintFor(
-            NotificationEvent.UpcomingEvent("evt-b", "B", 1, "01/01")
+            NotificationEvent.PaymentReminder("evt-b", "Luis", 10.0, true)
         )
 
         assertTrue(
@@ -88,12 +88,12 @@ class ReminderWorkerDedupTest {
     // ── Idempotency: worker re-run produces zero new notifications ──────
 
     @Test
-    fun `dispatcher with store skips already-sent UpcomingEvent`() {
-        val event = NotificationEvent.UpcomingEvent(
+    fun `dispatcher with store skips already-sent PaymentReminder`() {
+        val event = NotificationEvent.PaymentReminder(
             eventId = "evt-skip-worker",
-            eventName = "Skip Test",
-            daysUntil = 5,
-            dateFormatted = "20/06/2026",
+            profileName = "Luis",
+            amountEuros = 15.50,
+            isOwedToYou = true,
         )
 
         val fingerprint = NotificationDispatcher.fingerprintFor(event)
@@ -120,9 +120,9 @@ class ReminderWorkerDedupTest {
     @Test
     fun `dispatcher with store skips all when multiple already sent`() {
         val events = listOf(
-            NotificationEvent.UpcomingEvent("evt-1", "Event 1", 3, "01/01/2026"),
-            NotificationEvent.UpcomingEvent("evt-2", "Event 2", 7, "05/01/2026"),
-            NotificationEvent.UpcomingEvent("evt-3", "Event 3", 10, "08/01/2026"),
+            NotificationEvent.PaymentReminder("evt-1", "Luis", 10.0, true),
+            NotificationEvent.PaymentReminder("evt-2", "Ana", 20.0, false),
+            NotificationEvent.PaymentReminder("evt-3", "Bob", 30.0, true),
         )
 
         val dispatcher = NotificationDispatcher(context, localStore = store)
@@ -143,9 +143,9 @@ class ReminderWorkerDedupTest {
     }
 
     @Test
-    fun `dispatcher with store dispatches only new UpcomingEvent when some already sent`() {
-        val event1 = NotificationEvent.UpcomingEvent("evt-old", "Old", 5, "10/01/2026")
-        val event2 = NotificationEvent.UpcomingEvent("evt-new", "New", 2, "15/01/2026")
+    fun `dispatcher with store dispatches only new PaymentReminder when some already sent`() {
+        val event1 = NotificationEvent.PaymentReminder("evt-old", "Luis", 10.0, true)
+        val event2 = NotificationEvent.PaymentReminder("evt-new", "Ana", 20.0, false)
 
         val dispatcher = NotificationDispatcher(context, localStore = store)
 
@@ -169,11 +169,11 @@ class ReminderWorkerDedupTest {
 
     @Test
     fun `dispatcher without store does NOT record fingerprints - worker would re-dispatch`() {
-        val event = NotificationEvent.UpcomingEvent(
+        val event = NotificationEvent.PaymentReminder(
             eventId = "evt-no-dedup",
-            eventName = "No Dedup Test",
-            daysUntil = 4,
-            dateFormatted = "01/02/2026",
+            profileName = "Luis",
+            amountEuros = 15.50,
+            isOwedToYou = true,
         )
 
         val fingerprint = NotificationDispatcher.fingerprintFor(event)
@@ -193,9 +193,9 @@ class ReminderWorkerDedupTest {
     @Test
     fun `different events without store all post without dedup`() {
         val events = listOf(
-            NotificationEvent.UpcomingEvent("evt-nostore-1", "E1", 1, "01/01"),
-            NotificationEvent.UpcomingEvent("evt-nostore-2", "E2", 2, "02/01"),
-            NotificationEvent.UpcomingEvent("evt-nostore-3", "E3", 3, "03/01"),
+            NotificationEvent.PaymentReminder("evt-nostore-1", "Luis", 10.0, true),
+            NotificationEvent.PaymentReminder("evt-nostore-2", "Ana", 20.0, false),
+            NotificationEvent.PaymentReminder("evt-nostore-3", "Bob", 30.0, true),
         )
 
         val dispatcherNoStore = NotificationDispatcher(context)
@@ -217,11 +217,11 @@ class ReminderWorkerDedupTest {
 
     @Test
     fun `fingerprints persist across dispatcher instances - simulates worker re-creation`() {
-        val event = NotificationEvent.UpcomingEvent(
+        val event = NotificationEvent.PaymentReminder(
             eventId = "evt-persist-worker",
-            eventName = "Persistence Test",
-            daysUntil = 2,
-            dateFormatted = "30/06/2026",
+            profileName = "Luis",
+            amountEuros = 15.50,
+            isOwedToYou = true,
         )
 
         // First "worker run": new dispatcher with store

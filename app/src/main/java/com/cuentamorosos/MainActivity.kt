@@ -30,7 +30,6 @@ import com.cuentamorosos.SystemBackHandler
 import com.cuentamorosos.data.CuentaMorososLocalStore
 import com.cuentamorosos.data.FirebaseUserSyncManager
 import com.cuentamorosos.data.NetworkMonitorFactory
-import com.cuentamorosos.data.NotificationScheduler
 import com.cuentamorosos.data.ReminderWorker
 import com.cuentamorosos.db.DriverFactory
 import com.cuentamorosos.model.UserPreferences
@@ -108,9 +107,6 @@ class MainActivity : ComponentActivity() {
                 notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
             }
         }
-
-        // Ensure legacy notification channel exists (backward compat)
-        NotificationScheduler.ensureChannel(this)
 
         // Initialize SQLDelight driver and repositories
         val sqlDriver = DriverFactory(applicationContext).createDriver()
@@ -310,9 +306,6 @@ private fun MainAppContent(
         },
         onCancelReminders = {
             ReminderWorker.cancel(application)
-        },
-        onPostReminders = { messages ->
-            NotificationScheduler.postReminders(application, messages, localStore)
         },
         networkMonitor = networkMonitor,
         onSignOut = {
