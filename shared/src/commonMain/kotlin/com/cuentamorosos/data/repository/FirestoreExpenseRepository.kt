@@ -129,7 +129,6 @@ class FirestoreExpenseRepository : ExpenseRepository {
     override suspend fun fetchAllExpenses(): List<EventExpenseItem> {
         val uid = auth.currentUser?.uid ?: return emptyList()
 
-        // Resolve all event IDs for this user (same logic as observeAllExpenses)
         val ownerSnapshot = db.collection("events").where { "ownerId" equalTo uid }.get()
         val memberSnapshot = db.collection("events").where { "memberIds" contains uid }.get()
         val participantSnapshot = db.collection("events").where { "participantIds" contains uid }.get()
@@ -138,24 +137,20 @@ class FirestoreExpenseRepository : ExpenseRepository {
             .map { it.id }
             .distinct()
 
-        println("[FirestoreExpenseRepo] fetchAllExpenses: found ${eventIds.size} events for uid=$uid")
-
         if (eventIds.isEmpty()) return emptyList()
 
-        // One-shot fetch per event, then flatten
         val allExpenses = mutableListOf<EventExpenseItem>()
         for (eventId in eventIds) {
             val expenses = try {
                 db.collection("events").document(eventId).collection("expenses").get()
                     .documents.mapNotNull { it.toExpenseItem() }
             } catch (e: Exception) {
-                println("[FirestoreExpenseRepo] fetchAllExpenses for event $eventId FAILED: ${e.message} (${e::class.simpleName})")
+                println("[FirestoreExpenseRepo] fetchAllExpenses for event $eventId FAILED: ${e.message}")
                 emptyList()
             }
-            println("[FirestoreExpenseRepo]   event $eventId → ${expenses.size} expenses")
             allExpenses.addAll(expenses)
         }
-        println("[FirestoreExpenseRepo] fetchAllExpenses TOTAL: ${allExpenses.size} expenses")
+        println("[FirestoreExpenseRepo] fetchAllExpenses: ${eventIds.size} events → ${allExpenses.size} expenses")
         return allExpenses
     }
 

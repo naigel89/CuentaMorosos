@@ -35,8 +35,13 @@ class OfflineFirstExpenseRepository(
         override suspend fun saveDebt(entityId: String) = throw UnsupportedOperationException()
         override suspend fun deleteDebt(entityId: String) = throw UnsupportedOperationException()
         override suspend fun saveExpense(entityId: String) {
-            val allExpenses = remoteRepository.observeAllExpenses().first()
-            allExpenses.find { it.id == entityId }?.let { remoteRepository.saveExpense(it) }
+            // Read from LOCAL cache (SQLDelight), not Firestore
+            val local = queries.selectById(entityId).executeAsOneOrNull()?.toExpenseItem()
+            if (local != null) {
+                remoteRepository.saveExpense(local)
+            } else {
+                println("[OfflineFirstExpenseRepo] saveExpense pending: expense $entityId not in local cache, skipping")
+            }
         }
         override suspend fun deleteExpense(entityId: String) {
             // entityId is the expenseId; remote delete is best-effort
@@ -76,9 +81,7 @@ class OfflineFirstExpenseRepository(
             .asFlow()
             .mapToList(Dispatchers.Default)
             .map { cachedExpenses ->
-                val items = cachedExpenses.map { it.toExpenseItem() }
-                println("[OfflineFirstExpenseRepo] observeAllExpenses: SQLDelight emitted ${items.size} expenses")
-                items
+                cachedExpenses.map { it.toExpenseItem() }
             }
     }
 

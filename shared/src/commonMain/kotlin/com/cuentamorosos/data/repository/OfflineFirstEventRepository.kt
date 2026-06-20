@@ -38,8 +38,13 @@ class OfflineFirstEventRepository(
 
     private val eventRemoteOps = object : RemoteOperations {
         override suspend fun saveEvent(entityId: String) {
-            val events = remoteRepository.fetchEvents()
-            events.find { it.id == entityId }?.let { remoteRepository.saveEvent(it) }
+            // Read from LOCAL cache (SQLDelight), not Firestore
+            val local = queries.selectById(entityId).executeAsOneOrNull()?.toEventItem()
+            if (local != null) {
+                remoteRepository.saveEvent(local)
+            } else {
+                println("[OfflineFirstEventRepo] saveEvent pending: event $entityId not in local cache, skipping")
+            }
         }
         override suspend fun deleteEvent(entityId: String) = remoteRepository.deleteEvent(entityId)
         override suspend fun saveDebt(entityId: String) = throw UnsupportedOperationException()

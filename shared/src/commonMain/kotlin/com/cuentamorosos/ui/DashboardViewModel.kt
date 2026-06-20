@@ -41,10 +41,8 @@ class DashboardViewModel(
                 expenseRepository.observeAllExpenses(),
                 profileRepository.observeProfiles(),
             ) { events, debts, expenses, profiles ->
-                println("[DashboardVM] combine fired: events=${events.size}, debts=${debts.size}, expenses=${expenses.size}, profiles=${profiles.size}")
                 computeState(events, debts, expenses, profiles)
             }.collect { newState ->
-                println("[DashboardVM] new state: isLoading=${newState.isLoading}, totalOwedToYou=${newState.totalOwedToYou}, totalYouOwe=${newState.totalYouOwe}, unified=${newState.unifiedBreakdown.size}")
                 _state.value = newState.copy(isLoading = false)
             }
         }
@@ -61,15 +59,6 @@ class DashboardViewModel(
         expenses: List<EventExpenseItem>,
         profiles: List<ProfileItem>,
     ): DashboardState {
-        // ── DEBUG: dump raw debt data ──
-        println("[DashboardVM] computeState: currentUserUid=$currentUserUid, debts=${debts.size}, expenses=${expenses.size}")
-        debts.take(5).forEach { debt ->
-            println("[DashboardVM]   debt: id=${debt.id}, profileId=${debt.profileId}, amount=${debt.amountEuros}, paid=${debt.paid}, eventId=${debt.eventId}")
-        }
-        profiles.take(5).forEach { profile ->
-            println("[DashboardVM]   profile: id=${profile.id}, name=${profile.name}")
-        }
-
         // ── TRIGGER: Detect CALCULATED transitions ──
         events.forEach { event ->
             if (event.state == EventState.CALCULATED) {

@@ -33,8 +33,13 @@ class OfflineFirstDebtRepository(
         override suspend fun saveEvent(entityId: String) = throw UnsupportedOperationException()
         override suspend fun deleteEvent(entityId: String) = throw UnsupportedOperationException()
         override suspend fun saveDebt(entityId: String) {
-            val allDebts = remoteRepository.observeAllDebts().first()
-            allDebts.find { it.id == entityId }?.let { remoteRepository.saveDebt(it) }
+            // Read from LOCAL cache (SQLDelight), not Firestore
+            val local = queries.selectById(entityId).executeAsOneOrNull()?.toDebtItem()
+            if (local != null) {
+                remoteRepository.saveDebt(local)
+            } else {
+                println("[OfflineFirstDebtRepo] saveDebt pending: debt $entityId not in local cache, skipping")
+            }
         }
         override suspend fun deleteDebt(entityId: String) {
             // entityId is the debtId; we need the eventId too, but drain only has one ID.
@@ -78,9 +83,7 @@ class OfflineFirstDebtRepository(
             .asFlow()
             .mapToList(Dispatchers.Default)
             .map { cachedDebts ->
-                val items = cachedDebts.map { it.toDebtItem() }
-                println("[OfflineFirstDebtRepo] observeAllDebts: SQLDelight emitted ${items.size} debts")
-                items
+                cachedDebts.map { it.toDebtItem() }
             }
     }
 

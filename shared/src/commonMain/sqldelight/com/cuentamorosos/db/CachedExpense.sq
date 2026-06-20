@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS CachedExpense (
 selectAll:
 SELECT * FROM CachedExpense;
 
+selectById:
+SELECT * FROM CachedExpense WHERE id = ?;
+
 selectByEvent:
 SELECT * FROM CachedExpense WHERE eventId = ?;
 

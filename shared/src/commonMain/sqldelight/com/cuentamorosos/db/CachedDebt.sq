@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS CachedDebt (
 selectAll:
 SELECT * FROM CachedDebt;
 
+selectById:
+SELECT * FROM CachedDebt WHERE id = ?;
+
 selectByEvent:
 SELECT * FROM CachedDebt WHERE eventId = ?;
 
