@@ -13,21 +13,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
@@ -51,7 +42,6 @@ import com.cuentamorosos.ui.CuentaMorososApp
 import com.cuentamorosos.ui.CuentaMorososTheme
 import com.cuentamorosos.ui.OnPhotoReady
 import com.cuentamorosos.ui.auth.ForgotPasswordScreen
-import com.cuentamorosos.ui.auth.LoginScreen
 import com.cuentamorosos.ui.auth.RegisterScreen
 import com.cuentamorosos.ui.auth.SplashAuthScreen
 import com.google.firebase.auth.FirebaseAuth
@@ -343,14 +333,16 @@ private fun MainAppContent(
 }
 
 /**
- * Auth flow: splash → login → register → forgot password navigation.
+ * Auth flow: splash+login → register → forgot password navigation.
+ *
+ * The login screen IS the animated splash — no transition.
+ * Register and ForgotPassword navigate separately.
  */
 @Composable
 private fun AuthFlow(
     auth: FirebaseAuth,
     onAuthSuccess: (com.google.firebase.auth.FirebaseUser) -> Unit
 ) {
-    var showSplash by remember { mutableStateOf(true) }
     var showLogin by remember { mutableStateOf(true) }
     var showRegister by remember { mutableStateOf(false) }
     var showForgotPassword by remember { mutableStateOf(false) }
@@ -362,109 +354,84 @@ private fun AuthFlow(
         showLogin = true
     }
 
-    AnimatedContent(
-        targetState = showSplash,
-        transitionSpec = {
-            fadeIn(tween(500)) togetherWith fadeOut(tween(500))
-        },
-        label = "splashToAuth",
-    ) { splashVisible ->
-        if (splashVisible) {
-            SplashAuthScreen(
-                logo = { modifier ->
-                    Box(
-                        modifier = modifier
-                            .size(80.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = androidx.compose.foundation.shape.CircleShape,
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "CM",
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        )
+    if (showLogin) {
+        SplashAuthScreen(
+            logo = { modifier ->
+                Image(
+                    painter = painterResource(R.mipmap.ic_launcher_foreground),
+                    contentDescription = "CuentaMorosos",
+                    modifier = modifier,
+                )
+            },
+            onLoginSuccess = {
+                auth.currentUser?.let { user ->
+                    onAuthSuccess(user)  // Auth succeeds immediately
+                    // Profile sync happens in MainAppContent LaunchedEffect
+                }
+            },
+            onNavigateToRegister = {
+                showLogin = false
+                showRegister = true
+            },
+            onNavigateToForgotPassword = {
+                showLogin = false
+                showForgotPassword = true
+            },
+            onLogin = { email, password, onResult ->
+                auth.signInWithEmailAndPassword(email, password)
+                    .addOnSuccessListener { result ->
+                        result.user?.let { onResult(null) }
+                            ?: onResult("No se pudo iniciar sesión")
                     }
-                },
-                onAnimationComplete = { showSplash = false },
-            )
-        } else {
-            if (showLogin) {
-                LoginScreen(
-                    onLoginSuccess = {
-                        auth.currentUser?.let { user ->
-                            onAuthSuccess(user)  // Auth succeeds immediately
-                            // Profile sync happens in MainAppContent LaunchedEffect
+                    .addOnFailureListener { e ->
+                        onResult(e.localizedMessage ?: "Error al iniciar sesión")
+                    }
+            },
+        )
+    } else if (showRegister) {
+        RegisterScreen(
+            onRegisterSuccess = {
+                auth.currentUser?.let { user ->
+                    onAuthSuccess(user)  // Auth succeeds immediately
+                    // Profile sync happens in MainAppContent LaunchedEffect
+                }
+            },
+            onNavigateToLogin = {
+                showRegister = false
+                showLogin = true
+            },
+            onRegister = { email, password, onResult ->
+                auth.createUserWithEmailAndPassword(email, password)
+                    .addOnSuccessListener { result ->
+                        // Set display name
+                        val displayName = email.substringBefore("@")
+                        result.user?.updateProfile(
+                            UserProfileChangeRequest.Builder()
+                                .setDisplayName(displayName)
+                                .build()
+                        )?.addOnSuccessListener {
+                            onResult(null)
                         }
-                    },
-                    onNavigateToRegister = {
-                        showLogin = false
-                        showRegister = true
-                    },
-                    onNavigateToForgotPassword = {
-                        showLogin = false
-                        showForgotPassword = true
-                    },
-                    onLogin = { email, password, onResult ->
-                        auth.signInWithEmailAndPassword(email, password)
-                            .addOnSuccessListener { result ->
-                                result.user?.let { onResult(null) }
-                                    ?: onResult("No se pudo iniciar sesión")
-                            }
-                            .addOnFailureListener { e ->
-                                onResult(e.localizedMessage ?: "Error al iniciar sesión")
-                            }
                     }
-                )
-            } else if (showRegister) {
-                RegisterScreen(
-                    onRegisterSuccess = {
-                        auth.currentUser?.let { user ->
-                            onAuthSuccess(user)  // Auth succeeds immediately
-                            // Profile sync happens in MainAppContent LaunchedEffect
-                        }
-                    },
-                    onNavigateToLogin = {
-                        showRegister = false
-                        showLogin = true
-                    },
-                    onRegister = { email, password, onResult ->
-                        auth.createUserWithEmailAndPassword(email, password)
-                            .addOnSuccessListener { result ->
-                                // Set display name
-                                val displayName = email.substringBefore("@")
-                                result.user?.updateProfile(
-                                    UserProfileChangeRequest.Builder()
-                                        .setDisplayName(displayName)
-                                        .build()
-                                )?.addOnSuccessListener {
-                                    onResult(null)
-                                }
-                            }
-                            .addOnFailureListener { e ->
-                                onResult(e.localizedMessage ?: "Error al registrarse")
-                            }
+                    .addOnFailureListener { e ->
+                        onResult(e.localizedMessage ?: "Error al registrarse")
                     }
-                )
-            } else if (showForgotPassword) {
-                ForgotPasswordScreen(
-                    onNavigateToLogin = {
-                        showForgotPassword = false
-                        showLogin = true
-                    },
-                    onResetPassword = { email, onResult ->
-                        auth.sendPasswordResetEmail(email)
-                            .addOnSuccessListener { onResult(null) }
-                            .addOnFailureListener { e ->
-                                onResult(e.localizedMessage ?: "Error al enviar email")
-                            }
-                    }
-                )
             }
-        }
+        )
+    } else if (showForgotPassword) {
+        ForgotPasswordScreen(
+            onNavigateToLogin = {
+                showForgotPassword = false
+                showLogin = true
+            },
+            onResetPassword = { email, onResult ->
+                auth.sendPasswordResetEmail(email)
+                    .addOnSuccessListener { onResult(null) }
+                    .addOnFailureListener { e ->
+                        onResult(e.localizedMessage ?: "Error al enviar email")
+                    }
+            }
+        )
     }
 }
 
