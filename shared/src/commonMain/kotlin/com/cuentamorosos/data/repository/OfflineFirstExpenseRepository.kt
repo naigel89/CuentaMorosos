@@ -76,7 +76,9 @@ class OfflineFirstExpenseRepository(
             .asFlow()
             .mapToList(Dispatchers.Default)
             .map { cachedExpenses ->
-                cachedExpenses.map { it.toExpenseItem() }
+                val items = cachedExpenses.map { it.toExpenseItem() }
+                println("[OfflineFirstExpenseRepo] observeAllExpenses: SQLDelight emitted ${items.size} expenses")
+                items
             }
     }
 

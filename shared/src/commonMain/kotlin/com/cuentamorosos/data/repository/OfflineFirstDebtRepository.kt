@@ -78,7 +78,9 @@ class OfflineFirstDebtRepository(
             .asFlow()
             .mapToList(Dispatchers.Default)
             .map { cachedDebts ->
-                cachedDebts.map { it.toDebtItem() }
+                val items = cachedDebts.map { it.toDebtItem() }
+                println("[OfflineFirstDebtRepo] observeAllDebts: SQLDelight emitted ${items.size} debts")
+                items
             }
     }
 

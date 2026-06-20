@@ -41,8 +41,10 @@ class DashboardViewModel(
                 expenseRepository.observeAllExpenses(),
                 profileRepository.observeProfiles(),
             ) { events, debts, expenses, profiles ->
+                println("[DashboardVM] combine fired: events=${events.size}, debts=${debts.size}, expenses=${expenses.size}, profiles=${profiles.size}")
                 computeState(events, debts, expenses, profiles)
             }.collect { newState ->
+                println("[DashboardVM] new state: isLoading=${newState.isLoading}, totalOwedToYou=${newState.totalOwedToYou}, totalYouOwe=${newState.totalYouOwe}, unified=${newState.unifiedBreakdown.size}")
                 _state.value = newState.copy(isLoading = false)
             }
         }

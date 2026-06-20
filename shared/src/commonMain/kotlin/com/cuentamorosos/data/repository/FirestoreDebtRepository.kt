@@ -152,6 +152,8 @@ class FirestoreDebtRepository : DebtRepository {
             .map { it.id }
             .distinct()
 
+        println("[FirestoreDebtRepo] fetchAllDebts: found ${eventIds.size} events for uid=$uid")
+
         if (eventIds.isEmpty()) return emptyList()
 
         // One-shot fetch per event, then flatten
@@ -161,11 +163,13 @@ class FirestoreDebtRepository : DebtRepository {
                 db.collection("events").document(eventId).collection("debts").get()
                     .documents.mapNotNull { it.toDebtItem() }
             } catch (e: Exception) {
-                println("[FirestoreDebtRepo] fetchAllDebts for event $eventId failed: ${e.message}")
+                println("[FirestoreDebtRepo] fetchAllDebts for event $eventId FAILED: ${e.message} (${e::class.simpleName})")
                 emptyList()
             }
+            println("[FirestoreDebtRepo]   event $eventId → ${debts.size} debts")
             allDebts.addAll(debts)
         }
+        println("[FirestoreDebtRepo] fetchAllDebts TOTAL: ${allDebts.size} debts")
         return allDebts
     }
 

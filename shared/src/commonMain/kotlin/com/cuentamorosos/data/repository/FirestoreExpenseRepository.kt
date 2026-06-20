@@ -138,6 +138,8 @@ class FirestoreExpenseRepository : ExpenseRepository {
             .map { it.id }
             .distinct()
 
+        println("[FirestoreExpenseRepo] fetchAllExpenses: found ${eventIds.size} events for uid=$uid")
+
         if (eventIds.isEmpty()) return emptyList()
 
         // One-shot fetch per event, then flatten
@@ -147,11 +149,13 @@ class FirestoreExpenseRepository : ExpenseRepository {
                 db.collection("events").document(eventId).collection("expenses").get()
                     .documents.mapNotNull { it.toExpenseItem() }
             } catch (e: Exception) {
-                println("[FirestoreExpenseRepo] fetchAllExpenses for event $eventId failed: ${e.message}")
+                println("[FirestoreExpenseRepo] fetchAllExpenses for event $eventId FAILED: ${e.message} (${e::class.simpleName})")
                 emptyList()
             }
+            println("[FirestoreExpenseRepo]   event $eventId → ${expenses.size} expenses")
             allExpenses.addAll(expenses)
         }
+        println("[FirestoreExpenseRepo] fetchAllExpenses TOTAL: ${allExpenses.size} expenses")
         return allExpenses
     }
 
