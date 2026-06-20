@@ -1,7 +1,7 @@
 # CuentaMorosos
 
 <div align="center">
-  <img src="logo.png" alt="CuentaMorosos Logo" width="120" />
+  <img src="logoCuentaMorosos.svg" alt="CuentaMorosos Logo" width="180" />
   <p><em>Divide gastos. Sin vueltas. Sin cuentas pendientes.</em></p>
 </div>
 
@@ -95,30 +95,52 @@ El proyecto está en desarrollo activo. Te invitamos a probarlo, reportar issues
 
 ## 🚀 Instalación y Ejecución
 
+### Paso a paso rápido
+
+1. **Clona el repositorio**:
+   ```bash
+   git clone https://github.com/tuusuario/CuentaMorosos.git
+   cd CuentaMorosos
+   ```
+2. **Configura Firebase** (ver [abajo](#configuración-de-firebase)) y coloca `google-services.json` en `app/`.
+3. **Abre en Android Studio**: File → Open → selecciona la carpeta del proyecto. Android Studio descargará el SDK y las dependencias Gradle automáticamente.
+4. **Ejecuta en emulador o dispositivo**:
+   ```bash
+   ./gradlew installDebug
+   ```
+   O pulsa ▶️ Run en Android Studio.
+
 ### Prerrequisitos
 
-- **JDK 17** — configurado en `gradle.properties`
-- **Android SDK** — compileSdk 35, minSdk 24
-- **Android Studio** — Hedgehog (2023.1.1) o superior recomendado
-- **Firebase project** — ver configuración abajo
-- **macOS** — solo necesario para compilar el target iOS (excluido automáticamente en Linux/Windows)
+| Requisito | Versión / Detalle |
+|-----------|-------------------|
+| **JDK** | 17 (configurado en `gradle.properties`) |
+| **Android SDK** | compileSdk 35, minSdk 24 |
+| **Android Studio** | Hedgehog (2023.1.1) o superior |
+| **Firebase** | Proyecto configurado (ver sección siguiente) |
+| **macOS** | Solo para compilar el target iOS (excluido automáticamente en Linux/Windows) |
+| **Emulador / dispositivo** | Android 7.0 (API 24) o superior |
 
 ### Configuración de Firebase
 
-1. Crea un proyecto en [Firebase Console](https://console.firebase.google.com/)
-2. Activa **Authentication** → proveedor Email/Password
-3. Crea **Firestore Database** en modo producción y configura las reglas de seguridad
-4. Crea un bucket de **Storage** para las fotos de perfil
-5. Descarga `google-services.json` y colócalo en el directorio `app/`
-6. (Opcional) Activa **Cloud Messaging** para notificaciones push
+1. Crea un proyecto en [Firebase Console](https://console.firebase.google.com/).
+2. Activa **Authentication** → proveedor **Email/Password**.
+3. Crea **Firestore Database** en modo producción. Configura las [reglas de seguridad](https://firebase.google.com/docs/firestore/security/get-started) según tu caso de uso.
+4. Activa **Storage** para las fotos de perfil de los usuarios.
+5. Descarga `google-services.json` desde la configuración de tu app Android en Firebase Console y colócalo en el directorio `app/`. Este archivo está en `.gitignore` — **nunca se commitea**.
+6. (Opcional) Activa **Cloud Messaging** para recibir notificaciones push de invitaciones y nuevos cálculos.
 
 ### Variables de entorno / archivos de configuración
 
-- `local.properties`: debe contener `sdk.dir={ruta al Android SDK}` (Gradle suele autodetectar)
-- `google-services.json`: en `app/`, excluido de git (`.gitignore`)
-- `gradle.properties`: ya incluye configuración de JVM (-Xmx4g), daemon de Kotlin (-Xmx2g), build paralelo y caché
+- `local.properties`: Gradle lo genera automáticamente con `sdk.dir`. Si usás Android Studio, no necesitás tocarlo.
+- `google-services.json`: en `app/`, excluido de git (`.gitignore`). Sin este archivo, la compilación fallará.
+- `gradle.properties`: ya incluye configuración de JVM (`-Xmx4g`), daemon de Kotlin (`-Xmx2g`), build paralelo y caché de Gradle. Ajustá la memoria si tu equipo tiene menos de 8 GB.
 
-### Comandos
+### Firma (signing)
+
+El proyecto incluye configuración de firma para release en `app/build.gradle.kts`. Para generar un APK firmado necesitás tu propio keystore. Por defecto, las builds de debug usan el keystore de desarrollo de Android.
+
+### Comandos útiles
 
 ```bash
 # Compilar APK debug
@@ -135,7 +157,15 @@ El proyecto está en desarrollo activo. Te invitamos a probarlo, reportar issues
 
 # Instalar en emulador o dispositivo conectado
 ./gradlew installDebug
+
+# Compilar APK release (requiere keystore configurado)
+./gradlew assembleRelease
 ```
+
+<p align="center">
+  <em>Pantalla de inicio de sesión una vez configurado el proyecto</em><br/>
+  <img src="docs/screenshots/pantalla-login.jpeg" alt="Pantalla de inicio de sesión" width="280" />
+</p>
 
 ---
 
@@ -149,37 +179,45 @@ CuentaMorosos/
 │       ├── main/
 │       │   ├── AndroidManifest.xml
 │       │   ├── google-services.json        # Firebase (gitignored)
+│       │   ├── res/                        # Drawables, mipmaps (iconos), themes
 │       │   └── java/com/cuentamorosos/
 │       │       ├── CuentaMorososApp.kt     # Application class, singleton
 │       │       ├── MainActivity.kt         # Entry point, auth flow, deep links
-│       │       ├── data/                   # Firebase sync, notificaciones, WorkManager
-│       │       ├── notifications/          # Android notification dispatch
+│       │       ├── data/                   # LocalStore, FCM, ReminderWorker, MigrationManager, UserSync
+│       │       ├── notifications/          # NotificationDispatcher (Android)
 │       │       └── ui/auth/               # MigrationScreen (legacy data)
-│       └── test/                           # 8 tests (LocalStore, FCM, dedup)
+│       └── test/                           # 7 tests (LocalStore, FCM, dedup)
 │
 ├── shared/                                 # Módulo KMP (lógica + UI compartida)
 │   ├── build.gradle.kts                    # KMP plugin, Compose, SQLDelight, targets
 │   └── src/
-│       ├── commonMain/kotlin/com/cuentamorosos/
-│       │   ├── model/                      # Motores puros: SplitCalculator, SettlementEngine,
-│       │   │                               #   PermissionEngine, IntegrityGuard, StateMachine,
-│       │   │                               #   CalculatorEngine (6 modos), validación
-│       │   ├── ui/                         # Pantallas Compose, ViewModels, tema NeoFintech
-│       │   │   └── auth/                   # Login, Register, ForgotPassword, UserProfile
-│       │   ├── data/repository/            # Patrón repositorio offline-first
-│       │   ├── db/                         # SQLDelight driver factory (expect)
-│       │   └── notifications/             # Modelos de notificación, deep links
+│       ├── commonMain/
+│       │   ├── composeResources/           # Fuentes (Geist, JetBrains Mono)
+│       │   ├── kotlin/com/cuentamorosos/
+│       │   │   ├── model/                  # 8 engines: SplitCalculator, SettlementEngine,
+│       │   │   │                           #   PermissionEngine, IntegrityGuard, StateMachine,
+│       │   │   │                           #   CalculatorEngine, EventCreditorResolver
+│       │   │   │                           #   + validation/ (4 validadores)
+│       │   │   ├── ui/                     # 49 archivos: screens, ViewModels, design system NeoFintech
+│       │   │   │   └── auth/               # Login, Register, ForgotPassword, SplashAuth, UserProfile
+│       │   │   ├── data/repository/        # 21 repositorios (interfaces, Firestore, OfflineFirst)
+│       │   │   ├── db/                     # DriverFactory (expect)
+│       │   │   └── notifications/          # Modelos de notificación, deep links
+│       │   └── sqldelight/                 # 8 esquemas .sq (CachedEvent, CachedProfile, etc.)
 │       ├── commonTest/                     # 41 tests (engines, ViewModels, repos, UI)
 │       ├── androidMain/                    # Platform.android, AppViewModelFactory,
-│       │                                   #   RepositoryProvider, DriverFactory, NetworkMonitor
-│       ├── jvmMain/                        # JVM SQLite driver
-│       ├── iosMain/                        # iOS driver (condicional en macOS)
-│       └── sqldelight/                     # 8 esquemas .sq (CachedEvent, CachedProfile, etc.)
+│       │                                   #   RepositoryProvider, DriverFactory, NetworkMonitor,
+│       │                                   #   SystemBackHandler
+│       ├── jvmMain/                        # Platform.jvm, DriverFactory, NetworkMonitor (JVM desktop)
+│       └── iosMain/                        # Platform.ios, DriverFactory, NetworkMonitor,
+│                                           #   SystemBackHandler (iOS)
 │
 ├── iosApp/                                 # Xcode project (wrapper iOS, condicional)
 ├── keystore/                               # Clave de firma (release)
-├── documentation/                          # CHANGELOG, FR, NFR, sprints, UI docs
+├── docs/                                   # Capturas de pantalla
+├── documentation/                          # CHANGELOG, FR, NFR, sprints, UI, API docs
 ├── openspec/                               # Artefactos SDD (specs, changes, archive)
+├── .github/                                # CI/CD workflows, agentes, skills
 ├── gradle/                                 # Wrapper (gradle-wrapper.jar, gradle-wrapper.properties)
 ├── build.gradle.kts                        # Root: plugins y versiones
 ├── settings.gradle.kts                     # Includes de módulos, repositorios
@@ -188,7 +226,7 @@ CuentaMorosos/
 ├── README.md                               # Este archivo
 ├── AGENTS.md                               # Guía para asistentes de IA
 ├── LICENSE                                 # MIT
-└── logo.png                                # Logo de la app
+└── logoCuentaMorosos.svg                   # Logo de la app
 ```
 
 ### Módulos
@@ -217,6 +255,14 @@ CuentaMorosos/
 - **Invitaciones por email**: invita a otras personas a unirse a tus eventos. Flujo pendiente → aceptar → rechazar.
 - **Vista de calendario**: navegación visual por la línea temporal de eventos.
 
+<p align="center">
+  <img src="docs/screenshots/Eventos.jpeg" alt="Lista de eventos" width="280" />
+  <img src="docs/screenshots/Calendario.jpeg" alt="Calendario" width="280" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/detalles-evento.jpeg" alt="Detalle de evento" width="280" />
+</p>
+
 ### 💸 Gastos
 
 - **6 modos de reparto** disponibles al crear un gasto:
@@ -232,6 +278,10 @@ CuentaMorosos/
 - **Soporte multi-moneda**: campos `exchangeRate` e `itemCurrency` preparados para conversión futura (actualmente EUR).
 - **Auditoría inmutable**: cada operación CRUD sobre gastos genera un registro `ExpenseAuditEntry` inalterable.
 
+<p align="center">
+  <img src="docs/screenshots/creacion-de-gastos.jpeg" alt="Calculadora de gastos" width="280" />
+</p>
+
 ### ⚖️ Liquidación
 
 - **Algoritmo greedy**: calcula la cantidad mínima de transferencias necesarias para saldar todas las deudas (`SettlementEngine.kt`).
@@ -240,6 +290,10 @@ CuentaMorosos/
 - **Ajustes**: `AdjustmentEntry` permite corregir transferencias cobradas sin modificar la deuda original.
 - **Moneda**: EUR para esta versión (`SUPPORTED_CURRENCY = "EUR"`).
 - **Guardián de integridad**: `IntegrityGuard` impide recalcular si faltan participantes previos y valida los datos antes del cálculo.
+
+<p align="center">
+  <img src="docs/screenshots/resumen-factura-transferencias.jpeg" alt="Liquidación y transferencias" width="280" />
+</p>
 
 ### 👤 Perfiles
 
@@ -256,6 +310,10 @@ CuentaMorosos/
 - **Balances por perfil**: quién debe a quién, posiciones netas.
 - **Deudas pendientes por perfil**: desglose de qué debe cada persona.
 - **Acceso al calendario**: navegación rápida a la vista de calendario.
+
+<p align="center">
+  <img src="docs/screenshots/Panel.jpeg" alt="Dashboard principal" width="280" />
+</p>
 
 ### 🔔 Notificaciones
 
@@ -290,8 +348,9 @@ CuentaMorosos/
 │                                                              │
 │  ┌─────────┐    ┌──────────────┐    ┌────────────────────┐  │
 │  │   UI    │───▶│  ViewModels   │───▶│    Repositories    │  │
-│  │ Compose │    │ StateFlow +   │    │  OfflineFirst wrap │  │
-│  │ Screens │    │ derivedStateOf│    │  Firestore remotes │  │
+│  │ Compose │    │ StateFlow +   │    │  OfflineFirst*     │  │
+│  │ Screens │    │ derivedStateOf│    │  cachea SQLDelight │  │
+│  │         │    │               │    │  → sync Firestore  │  │
 │  └─────────┘    └──────┬───────┘    └────────┬───────────┘  │
 │                        │                      │              │
 │                        ▼                      ▼              │
@@ -317,9 +376,9 @@ CuentaMorosos/
 ### Decisiones Clave de Diseño
 
 1. **Módulo compartido KMP**: la lógica de negocio y la UI Compose viven en `shared/` para reutilización entre plataformas. El módulo `app/` es un shell Android delgado.
-2. **Patrón repositorio OfflineFirst**: cada entidad (`EventRepository`, `DebtRepository`, `ExpenseRepository`, `ProfileRepository`) tiene una interfaz, una implementación Firestore y un wrapper que cachea en SQLDelight.
-3. **Persistencia dual**: SQLDelight (primaria, reactiva vía `Flow`) + `CuentaMorososLocalStore` (SharedPreferences, para datos legacy y desduplicación).
-4. **Motores de modelo puros**: `SplitCalculator`, `SettlementEngine`, `PermissionEngine`, `IntegrityGuard`, `StateMachine` son Kotlin puro sin dependencias de framework — 100 % testeables.
+2. **Patrón repositorio OfflineFirst en tres capas**: cada entidad define una interfaz (ej. `EventRepository`). Existen dos implementaciones: `Firestore*Repository` para la parte remota y `OfflineFirst*Repository` para la parte local. Esta última cachea en SQLDelight (8 tablas, reactivas vía `Flow`) y sincroniza escrituras a Firestore delegando en el repositorio remoto. Si la red falla, las operaciones se encolan en `PendingOperationQueue` y se reintentan al reconectar.
+3. **Persistencia dual**: SQLDelight como caché primaria + `CuentaMorososLocalStore` (SharedPreferences) solo para migración de datos legacy y desduplicación de notificaciones.
+4. **Motores de modelo puros**: 8 engines (`SplitCalculator`, `SettlementEngine`, `PermissionEngine`, `IntegrityGuard`, `StateMachine`, `CalculatorEngine`, `EventCreditorResolver` + `validation/` con 4 validadores) en Kotlin puro sin dependencias de framework — 100 % testeables.
 5. **DI manual**: sin Hilt ni Koin. `AppViewModelFactory` construye ViewModels, `RepositoryProvider` cablea los repositorios.
 6. **`derivedStateOf` para propiedades computadas**: agregados del panel, balances netos y mensajes de recordatorio se calculan reactivamente.
 7. **Sincronización escalonada**: 500 ms de retardo entre repositorios al iniciar para no saturar Firestore.
@@ -331,9 +390,11 @@ CuentaMorosos/
 Usuario rellena formulario en EventDetailScreen
   → EventDetailViewModel.saveExpense(expense)
     → OfflineFirstExpenseRepository.saveExpense(expense)
-      → SQLDelight INSERT (cache local — actualización inmediata en UI)
-      → FirestoreExpenseRepository.saveExpense(expense) (remoto — intento)
-        → si falla: PendingOperationQueue.enqueue(...)
+      → 1. SQLDelight INSERT (caché local — UI se actualiza al instante)
+      → 2. FirestoreExpenseRepository.saveExpense(expense) (remoto)
+        → ✅ éxito: fin
+        → ❌ sin red: PendingOperationQueue.enqueue(expense)
+                     → se reintenta al recuperar conexión
 ```
 
 ---
@@ -364,7 +425,7 @@ Usuario rellena formulario en EventDetailScreen
 ./gradlew test :shared:allTests connectedAndroidTest
 ```
 
-> **Cobertura actual**: 49 archivos de test (41 en `shared/commonTest`, 8 en `app/src/test`). Sin herramienta de cobertura (JaCoCo) configurada.
+> **Cobertura actual**: 48 archivos de test (41 en `shared/commonTest`, 7 en `app/src/test`). Sin herramienta de cobertura (JaCoCo) configurada.
 
 ---
 
@@ -375,15 +436,4 @@ Usuario rellena formulario en EventDetailScreen
 - **[Licencia MIT](LICENSE)**: texto completo de la licencia.
 - **[SDD (Spec-Driven Development)](openspec/)**: artefactos de especificación, cambios activos y archivo histórico.
 
----
 
-## 📸 Capturas de Pantalla
-
-> ⚠️ **Sección en construcción**. Las capturas se irán añadiendo a medida que estén disponibles.
-
-<!-- SCREENSHOT: Pantalla principal del Dashboard — resumen financiero, balances por perfil, accesos rápidos -->
-<!-- SCREENSHOT: Lista de Eventos — tarjetas con nombre, fechas, estado (Abierto/Calculado/Cerrado), número de participantes -->
-<!-- SCREENSHOT: Detalle de Evento — gastos del evento, deudas calculadas, acceso a calculadora y liquidación -->
-<!-- SCREENSHOT: Calculadora de gastos (CalculatorSheet) — selector de modo de reparto, asignación de perfiles, vista previa de importes -->
-<!-- SCREENSHOT: Panel de Liquidación (SettlementPanel) — lista de transferencias, pagos cobrados/pendientes -->
-<!-- SCREENSHOT: Vista de Calendario — timeline visual con eventos por mes -->
