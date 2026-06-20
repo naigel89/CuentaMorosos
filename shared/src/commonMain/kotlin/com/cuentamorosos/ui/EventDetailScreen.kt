@@ -261,9 +261,9 @@ fun EventDetailScreen(
         AddProfileToEventDialog(
             availableProfiles = availableProfiles,
             onDismiss = { showAddProfileDialog = false },
-            onAddProfile = { profiles ->
+            onAddProfile = { selectedProfiles ->
                 showAddProfileDialog = false
-                onAddProfileToEvent(profiles)
+                onAddProfileToEvent(selectedProfiles)
             }
         )
     }
@@ -693,7 +693,6 @@ private fun AddProfileToEventDialog(
                                 )
                                 ProfileAvatar(
                                     name = profile.name,
-                                    emoji = profile.icon,
                                     photoUrl = profile.photoUrl,
                                     size = 28.dp,
                                 )
@@ -987,7 +986,6 @@ private fun ExpenseEditorSheet(
                             ) {
                                 ProfileAvatar(
                                     name = profile.name,
-                                    emoji = profile.icon,
                                     photoUrl = profile.photoUrl,
                                     size = 22.dp,
                                 )
@@ -1153,7 +1151,6 @@ private fun ExpenseEditorSheet(
                         ) {
                             ProfileAvatar(
                                 name = profile?.name ?: "",
-                                emoji = profile?.icon ?: "",
                                 photoUrl = profile?.photoUrl,
                                 size = 28.dp,
                             )
@@ -1283,7 +1280,6 @@ private fun ProfileCheckboxRow(
         ) {
             ProfileAvatar(
                 name = profile.name,
-                emoji = profile.icon,
                 photoUrl = profile.photoUrl,
                 size = 32.dp,
             )

@@ -123,7 +123,6 @@ class OfflineFirstProfileRepository(
                 queries.upsert(
                     id = profile.id,
                     name = profile.name,
-                    icon = profile.icon,
                     email = profile.linkedEmail ?: "",
                     isGhost = if (profile.isGhost) 1 else 0,
                     totalPendingEuros = profile.totalPendingEuros,
@@ -142,7 +141,6 @@ class OfflineFirstProfileRepository(
         queries.upsert(
             id = profile.id,
             name = profile.name,
-            icon = profile.icon,
             email = profile.linkedEmail ?: "",
             isGhost = if (profile.isGhost) 1 else 0,
             totalPendingEuros = profile.totalPendingEuros,
@@ -204,7 +202,6 @@ class OfflineFirstProfileRepository(
                 queries.upsert(
                     id = ownProfile.id,
                     name = ownProfile.name,
-                    icon = ownProfile.icon,
                     email = ownProfile.email,
                     isGhost = ownProfile.isGhost,
                     totalPendingEuros = ownProfile.totalPendingEuros,
@@ -254,7 +251,6 @@ class OfflineFirstProfileRepository(
                 queries.upsert(
                     id = ownProfile.id,
                     name = ownProfile.name,
-                    icon = ownProfile.icon,
                     email = ownProfile.email,
                     isGhost = ownProfile.isGhost,
                     totalPendingEuros = ownProfile.totalPendingEuros,
@@ -304,7 +300,6 @@ class OfflineFirstProfileRepository(
                 queries.upsert(
                     id = ownProfile.id,
                     name = ownProfile.name,
-                    icon = ownProfile.icon,
                     email = ownProfile.email,
                     isGhost = ownProfile.isGhost,
                     totalPendingEuros = ownProfile.totalPendingEuros,
@@ -369,7 +364,6 @@ class OfflineFirstProfileRepository(
                 queries.upsert(
                     id = ownProfile.id,
                     name = ownProfile.name,
-                    icon = ownProfile.icon,
                     email = ownProfile.email,
                     isGhost = ownProfile.isGhost,
                     totalPendingEuros = ownProfile.totalPendingEuros,
@@ -467,7 +461,6 @@ class OfflineFirstProfileRepository(
         return ProfileItem(
             id = id,
             name = name,
-            icon = icon,
             totalPendingEuros = totalPendingEuros,
             isGhost = isGhost,
             linkedEmail = if (email.isBlank()) null else email,

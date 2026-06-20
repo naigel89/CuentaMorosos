@@ -104,7 +104,6 @@ fun ProfilesScreen(
                     onClick = {
                         editableProfile = ProfileItem(
                             name = "",
-                            icon = "🙂",
                         )
                     },
                     modifier = Modifier.weight(1f),
@@ -137,7 +136,7 @@ fun ProfilesScreen(
             item {
                 EmptyState(
                     title = "Todavía no hay perfiles",
-                    message = "Añade personas con nombre e icono para reutilizarlas en distintos eventos.",
+                    message = "Añade personas para reutilizarlas en distintos eventos.",
                 )
             }
         } else {
@@ -203,7 +202,7 @@ fun ProfilesScreen(
             onDismissRequest = { profileToDelete = null },
             title = "Eliminar perfil",
             message = buildString {
-                append("¿Seguro que quieres eliminar \"${profile.icon} ${profile.name}\"? Se eliminarán también todas sus deudas en todos los eventos. Esta acción no se puede deshacer.")
+                append("¿Seguro que quieres eliminar \"${profile.name}\"? Se eliminarán también todas sus deudas en todos los eventos. Esta acción no se puede deshacer.")
                 if (warningText.isNotBlank()) {
                     append("\n\n⚠ $warningText")
                 }
@@ -270,15 +269,7 @@ private fun ProfileEditorDialog(
     onSave: (ProfileItem) -> Unit,
 ) {
     val colors = LocalNeoFintechColors.current
-    val iconOptions = listOf(
-        "🙂", "😄", "😎", "🤩", "🥳", "😇",
-        "🧑", "👩", "👨", "👴", "👵", "🧒",
-        "💼", "🎓", "🏋️", "🎨", "🎸", "🎮",
-        "🏠", "🚗", "✈️", "⚽", "🍕", "🎉",
-        "🌟", "❤️", "🐶", "🐱", "🌿", "💡",
-    )
     var name by remember(initialProfile.id) { mutableStateOf(initialProfile.name) }
-    var selectedIcon by remember(initialProfile.id) { mutableStateOf(initialProfile.icon.ifBlank { "🙂" }) }
     var isGhost by remember(initialProfile.id) { mutableStateOf(initialProfile.isGhost) }
     var linkedEmail by remember(initialProfile.id) { mutableStateOf(initialProfile.linkedEmail.orEmpty()) }
     var validationErrors by remember(initialProfile.id) { mutableStateOf<List<ValidationError>>(emptyList()) }
@@ -358,53 +349,6 @@ private fun ProfileEditorDialog(
                         color = colors.onSurfaceVariant,
                     )
                 }
-                Text(
-                    text = "Selecciona un icono",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium,
-                    color = colors.onSurface,
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    iconOptions.chunked(6).forEach { row ->
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            row.forEach { icon ->
-                                val isSelected = icon == selectedIcon
-                                if (isSelected) {
-                                    Button(
-                                        onClick = { selectedIcon = icon; validationErrors = emptyList() },
-                                        contentPadding = PaddingValues(0.dp),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(32.dp),
-                                        shape = NeoFintechShapes.md,
-                                        colors = ButtonDefaults.buttonColors(containerColor = colors.primaryContainer),
-                                    ) {
-                                        Text(icon)
-                                    }
-                                } else {
-                                    OutlinedButton(
-                                        onClick = { selectedIcon = icon; validationErrors = emptyList() },
-                                        contentPadding = PaddingValues(0.dp),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(32.dp),
-                                        shape = NeoFintechShapes.md,
-                                    ) {
-                                        Text(icon)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                Text(
-                    text = "Icono seleccionado: $selectedIcon",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onSurfaceVariant,
-                )
                 if (validationErrors.isNotEmpty()) {
                     validationErrors.forEach { error ->
                         Text(
@@ -430,7 +374,6 @@ private fun ProfileEditorDialog(
 
                     val draftProfile = initialProfile.copy(
                         name = name.trim(),
-                        icon = selectedIcon,
                         isGhost = isGhost,
                         linkedEmail = normalizedLinkedEmail.takeIf { isGhost && it.isNotBlank() },
                     )

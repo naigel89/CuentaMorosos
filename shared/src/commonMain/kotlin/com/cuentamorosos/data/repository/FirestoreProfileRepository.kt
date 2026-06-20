@@ -159,7 +159,6 @@ class FirestoreProfileRepository : ProfileRepository {
     private fun ProfileItem.toMap(uid: String): Map<String, Any?> = mapOf(
         "id" to id,
         "name" to name,
-        "icon" to icon,
         "totalPendingEuros" to totalPendingEuros,
         "isGhost" to isGhost,
         "linkedEmail" to linkedEmail,
@@ -175,7 +174,6 @@ class FirestoreProfileRepository : ProfileRepository {
             // because kotlinx.serialization has no serializer for Any
             val id = runCatching { get<String>("id") }.getOrNull() ?: return null
             val name = runCatching { get<String>("name") }.getOrNull() ?: return null
-            val icon = runCatching { get<String>("icon") }.getOrNull() ?: return null
             val totalPendingEuros = runCatching { get<Double>("totalPendingEuros") }.getOrDefault(0.0)
             val isGhost = runCatching { get<Boolean>("isGhost") }.getOrDefault(false)
             val linkedEmail = runCatching { get<String>("linkedEmail") }.getOrNull()
@@ -186,7 +184,6 @@ class FirestoreProfileRepository : ProfileRepository {
             ProfileItem(
                 id = id,
                 name = name,
-                icon = icon,
                 totalPendingEuros = totalPendingEuros,
                 isGhost = isGhost,
                 linkedEmail = linkedEmail,

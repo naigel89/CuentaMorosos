@@ -19,7 +19,6 @@ class ProfileItemTest {
         val profile = ProfileItem(
             id = "1",
             name = "Test",
-            icon = "\uD83D\uDE42",
         )
 
         assertEquals(null, profile.photoUrl, "photoUrl should be null by default")
@@ -33,7 +32,7 @@ class ProfileItemTest {
     @Test
     fun `displayNameFor returns customName when present`() {
         val profile = ProfileItem(
-            id = "1", name = "Original", icon = "\uD83D\uDE42",
+            id = "1", name = "Original",
             displayName = "Display",
             customNames = mapOf("viewer1" to "CustomName", "viewer2" to "OtherName"),
         )
@@ -44,7 +43,7 @@ class ProfileItemTest {
     @Test
     fun `displayNameFor falls back to displayName when no customName`() {
         val profile = ProfileItem(
-            id = "1", name = "Original", icon = "\uD83D\uDE42",
+            id = "1", name = "Original",
             displayName = "DisplayName",
         )
 
@@ -54,7 +53,7 @@ class ProfileItemTest {
     @Test
     fun `displayNameFor falls back to name when no displayName or customName`() {
         val profile = ProfileItem(
-            id = "1", name = "Original Name", icon = "\uD83D\uDE42",
+            id = "1", name = "Original Name",
         )
 
         assertEquals("Original Name", profile.displayNameFor("anyViewer"))
@@ -63,14 +62,14 @@ class ProfileItemTest {
     @Test
     fun `displayNameFor with empty customNames falls back to displayName then name`() {
         val profileWithDisplay = ProfileItem(
-            id = "1", name = "Original", icon = "\uD83D\uDE42",
+            id = "1", name = "Original",
             displayName = "Display",
             customNames = emptyMap(),
         )
         assertEquals("Display", profileWithDisplay.displayNameFor("anyViewer"))
 
         val profileWithoutDisplay = ProfileItem(
-            id = "1", name = "Original Name", icon = "\uD83D\uDE42",
+            id = "1", name = "Original Name",
             customNames = emptyMap(),
         )
         assertEquals("Original Name", profileWithoutDisplay.displayNameFor("anyViewer"))

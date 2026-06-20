@@ -55,7 +55,6 @@ object FirebaseUserSyncManager {
         val payload = mapOf(
             "id" to user.uid,
             "name" to displayName,
-            "icon" to "😀",
             "isGhost" to false,
             "linkedEmail" to null,
             "ownerId" to user.uid,

@@ -138,7 +138,6 @@ object MigrationManager {
     private fun com.cuentamorosos.model.ProfileItem.toMigrationMap(uid: String): Map<String, Any?> = mapOf(
         "id" to id,
         "name" to name,
-        "icon" to icon,
         "totalPendingEuros" to totalPendingEuros,
         "ownerId" to uid
     )

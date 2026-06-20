@@ -461,7 +461,6 @@ private fun ProfileSettingsSection(
         ) {
             ProfileAvatar(
                 name = profile.name,
-                emoji = profile.icon,
                 photoUrl = profile.photoUrl,
             )
 

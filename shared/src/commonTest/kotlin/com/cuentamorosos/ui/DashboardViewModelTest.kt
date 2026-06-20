@@ -18,7 +18,6 @@ class DashboardViewModelTest {
     private fun testProfile(id: String, name: String) = ProfileItem(
         id = id,
         name = name,
-        icon = "\uD83D\uDC64",
     )
 
     private fun testDebt(

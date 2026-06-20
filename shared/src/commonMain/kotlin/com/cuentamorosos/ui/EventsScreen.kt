@@ -565,7 +565,7 @@ private fun EventEditorDialog(
                                     },
                                     enabled = !isOwner,
                                 )
-                                ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl, size = 24.dp)
+                                ProfileAvatar(name = profile.name, photoUrl = profile.photoUrl, size = 24.dp)
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     text = "${profile.name}${if (isOwner) " (vos)" else ""}",

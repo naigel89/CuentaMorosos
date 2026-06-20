@@ -11,12 +11,10 @@ class ProfileValidatorTest {
     private fun testProfile(
         id: String = "p1",
         name: String = "Juan Pérez",
-        icon: String = "🙂",
         ownerId: String = "owner1",
     ) = ProfileItem(
         id = id,
         name = name,
-        icon = icon,
         ownerId = ownerId,
     )
 

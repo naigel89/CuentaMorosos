@@ -3,7 +3,6 @@ package com.cuentamorosos.ui
 import com.cuentamorosos.model.ProfileItem
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -23,12 +22,10 @@ class ProfileAvatarConsistencyTest {
     private fun testProfile(
         id: String = "prof-1",
         name: String = "Test",
-        icon: String = "\uD83D\uDC64",
         photoUrl: String? = null,
     ) = ProfileItem(
         id = id,
         name = name,
-        icon = icon,
         photoUrl = photoUrl,
     )
 
@@ -111,11 +108,9 @@ class ProfileAvatarConsistencyTest {
     fun `profileItem with photoUrl provides all avatar data`() {
         val profile = testProfile(
             name = "Pepe",
-            icon = "\uD83D\uDE00",
             photoUrl = "https://example.com/photo.jpg",
         )
         assertEquals("Pepe", profile.name)
-        assertEquals("\uD83D\uDE00", profile.icon)
         assertEquals("https://example.com/photo.jpg", profile.photoUrl)
     }
 
@@ -123,40 +118,21 @@ class ProfileAvatarConsistencyTest {
     fun `profileItem without photoUrl has null photoUrl for fallback`() {
         val profile = testProfile(
             name = "Luis",
-            icon = "\uD83E\uDDD1",
             photoUrl = null,
         )
         assertEquals("Luis", profile.name)
-        assertEquals("\uD83E\uDDD1", profile.icon)
         assertNull(profile.photoUrl, "photoUrl must be null when not provided")
     }
 
     @Test
-    fun `profileItem with empty icon still provides name for initial fallback`() {
+    fun `profileItem with empty name falls back to initial extraction`() {
         val profile = testProfile(
-            name = "María",
-            icon = "",
-            photoUrl = null,
-        )
-        assertEquals("María", profile.name)
-        assertEquals("", profile.icon)
-        assertNull(profile.photoUrl)
-        // Initial fallback should still work
-        assertEquals("M", extractInitial(profile.name))
-    }
-
-    @Test
-    fun `profileItem with only icon and no name falls back to emoji`() {
-        val profile = testProfile(
-            id = "emoji-only",
             name = "",
-            icon = "\uD83D\uDC64",
             photoUrl = null,
         )
         assertEquals("", profile.name)
-        assertEquals("\uD83D\uDC64", profile.icon)
         assertNull(profile.photoUrl)
-        // When name is empty, initial extraction returns empty → emoji fallback
+        // When name is empty, initial extraction returns empty
         assertEquals("", extractInitial(profile.name))
     }
 
@@ -165,9 +141,9 @@ class ProfileAvatarConsistencyTest {
     @Test
     fun `multiple profiles each have distinct avatar data`() {
         val profiles = listOf(
-            testProfile("p1", "Ana", "\uD83D\uDC69", "https://photos.example/ana.jpg"),
-            testProfile("p2", "Bob", "\uD83D\uDC68", null),
-            testProfile("p3", "Carlos", "\uD83E\uDDD4", null),
+            testProfile("p1", "Ana", "https://photos.example/ana.jpg"),
+            testProfile("p2", "Bob", null),
+            testProfile("p3", "Carlos", null),
         )
 
         // PhotoUrl present → should load photo
@@ -191,8 +167,8 @@ class ProfileAvatarConsistencyTest {
     @Test
     fun `profile lookup from id resolves full avatar data`() {
         val profiles = listOf(
-            testProfile("ana-1", "Ana", "\uD83D\uDC69", "https://photos/ana.jpg"),
-            testProfile("carlos-2", "Carlos", "\uD83E\uDDD4", null),
+            testProfile("ana-1", "Ana", "https://photos/ana.jpg"),
+            testProfile("carlos-2", "Carlos", null),
         )
 
         // Simulate profileNameResolver upgraded to profileResolver
@@ -215,16 +191,14 @@ class ProfileAvatarConsistencyTest {
     // ── CalculatorSheet ParameterInputRow data contract ──────────────────────
 
     @Test
-    fun `parameterInputRow profile has name icon and optional photoUrl`() {
+    fun `parameterInputRow profile has name and optional photoUrl`() {
         val maria = testProfile(
             name = "María",
-            icon = "\uD83D\uDC69\u200D\uD83C\uDF93",
             photoUrl = "https://photos/maria.jpg",
         )
 
-        // ProfileAvatar(name=maria.name, emoji=maria.icon, photoUrl=maria.photoUrl, size=24.dp)
+        // ProfileAvatar(name=maria.name, photoUrl=maria.photoUrl, size=24.dp)
         assertEquals("María", maria.name)
-        assertEquals("\uD83D\uDC69\u200D\uD83C\uDF93", maria.icon)
         assertEquals("https://photos/maria.jpg", maria.photoUrl)
     }
 
@@ -232,12 +206,10 @@ class ProfileAvatarConsistencyTest {
     fun `parameterInputRow without photoUrl falls back to initial`() {
         val luis = testProfile(
             name = "Luis",
-            icon = "\uD83D\uDC68",
             photoUrl = null,
         )
 
         assertEquals("Luis", luis.name)
-        assertEquals("\uD83D\uDC68", luis.icon)
         assertNull(luis.photoUrl)
         assertEquals("L", extractInitial(luis.name))
     }

@@ -155,7 +155,6 @@ private fun AccountMainMenu(
             ) {
                 ProfileAvatar(
                     name = profile.name,
-                    emoji = profile.icon,
                     photoUrl = profile.photoUrl,
                     size = 72.dp,
                 )
@@ -296,7 +295,6 @@ private fun NamePhotoScreen(
             ) {
                 ProfileAvatar(
                     name = profile?.name ?: "",
-                    emoji = profile?.icon ?: "",
                     photoUrl = profile?.photoUrl,
                     size = 96.dp,
                 )

@@ -512,7 +512,6 @@ fun ParameterInputRow(
         ) {
             ProfileAvatar(
                 name = profile.name,
-                emoji = profile.icon,
                 photoUrl = profile.photoUrl,
                 size = 24.dp,
             )

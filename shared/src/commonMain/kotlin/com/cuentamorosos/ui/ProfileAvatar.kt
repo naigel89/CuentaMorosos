@@ -24,10 +24,9 @@ import kotlin.math.abs
 
 /**
  * Circular avatar component displaying the profile photo (via Coil AsyncImage),
- * or the first letter of a name on a colored background, or an emoji fallback.
+ * or the first letter of a name on a colored background.
  *
  * @param name The profile name used to derive the initial and background color.
- * @param emoji Fallback emoji to display when no photo and no name.
  * @param photoUrl Optional URL for the profile photo. When non-null, loads via Coil AsyncImage.
  * @param size Diameter of the avatar (default 48dp).
  * @param modifier Optional modifier for layout positioning.
@@ -35,7 +34,6 @@ import kotlin.math.abs
 @Composable
 fun ProfileAvatar(
     name: String = "",
-    emoji: String = "",
     photoUrl: String? = null,
     size: Dp = 48.dp,
     modifier: Modifier = Modifier,
@@ -83,14 +81,6 @@ fun ProfileAvatar(
                         fontSize = (size.value * 0.42).sp,
                         color = Color.White,
                     ),
-                    textAlign = TextAlign.Center,
-                )
-            }
-        } else {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = emoji,
-                    style = MaterialTheme.typography.headlineMedium,
                     textAlign = TextAlign.Center,
                 )
             }

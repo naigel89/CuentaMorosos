@@ -76,7 +76,7 @@ fun ProfileCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl)
+            ProfileAvatar(name = profile.name, photoUrl = profile.photoUrl)
 
             Column(
                 modifier = Modifier.weight(1f),

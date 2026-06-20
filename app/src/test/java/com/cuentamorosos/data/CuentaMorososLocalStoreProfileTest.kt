@@ -23,7 +23,6 @@ class CuentaMorososLocalStoreProfileTest {
         val original = ProfileItem(
             id = "test-id",
             name = "Test User",
-            icon = "\uD83D\uDE0E",
             totalPendingEuros = 42.0,
             isGhost = false,
             linkedEmail = "test@test.com",
@@ -40,7 +39,6 @@ class CuentaMorososLocalStoreProfileTest {
             {
                 "id": "test-id",
                 "name": "Test User",
-                "icon": "\uD83D\uDE0E",
                 "totalPendingEuros": 42.0,
                 "isGhost": false,
                 "linkedEmail": "test@test.com",
@@ -57,7 +55,6 @@ class CuentaMorososLocalStoreProfileTest {
         val loaded = ProfileItem(
             id = json.optString("id"),
             name = json.optString("name"),
-            icon = json.optString("icon").ifBlank { "\uD83D\uDE42" },
             totalPendingEuros = json.optDouble("totalPendingEuros", 0.0),
             isGhost = json.optBoolean("isGhost", false),
             linkedEmail = json.optString("linkedEmail").takeIf { it.isNotBlank() },
@@ -74,7 +71,6 @@ class CuentaMorososLocalStoreProfileTest {
         // ── Assert all fields match ───────────────────────────────────────────
         assertEquals(original.id, loaded.id)
         assertEquals(original.name, loaded.name)
-        assertEquals(original.icon, loaded.icon)
         assertEquals(original.totalPendingEuros, loaded.totalPendingEuros, 0.001)
         assertEquals(original.isGhost, loaded.isGhost)
         assertEquals(original.linkedEmail, loaded.linkedEmail)
@@ -93,7 +89,6 @@ class CuentaMorososLocalStoreProfileTest {
             {
                 "id": "legacy-id",
                 "name": "Legacy User",
-                "icon": "\uD83D\uDC64",
                 "totalPendingEuros": 10.0,
                 "isGhost": false,
                 "linkedEmail": "",
@@ -105,7 +100,6 @@ class CuentaMorososLocalStoreProfileTest {
         val loaded = ProfileItem(
             id = json.optString("id"),
             name = json.optString("name"),
-            icon = json.optString("icon").ifBlank { "\uD83D\uDE42" },
             totalPendingEuros = json.optDouble("totalPendingEuros", 0.0),
             isGhost = json.optBoolean("isGhost", false),
             linkedEmail = json.optString("linkedEmail").takeIf { it.isNotBlank() },

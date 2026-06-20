@@ -183,7 +183,7 @@ class RepositoryProvider(
                 val local = database.cachedProfileQueries.selectById(entityId)
                     .executeAsOneOrNull()?.let { p ->
                         ProfileItem(
-                            id = p.id, name = p.name, icon = p.icon,
+                            id = p.id, name = p.name,
                             totalPendingEuros = p.totalPendingEuros,
                             isGhost = p.isGhost == 1L, linkedEmail = p.email,
                             ownerId = p.ownerId, photoUrl = p.photo_url,

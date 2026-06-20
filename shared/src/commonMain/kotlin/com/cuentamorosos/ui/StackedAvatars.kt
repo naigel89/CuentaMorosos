@@ -33,7 +33,6 @@ fun StackedAvatars(
         visible.forEach { profile ->
             ProfileAvatar(
                 name = profile.name,
-                emoji = "",
                 photoUrl = profile.photoUrl,
                 size = size,
             )

@@ -133,7 +133,6 @@ class CuentaMorososLocalStore(context: Context) {
             ProfileItem(
                 id = id,
                 name = name,
-                icon = item.optString("icon").ifBlank { "🙂" },
                 totalPendingEuros = item.optDouble("totalPendingEuros", 0.0),
                 isGhost = item.optBoolean("isGhost", false),
                 linkedEmail = item.optString("linkedEmail", ""),
@@ -153,7 +152,6 @@ class CuentaMorososLocalStore(context: Context) {
                     JSONObject()
                         .put("id", profile.id)
                         .put("name", profile.name)
-                        .put("icon", profile.icon)
                         .put("totalPendingEuros", profile.totalPendingEuros)
                         .put("isGhost", profile.isGhost)
                         .put("linkedEmail", profile.linkedEmail)

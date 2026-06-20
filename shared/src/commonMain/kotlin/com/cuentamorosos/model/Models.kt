@@ -129,7 +129,6 @@ fun migrateMemberIdsToParticipants(event: EventItem): EventItem {
 data class ProfileItem(
     val id: String = generateUuid(),
     val name: String,
-    val icon: String,
     val totalPendingEuros: Double = 0.0,
     val isGhost: Boolean = false,
     val linkedEmail: String? = null,

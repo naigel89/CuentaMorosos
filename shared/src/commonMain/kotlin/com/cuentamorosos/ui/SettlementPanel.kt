@@ -252,7 +252,6 @@ fun SettlementPanel(
 
                                 ProfileAvatar(
                                     name = profile.name,
-                                    emoji = profile.icon,
                                     photoUrl = profile.photoUrl,
                                     size = 32.dp,
                                 )

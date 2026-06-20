@@ -19,7 +19,7 @@ class ReminderServiceTest {
     fun `per-debt generates te-debe message when debt profileId differs from currentUserUid`() {
         val now = 1_000_000L
         val profiles = listOf(
-            ProfileItem(id = "profile-luis", name = "Luis", icon = "👤", displayName = "Luis García"),
+            ProfileItem(id = "profile-luis", name = "Luis", displayName = "Luis García"),
         )
         val events = listOf(
             EventItem(id = "evt-1", name = "Cena", dateMillis = now - 8 * MILLIS_PER_DAY, ownerId = "user-1"),
@@ -54,7 +54,7 @@ class ReminderServiceTest {
     fun `per-debt generates debes-a message when debt profileId equals currentUserUid with expense payer as creditor`() {
         val now = 1_000_000L
         val profiles = listOf(
-            ProfileItem(id = "profile-ana", name = "Ana", icon = "👤", displayName = "Ana Pérez"),
+            ProfileItem(id = "profile-ana", name = "Ana", displayName = "Ana Pérez"),
         )
         val events = listOf(
             EventItem(id = "evt-2", name = "Cena", dateMillis = now - 8 * MILLIS_PER_DAY, ownerId = "profile-ana"),
@@ -89,7 +89,7 @@ class ReminderServiceTest {
     fun `per-debt uses event owner as creditor when no payer in expenses`() {
         val now = 1_000_000L
         val profiles = listOf(
-            ProfileItem(id = "owner-1", name = "Owner", icon = "👤", displayName = "Dueño Evento"),
+            ProfileItem(id = "owner-1", name = "Owner", displayName = "Dueño Evento"),
         )
         val events = listOf(
             EventItem(id = "evt-3", name = "Fiesta", dateMillis = now - 8 * MILLIS_PER_DAY, ownerId = "owner-1"),
@@ -116,7 +116,7 @@ class ReminderServiceTest {
     fun `per-debt uses displayName when available`() {
         val now = 1_000_000L
         val profiles = listOf(
-            ProfileItem(id = "profile-x", name = "X", icon = "👤", displayName = "Ximena"),
+            ProfileItem(id = "profile-x", name = "X", displayName = "Ximena"),
         )
         val events = listOf(
             EventItem(id = "evt-x", name = "Evento", dateMillis = now - 8 * MILLIS_PER_DAY, ownerId = "user-1"),
@@ -142,7 +142,7 @@ class ReminderServiceTest {
     fun `per-debt falls back to name when displayName is null`() {
         val now = 1_000_000L
         val profiles = listOf(
-            ProfileItem(id = "profile-no-display", name = "NameOnly", icon = "👤", displayName = null),
+            ProfileItem(id = "profile-no-display", name = "NameOnly", displayName = null),
         )
         val events = listOf(
             EventItem(id = "evt-name", name = "Cena", dateMillis = now - 8 * MILLIS_PER_DAY, ownerId = "user-1"),
@@ -168,9 +168,9 @@ class ReminderServiceTest {
     fun `multiple unpaid debts produce one message per debt`() {
         val now = 1_000_000L
         val profiles = listOf(
-            ProfileItem(id = "p-a", name = "A", icon = "👤"),
-            ProfileItem(id = "p-b", name = "B", icon = "👤"),
-            ProfileItem(id = "p-c", name = "C", icon = "👤"),
+            ProfileItem(id = "p-a", name = "A"),
+            ProfileItem(id = "p-b", name = "B"),
+            ProfileItem(id = "p-c", name = "C"),
         )
         val events = listOf(
             EventItem(id = "evt-multi", name = "Fiesta", dateMillis = now - 8 * MILLIS_PER_DAY, ownerId = "user-me"),
@@ -221,7 +221,7 @@ class ReminderServiceTest {
     fun `returns empty list when no unpaid debts exist`() {
         val now = 1_000_000L
         val profiles = listOf(
-            ProfileItem(id = "profile-x", name = "X", icon = "👤"),
+            ProfileItem(id = "profile-x", name = "X"),
         )
         val events = listOf(
             EventItem(id = "evt-1", name = "Cena", dateMillis = now - 8 * MILLIS_PER_DAY, ownerId = "user-1"),
@@ -244,7 +244,7 @@ class ReminderServiceTest {
     fun `returns empty list when debt amount is zero`() {
         val now = 1_000_000L
         val profiles = listOf(
-            ProfileItem(id = "profile-x", name = "X", icon = "👤"),
+            ProfileItem(id = "profile-x", name = "X"),
         )
         val events = listOf(
             EventItem(id = "evt-1", name = "Cena", dateMillis = now - 8 * MILLIS_PER_DAY, ownerId = "user-1"),
@@ -269,7 +269,7 @@ class ReminderServiceTest {
     fun `excludes debts from events whose age is below threshold`() {
         val now = 1_000_000L
         val profiles = listOf(
-            ProfileItem(id = "profile-x", name = "X", icon = "👤"),
+            ProfileItem(id = "profile-x", name = "X"),
         )
         val events = listOf(
             EventItem(id = "evt-recent", name = "Reciente", dateMillis = now - 1 * MILLIS_PER_DAY, ownerId = "user-1"),
@@ -292,7 +292,7 @@ class ReminderServiceTest {
     fun `includes debts from events whose age is exactly at threshold`() {
         val now = 1_000_000L
         val profiles = listOf(
-            ProfileItem(id = "profile-x", name = "X", icon = "👤"),
+            ProfileItem(id = "profile-x", name = "X"),
         )
         val events = listOf(
             EventItem(id = "evt-edge", name = "Al límite", dateMillis = now - 7 * MILLIS_PER_DAY, ownerId = "user-1"),

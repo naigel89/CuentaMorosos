@@ -531,7 +531,6 @@ internal fun BalanceRow(
 private fun SmallAvatar(profile: ProfileItem?, fallbackLabel: String) {
     ProfileAvatar(
         name = profile?.name ?: fallbackLabel,
-        emoji = profile?.icon ?: "",
         photoUrl = profile?.photoUrl,
         size = 28.dp,
     )
@@ -542,7 +541,6 @@ private fun SmallAvatar(profile: ProfileItem?, fallbackLabel: String) {
 private fun LargeAvatar(profile: ProfileItem?, fallbackLabel: String) {
     ProfileAvatar(
         name = profile?.name ?: fallbackLabel,
-        emoji = profile?.icon ?: "",
         photoUrl = profile?.photoUrl,
         size = 36.dp,
     )
