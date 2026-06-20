@@ -1,5 +1,6 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,15 +79,16 @@ fun EventDetailScreen(
     eventExpenses: List<EventExpenseItem>,
     currentUserUid: String?,
     onBack: () -> Unit,
-    onAddProfileToEvent: (ProfileItem) -> Unit,
+    onAddProfileToEvent: (List<ProfileItem>) -> Unit,
     onSaveDebt: (EventDebtItem) -> Unit,
     onTogglePaid: (EventDebtItem) -> Unit,
     onRemoveDebt: (String) -> Unit,
     onSaveExpense: (EventExpenseItem) -> Unit,
     onRemoveExpense: (String) -> Unit,
-    onApplyCalculation: (CalculationResult) -> Unit,
+    onApplyCalculation: (modeId: String, CalculationResult) -> Unit,
     onInviteMember: (String) -> Unit,
     _onRemoveMember: (String) -> Unit,
+    scrollState: ScrollState,
     currentRole: EventRole = EventRole.OWNER,
     canDo: (EventAction) -> Boolean = { true },
     onCloseEvent: (() -> Unit)? = null,
@@ -95,7 +98,7 @@ fun EventDetailScreen(
     val pendingTotal = eventDebts.filter { !it.paid }.sumOf { it.amountEuros }
     val eventExpenseTotal = eventExpenses.sumOf { it.amountEuros }
     val availableProfiles = profiles.filter { profile ->
-        eventDebts.none { it.profileId == profile.id }
+        profile.id !in event.effectiveMemberIds && eventDebts.none { it.profileId == profile.id }
     }
     val canClose = event.state == EventState.CALCULATED &&
         canDo(EventAction.Close) && eventDebts.all { it.paid }
@@ -164,7 +167,7 @@ fun EventDetailScreen(
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .verticalScroll(rememberScrollState()),
+                            .verticalScroll(scrollState),
                     ) {
                         SettlementPanel(
                             _event = event,
@@ -195,7 +198,7 @@ fun EventDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -258,9 +261,9 @@ fun EventDetailScreen(
         AddProfileToEventDialog(
             availableProfiles = availableProfiles,
             onDismiss = { showAddProfileDialog = false },
-            onAddProfile = { profile ->
+            onAddProfile = { profiles ->
                 showAddProfileDialog = false
-                onAddProfileToEvent(profile)
+                onAddProfileToEvent(profiles)
             }
         )
     }
@@ -341,9 +344,9 @@ fun EventDetailScreen(
             profiles = eventParticipants,
             eventExpenses = eventExpenses,
             onDismiss = { showQuickSplitDialog = false },
-            onApply = { calculationResult ->
+            onApply = { modeId, calculationResult ->
                 showQuickSplitDialog = false
-                onApplyCalculation(calculationResult)
+                onApplyCalculation(modeId, calculationResult)
             },
             _deletedProfileIds = deletedProfileIds,
             _priorSnapshot = null, // Prior snapshot not yet persisted — future enhancement
@@ -639,8 +642,10 @@ private fun InviteMemberDialog(
 private fun AddProfileToEventDialog(
     availableProfiles: List<ProfileItem>,
     onDismiss: () -> Unit,
-    onAddProfile: (ProfileItem) -> Unit,
+    onAddProfile: (List<ProfileItem>) -> Unit,
 ) {
+    val selectedIds = remember { mutableStateListOf<String>() }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Añadir perfil al evento") },
@@ -655,15 +660,47 @@ private fun AddProfileToEventDialog(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    Text(
+                        text = "${selectedIds.size} seleccionados",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     availableProfiles.forEach { profile ->
-                        OutlinedButton(
-                            onClick = { onAddProfile(profile) },
-                            modifier = Modifier.fillMaxWidth()
+                        val isSelected = profile.id in selectedIds
+                        Surface(
+                            onClick = {
+                                if (isSelected) selectedIds.remove(profile.id)
+                                else selectedIds.add(profile.id)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = NeoFintechShapes.md,
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                                    else MaterialTheme.colorScheme.surfaceContainerLow,
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                ProfileAvatar(name = profile.name, emoji = profile.icon, photoUrl = profile.photoUrl, size = 28.dp)
-                                Spacer(Modifier.width(8.dp))
-                                Text(profile.name)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { checked ->
+                                        if (checked) selectedIds.add(profile.id)
+                                        else selectedIds.remove(profile.id)
+                                    },
+                                )
+                                ProfileAvatar(
+                                    name = profile.name,
+                                    emoji = profile.icon,
+                                    photoUrl = profile.photoUrl,
+                                    size = 28.dp,
+                                )
+                                Text(
+                                    text = profile.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
                             }
                         }
                     }
@@ -671,8 +708,20 @@ private fun AddProfileToEventDialog(
             }
         },
         confirmButton = {
+            if (availableProfiles.isNotEmpty()) {
+                TextButton(
+                    onClick = {
+                        onAddProfile(availableProfiles.filter { it.id in selectedIds })
+                    },
+                    enabled = selectedIds.isNotEmpty(),
+                ) {
+                    Text("Aceptar")
+                }
+            }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(if (availableProfiles.isEmpty()) "Cerrar" else "Cancelar")
+                Text("Cancelar")
             }
         }
     )

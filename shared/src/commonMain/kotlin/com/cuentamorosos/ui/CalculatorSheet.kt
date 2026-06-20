@@ -75,7 +75,7 @@ fun CalculatorSheet(
     profiles: List<ProfileItem>,
     eventExpenses: List<EventExpenseItem>,
     onDismiss: () -> Unit,
-    onApply: (CalculationResult) -> Unit,
+    onApply: (modeId: String, CalculationResult) -> Unit,
     _deletedProfileIds: Set<String> = emptySet(),
     _priorSnapshot: CalculationSnapshot? = null,
     currentUserUid: String? = null,
@@ -97,10 +97,6 @@ fun CalculatorSheet(
     var calculationResult by remember { mutableStateOf<CalculationResult?>(null) }
     var paidTransferIndices by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
-    // Celebration animation state (Feature: money explosion)
-    var showCelebration by remember { mutableStateOf(false) }
-    var hasCalculatedOnce by remember { mutableStateOf(false) }
-
     val totalValue = parseEuroAmount(totalText)
     val selectedMode = SplitMode.fromId(selectedModeId)
 
@@ -113,8 +109,6 @@ fun CalculatorSheet(
         if (isCalculating) return
         isCalculating = true
         paidTransferIndices = emptySet()
-        // Cancel any ongoing celebration before recalculating
-        showCelebration = false
 
         // Apply mode-specific weights to expenses for EXACT and PARTS modes
         val adjustedExpenses = when (selectedMode) {
@@ -149,13 +143,6 @@ fun CalculatorSheet(
         )
 
         isCalculating = false
-
-        // Trigger celebration on first successful calculation
-        val result = calculationResult
-        if (result?.isSuccess == true && !hasCalculatedOnce) {
-            showCelebration = true
-            hasCalculatedOnce = true
-        }
     }
 
     ModalBottomSheet(
@@ -459,7 +446,7 @@ fun CalculatorSheet(
                         calculationResult?.let { result ->
                             scope.launch { sheetState.hide() }.invokeOnCompletion {
                                 if (!sheetState.isVisible) {
-                                    onApply(result)
+                                    onApply(selectedModeId, result)
                                 }
                             }
                         }
@@ -496,11 +483,6 @@ fun CalculatorSheet(
             }
         }
 
-        // Money Explosion celebration overlay (Feature: money explosion)
-        MoneyExplosionAnimation(
-            isVisible = showCelebration,
-            onDismiss = { showCelebration = false },
-        )
         }
     }
 }

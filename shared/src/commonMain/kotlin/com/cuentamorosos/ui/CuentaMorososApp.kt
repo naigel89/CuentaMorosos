@@ -20,7 +20,10 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import com.cuentamorosos.notifications.DeepLinkTarget
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -82,6 +85,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -208,6 +212,8 @@ fun CuentaMorososApp(
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     var showCalendar by remember { mutableStateOf(false) }
     var showAccountScreen by remember { mutableStateOf(false) }
+    var showCelebration by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     val accountViewModel: AccountViewModel = viewModel(factory = viewModelFactory)
 
@@ -405,28 +411,30 @@ fun CuentaMorososApp(
                             eventDebts = debts.filter { it.eventId == currentEvent.id },
                             eventExpenses = expenses.filter { it.eventId == currentEvent.id },
                             currentUserUid = currentUserUid,
+                            scrollState = scrollState,
                             onBack = { eventDetailViewModel.setEventId(null) },
-                            onAddProfileToEvent = { profile ->
-                                if (debts.none { it.eventId == currentEvent.id && it.profileId == profile.id }) {
-                                    eventDetailViewModel.saveDebt(
-                                        EventDebtItem(
-                                            eventId = currentEvent.id,
-                                            profileId = profile.id
+                            onAddProfileToEvent = { profilesList ->
+                                profilesList.forEach { profile ->
+                                    if (debts.none { it.eventId == currentEvent.id && it.profileId == profile.id }) {
+                                        eventDetailViewModel.saveDebt(
+                                            EventDebtItem(
+                                                eventId = currentEvent.id,
+                                                profileId = profile.id
+                                            )
                                         )
-                                    )
+                                    }
+                                    if (currentEvent.participants.none { it.profileId == profile.id }) {
+                                        val newParticipant = EventParticipant(
+                                            profileId = profile.id,
+                                            role = EventRole.CONTRIBUTOR,
+                                            joinedAtMillis = currentTimeMillis()
+                                        )
+                                        eventsViewModel.saveEvent(
+                                            currentEvent.copy(participants = currentEvent.participants + newParticipant)
+                                        )
+                                    }
                                 }
-                                // Sync participant to event's participants list
-                                if (currentEvent.participants.none { it.profileId == profile.id }) {
-                                    val newParticipant = EventParticipant(
-                                        profileId = profile.id,
-                                        role = EventRole.CONTRIBUTOR,
-                                        joinedAtMillis = currentTimeMillis()
-                                    )
-                                    eventsViewModel.saveEvent(
-                                        currentEvent.copy(participants = currentEvent.participants + newParticipant)
-                                    )
-                                }
-                                feedbackMessage = "Perfil añadido al evento."
+                                feedbackMessage = "Perfiles añadidos al evento."
                             },
                             onSaveDebt = { debt ->
                                 eventDetailViewModel.saveDebt(debt)
@@ -454,7 +462,7 @@ fun CuentaMorososApp(
                                 eventDetailViewModel.deleteExpense(currentEvent.id, expenseId)
                                 feedbackMessage = "Ítem eliminado del evento."
                             },
-                            onApplyCalculation = { result ->
+                            onApplyCalculation = { modeId, result ->
                                 val eventEntries = debts.filter { it.eventId == currentEvent.id }
                                 val balances = result.snapshot?.participantBalances ?: emptyMap()
 
@@ -465,7 +473,7 @@ fun CuentaMorososApp(
                                     eventDetailViewModel.saveDebt(
                                         debt.copy(
                                             amountEuros = amount,
-                                            calculationMode = currentEvent.lastCalculationMode ?: "real_consumption"
+                                            calculationMode = modeId
                                         )
                                     )
                                 }
@@ -480,7 +488,7 @@ fun CuentaMorososApp(
                                                 eventId = currentEvent.id,
                                                 profileId = profileId,
                                                 amountEuros = amount,
-                                                calculationMode = currentEvent.lastCalculationMode ?: "real_consumption"
+                                                calculationMode = modeId
                                             )
                                         )
                                     }
@@ -488,7 +496,7 @@ fun CuentaMorososApp(
 
                                 eventsViewModel.saveEvent(
                                     currentEvent.copy(
-                                        lastCalculationMode = currentEvent.lastCalculationMode,
+                                        lastCalculationMode = modeId,
                                         lastCalculationTotal = result.snapshot?.totalExpense,
                                         lastCalculationTimestamp = currentTimeMillis(),
                                         lastCalculationSummary = result.snapshot?.toJson(),
@@ -496,6 +504,22 @@ fun CuentaMorososApp(
                                     )
                                 )
                                 feedbackMessage = "Cálculo aplicado al evento."
+                                // Celebration: set showCelebration = true SYNCHRONOUSLY (not inside
+                                // a coroutine). This guarantees the state change triggers recomposition
+                                // in the current frame, regardless of any coroutine lifecycle issues.
+                                showCelebration = true
+                                // Scroll: use snapshotFlow to wait for the new composition's layout
+                                // to update scrollState.maxValue before scrolling. This avoids the
+                                // timing bug where maxValue still reflects the OLD (OPEN) content.
+                                coroutineScope.launch {
+                                    delay(200) // Let AnimatedContent transition complete
+                                    // Wait for maxValue to reflect the new (CALCULATED) layout
+                                    snapshotFlow { scrollState.maxValue }
+                                        .drop(1) // Skip current value, wait for a fresh update
+                                        .first { it > 0 }
+                                    delay(50) // Small buffer
+                                    scrollState.animateScrollTo(scrollState.maxValue, tween(400))
+                                }
                             },
                             onInviteMember = { email ->
                                 if (currentUserUid != null) {
@@ -745,6 +769,12 @@ fun CuentaMorososApp(
                     )
                 }
             }
+
+            // ── Money Explosion celebration overlay ──────────────────────
+            MoneyExplosionAnimation(
+                isVisible = showCelebration,
+                onDismiss = { showCelebration = false },
+            )
         }
     }
 }

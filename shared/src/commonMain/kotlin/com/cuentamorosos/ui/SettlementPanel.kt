@@ -232,7 +232,7 @@ fun SettlementPanel(
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
                                 .then(
-                                    if (hasDebt) Modifier.clickable { debt?.let { onTogglePaid(it) } }
+                                    if (hasDebt && eventState != EventState.OPEN) Modifier.clickable { debt?.let { onTogglePaid(it) } }
                                     else Modifier
                                 ),
                             verticalAlignment = Alignment.CenterVertically,
@@ -242,8 +242,8 @@ fun SettlementPanel(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                // Checkbox (only if has debt)
-                                if (hasDebt) {
+                                // Checkbox (only if has debt and event is not OPEN)
+                                if (hasDebt && eventState != EventState.OPEN) {
                                     Checkbox(
                                         checked = isPaid,
                                         onCheckedChange = { debt?.let { onTogglePaid(it) } },
