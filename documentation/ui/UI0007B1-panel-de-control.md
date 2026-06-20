@@ -26,9 +26,10 @@ Ser el centro de comando financiero: resumir el estado de deudas del usuario, mo
 
 ## Estados de la interfaz
 - Dashboard con datos: todos los indicadores con montos y lista de deudas
-- Sin deudas: mensaje "No tenés deudas pendientes" en Unified Debts Card
+- **Sin deudas**: las cards financieras (DEBES, TE DEBEN, Balance Neto) se muestran siempre, incluso con montos en `0,00 €`. La Unified Debts Card muestra el mensaje "No tenés deudas pendientes"
 - Balance positivo: Net Balance Card con fondo `primaryContainer` (verde)
 - Balance negativo: Net Balance Card con fondo `error` (rojo)
+- Balance cero: Net Balance Card con fondo `surfaceContainerHigh` (neutro)
 
 ## Reglas de interacción
 - Pulsar un perfil en Unified Debts Card: navega al detalle de ese perfil
@@ -60,3 +61,4 @@ Los siguientes componentes fueron parte del diseño conceptual Neo-Fintech pero 
 |---|---|---|---|---|
 | 2026-05-14 | B | 1 | Alta | Nueva pantalla principal (Dashboard/Panel de Control) con indicadores financieros, Smart Alerts y actividad reciente. Basada en concepto Neo-Fintech Precision. |
 | 2026-06-18 | B | 2 | Actualización | Sincronizado con código real: removidos Smart Alerts, Recent Activity, Top App Bar (no implementados). Documentados Financial Summary Row, Net Balance Card, Unified Debts Card. Añadida sección Planned Features. |
+| 2026-06-20 | B | 3 | Actualización | Documentado que las cards financieras (DEBES, TE DEBEN, Balance Neto) son siempre visibles incluso con montos en cero. Agregado estado "Balance cero". |

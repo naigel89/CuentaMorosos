@@ -120,6 +120,21 @@ La versión A usaba un enfoque visual genérico con gradients suaves. La versió
 - **Actividad reciente**: staggered list animation con 50ms de delay entre items
 - **Iconos de alerta**: pulse sutil (scale 1.05 → 1.0) cuando hay acción requerida
 
+### Splash / Auth Entrance
+Animación de entrada para usuarios no autenticados. Implementada en `SplashAuthScreen.kt`. Ver detalle completo en `UI0008B1-autenticacion-firebase.md`.
+
+| Fase | Timing | Descripción |
+|---|---|---|
+| 1. Logo fade-in | 0–400ms | Alpha 0 → 1 con `tween(400ms)` |
+| 2. Logo slide-up + scale-down | 400–1100ms | Traslación vertical (~220dp) + escala 280dp → 164dp con `FastOutSlowInEasing` |
+| 3. Título | 1400ms | "CuentaMorosos" slide-up con `tween(400ms)` |
+| 4. Subtítulo | 1800ms | "Inicia sesión para continuar" slide-up |
+| 5. Formulario | 1900–2100ms | Email, password, botón y links en stagger (50ms delay entre elementos) |
+
+**Color de fondo de carga**: el splash del sistema Android (API 31+), el `windowBackground`, `statusBarColor`, `navigationBarColor` y el fondo del `SplashAuthScreen` usan `#131313` (Dark Mode Background). Esto garantiza una transición sin flashes de color entre el splash nativo y la pantalla de auth en Compose.
+
+**Total de animación**: ~3 segundos hasta que el formulario es completamente interactivo.
+
 ### Preferencias de accesibilidad
 - Respetar `isAccessibilityAnimationsEnabled` para reducir o eliminar animaciones
 - Todas las animaciones deben tener duración configurable
@@ -141,3 +156,4 @@ La versión A usaba un enfoque visual genérico con gradients suaves. La versió
 |---|---|---|---|---|
 | 2026-05-14 | B | 1 | Alta | Sistema de diseño completo Neo-Fintech Precision: paleta dual, tipografía Geist + JetBrains Mono, espaciado, elevación, animaciones y componentes. Reemplaza NFR0001A1 como referencia visual principal. |
 | 2026-06-18 | B | 2 | Actualización | Corregidos tokens Primary Container y Primary Fixed Dim para coincidir con NeoFintechColors.kt (#00A651/#00C853 y #008F47/#00B84A). Añadida nota de cumplimiento WCAG AA. |
+| 2026-06-20 | B | 3 | Actualización | Documentada animación de Splash/Auth Entrance (5 fases, duraciones). Especificado color de fondo de carga `#131313` unificado en splash system UI, window background, status bar y navigation bar. |

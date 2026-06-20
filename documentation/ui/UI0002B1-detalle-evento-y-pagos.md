@@ -2,11 +2,11 @@
 
 > **Código:** UI0002B1
 > **Versión:** B
-> **Revisión:** 1
-> **Fecha:** 2026-05-14
+> **Revisión:** 2
+> **Fecha:** 2026-06-20
 
 ## Resumen
-Rediseño del detalle de evento con layout de dos columnas (desktop), lista de gastos con iconos contextuales y panel lateral de liquidación con participantes y estados de pago.
+Rediseño del detalle de evento con layout de dos columnas (desktop), lista de gastos con iconos contextuales y panel lateral de liquidación con participantes y estados de pago. Incluye panel de recibo (`ReceiptPanel`) con resumen del cálculo aplicado.
 
 ## Historia de usuario relacionada
 Como usuario, quiero ver dentro de un evento cada gasto detallado, quién lo pagó, cómo se reparte y quién debe cuánto, con acceso rápido a calcular totales y marcar pagados.
@@ -22,12 +22,15 @@ Centralizar el seguimiento operativo de un evento con una jerarquía visual clar
 | Lista de gastos | lista | Icono, título, pagado por, tipo de reparto, monto, fecha | Sí |
 | Botón Add Expense | acción | Abre formulario para nuevo gasto | Sí |
 | Panel Settlement | sidebar/card | Botón "Calculate Totals" + lista de participantes | Sí |
-| Participante | fila | Checkbox, avatar (iniciales), nombre, estado de deuda | Sí |
+| Participante | fila | Avatar (iniciales), nombre, estado de deuda. Checkbox de pago solo visible si `eventState != OPEN` | Sí |
+| ReceiptPanel | card/sección | Visible tras aplicar cálculo. Muestra modo de cálculo (etiqueta legible), total, fecha y resumen por perfil | Condicional |
 | Bottom Navigation | barra | Events, Profiles, Settings | Sí |
 
 ## Estados de la interfaz
 - Evento sin gastos: lista vacía con mensaje placeholder
 - Evento con gastos: lista con separadores horizontales (4% opacidad blanca en dark)
+- Evento en estado OPEN: participantes visibles pero sin checkboxes de pago (regla `RN0001A1`)
+- Evento en estado CALCULATED/CLOSED: participantes con checkboxes de pago y panel ReceiptPanel visible
 - Participante sin pagar: monto en verde neón (deuda pequeña) o rojo (deuda grande)
 - Participante pagado: texto "Settled" en gris, checkbox marcado
 - Hover en gasto: fondo ligeramente más oscuro (transition-colors)
@@ -36,8 +39,9 @@ Centralizar el seguimiento operativo de un evento con una jerarquía visual clar
 - "Back to Events" vuelve a `UI0001B1`
 - "Add Expense" abre modal/bottom sheet para registrar gasto
 - "Calculate Totals" abre o ejecuta la calculadora (`UI0005B1`)
-- Checkbox de participante: al marcar, cambia estado a "Settled" con animación
+- Checkbox de participante: solo visible si `eventState != OPEN`. Al marcar, cambia estado a "Settled" con animación
 - Pulsar un gasto: expande detalles o abre edición
+- ReceiptPanel: muestra el modo de cálculo con etiqueta legible (ej. "Consumo Real" en vez de `real_consumption`) usando `SplitMode.fromId().label`
 - Los montos usan JetBrains Mono con figuras tabulares para alineación
 
 ## Navegación
@@ -68,3 +72,4 @@ Centralizar el seguimiento operativo de un evento con una jerarquía visual clar
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
 | 2026-05-14 | B | 1 | Alta | Rediseño con layout dos columnas, panel de settlement con checkboxes, iconos contextuales por categoría de gasto. Basado en concepto Neo-Fintech Precision. |
+| 2026-06-20 | B | 2 | Actualización | Sincronizado con código: checkboxes de pago solo visibles en estados CALCULATED/CLOSED (regla RN0001A1). Agregado ReceiptPanel con etiqueta legible de modo de cálculo (`SplitMode.fromId().label`). |

@@ -2,8 +2,8 @@
 
 > **Código:** FR0003A1
 > **Versión:** A
-> **Revisión:** 2
-> **Fecha:** 2026-04-05
+> **Revisión:** 3
+> **Fecha:** 2026-06-20
 
 ## Resumen
 La aplicación debe permitir registrar el dinero que cada perfil debe dentro de un evento, ya sea manualmente o mediante cálculo automático, así como marcar el pago realizado o pendiente y añadir notas explicativas.
@@ -16,7 +16,7 @@ Como usuario de `CuentaMorosos`, quiero registrar cuánto me debe cada persona, 
 - El usuario puede añadir **notas aclaratorias** que expliquen el motivo o detalle de la deuda.
 - El importe y las notas pueden ser **editados** o **eliminados** cuando el usuario lo necesite.
 - El usuario puede usar una **calculadora automática** para escribir o recalcular las cantidades del evento según un modo de reparto definido en `FR0005A1`.
-- El usuario puede marcar un perfil como **pagado** mediante un control tipo check.
+- El usuario puede marcar un perfil como **pagado** mediante un control tipo check. **El checkbox solo se muestra cuando el evento ya tiene un cálculo aplicado (`eventState != OPEN`)**. Ver regla `RN0001A1`.
 - Al marcarlo como pagado, el perfil pasa a una pestaña o sección oculta llamada **`Han pagado`**.
 - Si el usuario desmarca el check, el perfil vuelve a la lista principal de pendientes del evento.
 
@@ -52,3 +52,4 @@ Como usuario de `CuentaMorosos`, quiero registrar cuánto me debe cada persona, 
 |---|---|---|---|---|
 | 2026-04-05 | A | 1 | Alta | Creación inicial del requisito de control de deudas, pagos y notas. |
 | 2026-04-05 | A | 2 | Actualización | Se añade la opción de cálculo automático de cantidades dentro del evento. |
+| 2026-06-20 | A | 3 | Actualización | Actualizada regla de visibilidad del checkbox de pago: solo se muestra cuando `eventState != OPEN`. Referencia a `RN0001A1`. |
