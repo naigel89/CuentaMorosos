@@ -127,7 +127,13 @@ class RepositoryProvider(
      * Call once to reset event/expense/debt data.
      */
     suspend fun purgeAllRemoteData() {
-        (remoteEventRepository as FirestoreEventRepository).purgeAllEvents()
-        clearLocalData()
+        try {
+            (remoteEventRepository as FirestoreEventRepository).purgeAllEvents()
+            clearLocalData()
+            println("[RepositoryProvider] purgeAllRemoteData: completed")
+        } catch (e: Exception) {
+            println("[RepositoryProvider] purgeAllRemoteData FAILED: ${e.message}")
+            e.printStackTrace()
+        }
     }
 }
