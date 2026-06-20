@@ -61,6 +61,15 @@ class DashboardViewModel(
         expenses: List<EventExpenseItem>,
         profiles: List<ProfileItem>,
     ): DashboardState {
+        // ── DEBUG: dump raw debt data ──
+        println("[DashboardVM] computeState: currentUserUid=$currentUserUid, debts=${debts.size}, expenses=${expenses.size}")
+        debts.take(5).forEach { debt ->
+            println("[DashboardVM]   debt: id=${debt.id}, profileId=${debt.profileId}, amount=${debt.amountEuros}, paid=${debt.paid}, eventId=${debt.eventId}")
+        }
+        profiles.take(5).forEach { profile ->
+            println("[DashboardVM]   profile: id=${profile.id}, name=${profile.name}")
+        }
+
         // ── TRIGGER: Detect CALCULATED transitions ──
         events.forEach { event ->
             if (event.state == EventState.CALCULATED) {
