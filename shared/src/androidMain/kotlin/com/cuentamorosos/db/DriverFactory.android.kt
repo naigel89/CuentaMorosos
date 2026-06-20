@@ -42,6 +42,45 @@ actual class DriverFactory(private val context: Context) {
                         db.execSQL("ALTER TABLE CachedProfile ADD COLUMN $columnDef")
                     }
                 }
+
+                // Remove deprecated 'icon' column (removed in refactor 047fb4d).
+                // Without this migration, the upsert with 11 VALUES fails on
+                // tables that still have 12 columns (icon included), causing
+                // profiles to never load after re-login.
+                if ("icon" in profileColumns) {
+                    println("[DB] Removing deprecated column: icon")
+                    try {
+                        db.execSQL("ALTER TABLE CachedProfile DROP COLUMN icon")
+                    } catch (e: Exception) {
+                        // Fallback for SQLite < 3.35.0 (API < 30):
+                        // recreate the table without the icon column.
+                        println("[DB] DROP COLUMN not supported, recreating table...")
+                        db.execSQL("""
+                            CREATE TABLE CachedProfile_new (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                name TEXT NOT NULL,
+                                email TEXT NOT NULL DEFAULT '',
+                                isGhost INTEGER NOT NULL DEFAULT 0,
+                                totalPendingEuros REAL NOT NULL DEFAULT 0.0,
+                                updatedAt INTEGER NOT NULL,
+                                ownerId TEXT NOT NULL DEFAULT '',
+                                photo_url TEXT NOT NULL DEFAULT '',
+                                username TEXT NOT NULL DEFAULT '',
+                                display_name TEXT NOT NULL DEFAULT '',
+                                custom_names TEXT NOT NULL DEFAULT ''
+                            )
+                        """)
+                        db.execSQL("""
+                            INSERT INTO CachedProfile_new
+                            SELECT id, name, email, isGhost, totalPendingEuros,
+                                   updatedAt, ownerId, photo_url, username,
+                                   display_name, custom_names
+                            FROM CachedProfile
+                        """)
+                        db.execSQL("DROP TABLE CachedProfile")
+                        db.execSQL("ALTER TABLE CachedProfile_new RENAME TO CachedProfile")
+                    }
+                }
             }
         } catch (e: Exception) {
             println("[DB] Failed to ensure columns: ${e.message}. Deleting database.")
