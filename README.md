@@ -102,7 +102,7 @@ El proyecto está en desarrollo activo. Te invitamos a probarlo, reportar issues
    git clone https://github.com/tuusuario/CuentaMorosos.git
    cd CuentaMorosos
    ```
-2. **Configura Firebase** (ver [abajo](#configuración-de-firebase)) y coloca `google-services.json` en `app/`.
+2. **Obtené `google-services.json`** del equipo del proyecto y colocálo en `app/` (ver [Firebase](#firebase)).
 3. **Abre en Android Studio**: File → Open → selecciona la carpeta del proyecto. Android Studio descargará el SDK y las dependencias Gradle automáticamente.
 4. **Ejecuta en emulador o dispositivo**:
    ```bash
@@ -121,19 +121,25 @@ El proyecto está en desarrollo activo. Te invitamos a probarlo, reportar issues
 | **macOS** | Solo para compilar el target iOS (excluido automáticamente en Linux/Windows) |
 | **Emulador / dispositivo** | Android 7.0 (API 24) o superior |
 
-### Configuración de Firebase
+### Firebase
 
-1. Crea un proyecto en [Firebase Console](https://console.firebase.google.com/).
-2. Activa **Authentication** → proveedor **Email/Password**.
-3. Crea **Firestore Database** en modo producción. Configura las [reglas de seguridad](https://firebase.google.com/docs/firestore/security/get-started) según tu caso de uso.
-4. Activa **Storage** para las fotos de perfil de los usuarios.
-5. Descarga `google-services.json` desde la configuración de tu app Android en Firebase Console y colócalo en el directorio `app/`. Este archivo está en `.gitignore` — **nunca se commitea**.
-6. (Opcional) Activa **Cloud Messaging** para recibir notificaciones push de invitaciones y nuevos cálculos.
+CuentaMorosos usa Firebase (Authentication, Firestore, Storage, Cloud Messaging) como backend. La app apunta a un proyecto Firebase existente — **no tiene sentido crear uno nuevo**, porque la base de datos estaría vacía.
+
+Para correr la app necesitás el archivo `google-services.json` del proyecto Firebase de CuentaMorosos. Pedilo al equipo del proyecto y colocálo en `app/`. Este archivo está en `.gitignore` — **nunca se commitea**.
+
+Si querés levantar tu propia instancia (por ejemplo, para desarrollo o fork), los pasos son:
+
+1. Creá un proyecto en [Firebase Console](https://console.firebase.google.com/).
+2. Activá **Authentication** → proveedor **Email/Password**.
+3. Creá **Firestore Database** en modo producción y configurá las [reglas de seguridad](https://firebase.google.com/docs/firestore/security/get-started).
+4. Activá **Storage** para las fotos de perfil.
+5. Descargá el `google-services.json` de tu proyecto y colocálo en `app/`.
+6. (Opcional) Activá **Cloud Messaging** para notificaciones push.
 
 ### Variables de entorno / archivos de configuración
 
 - `local.properties`: Gradle lo genera automáticamente con `sdk.dir`. Si usás Android Studio, no necesitás tocarlo.
-- `google-services.json`: en `app/`, excluido de git (`.gitignore`). Sin este archivo, la compilación fallará.
+- `google-services.json`: en `app/`, excluido de git (`.gitignore`). Solicitálo al equipo del proyecto — sin este archivo la compilación fallará.
 - `gradle.properties`: ya incluye configuración de JVM (`-Xmx4g`), daemon de Kotlin (`-Xmx2g`), build paralelo y caché de Gradle. Ajustá la memoria si tu equipo tiene menos de 8 GB.
 
 ### Firma (signing)
