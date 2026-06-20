@@ -22,12 +22,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.isSystemInDarkTheme
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.ui.LocalAnimationsEnabled
 import com.cuentamorosos.ui.NeoFintechColors
 import com.cuentamorosos.ui.neonGlow
+import com.cuentamorosos.ui.slideUp
 
 /**
  * Animated splash/auth entrance screen with a 5-phase choreographed sequence.
