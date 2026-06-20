@@ -43,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import com.cuentamorosos.isValidEmail
 import com.cuentamorosos.ui.LocalAnimationsEnabled
 import com.cuentamorosos.ui.NeoFintechColors
-import com.cuentamorosos.ui.neonGlow
 import com.cuentamorosos.ui.slideUp
 
 /**
@@ -69,7 +68,7 @@ fun SplashAuthScreen(
     val isDark = isSystemInDarkTheme()
     val colors = remember(isDark) { if (isDark) NeoFintechColors.dark() else NeoFintechColors.light() }
     val density = LocalDensity.current
-    val logoSlideDistancePx = remember { with(density) { 120.dp.toPx() } }
+    val logoSlideDistancePx = remember { with(density) { 60.dp.toPx() } }
 
     // ── Logo animation state ──
     val logoAlpha = remember { Animatable(if (animationsEnabled) 0f else 1f) }
@@ -125,7 +124,7 @@ fun SplashAuthScreen(
                 translationY = logoOffsetY.value,
             ),
         ) {
-            logo(Modifier.size(96.dp))
+            logo(Modifier.size(164.dp))
         }
 
         Spacer(Modifier.height(24.dp))
@@ -135,20 +134,7 @@ fun SplashAuthScreen(
             text = "CuentaMorosos",
             style = MaterialTheme.typography.headlineLarge,
             color = colors.primaryContainer,
-            modifier = Modifier
-                .slideUp(delayMs = 1400, durationMs = 400)
-                .then(
-                    if (isDark) {
-                        Modifier.neonGlow(
-                            color = colors.primaryContainer,
-                            blurRadius = 8.dp,
-                            intensity = 0.6f,
-                            isDarkMode = true,
-                        )
-                    } else {
-                        Modifier
-                    },
-                ),
+            modifier = Modifier.slideUp(delayMs = 1400, durationMs = 400),
         )
 
         Spacer(Modifier.height(8.dp))
