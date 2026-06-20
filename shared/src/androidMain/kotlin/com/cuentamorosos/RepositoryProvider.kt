@@ -121,19 +121,4 @@ class RepositoryProvider(
         database.cachedExpenseQueries.deleteAll()
         database.pendingOperationQueries.deleteAll()
     }
-
-    /**
-     * Purges ALL events and sub-collections from Firestore. Keeps profiles.
-     * Call once to reset event/expense/debt data.
-     */
-    suspend fun purgeAllRemoteData() {
-        try {
-            (remoteEventRepository as FirestoreEventRepository).purgeAllEvents()
-            clearLocalData()
-            println("[RepositoryProvider] purgeAllRemoteData: completed")
-        } catch (e: Exception) {
-            println("[RepositoryProvider] purgeAllRemoteData FAILED: ${e.message}")
-            e.printStackTrace()
-        }
-    }
 }

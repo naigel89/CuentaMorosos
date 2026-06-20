@@ -173,62 +173,6 @@ class FirestoreEventRepository : EventRepository {
         }
     }
 
-    /** Purges ALL events and their sub-collections. Keeps profiles. Call once to reset. */
-    suspend fun purgeAllEvents() {
-        val uid = auth.currentUser?.uid ?: return
-        println("[FirestoreEventRepo] purgeAllEvents START for uid=$uid")
-
-        val events = try {
-            collection.where { "ownerId" equalTo uid }.get()
-        } catch (e: Exception) {
-            println("[FirestoreEventRepo] purgeAllEvents FAILED to query events: ${e.message}")
-            return
-        }
-        println("[FirestoreEventRepo] purgeAllEvents: found ${events.documents.size} events")
-
-        for (doc in events.documents) {
-            val eventId = doc.id
-            println("[FirestoreEventRepo] purgeAllEvents: deleting event $eventId...")
-
-            // Delete debts sub-collection
-            try {
-                val debts = collection.document(eventId).collection("debts").get()
-                debts.documents.forEach { debtDoc ->
-                    try {
-                        collection.document(eventId).collection("debts").document(debtDoc.id).delete()
-                    } catch (e: Exception) {
-                        println("[FirestoreEventRepo] purgeAllEvents: FAILED to delete debt ${debtDoc.id}: ${e.message}")
-                    }
-                }
-            } catch (e: Exception) {
-                println("[FirestoreEventRepo] purgeAllEvents: FAILED to query debts for $eventId: ${e.message}")
-            }
-
-            // Delete expenses sub-collection
-            try {
-                val expenses = collection.document(eventId).collection("expenses").get()
-                expenses.documents.forEach { expenseDoc ->
-                    try {
-                        collection.document(eventId).collection("expenses").document(expenseDoc.id).delete()
-                    } catch (e: Exception) {
-                        println("[FirestoreEventRepo] purgeAllEvents: FAILED to delete expense ${expenseDoc.id}: ${e.message}")
-                    }
-                }
-            } catch (e: Exception) {
-                println("[FirestoreEventRepo] purgeAllEvents: FAILED to query expenses $eventId: ${e.message}")
-            }
-
-            // Delete the event document
-            try {
-                collection.document(eventId).delete()
-                println("[FirestoreEventRepo] purgeAllEvents: deleted event $eventId")
-            } catch (e: Exception) {
-                println("[FirestoreEventRepo] purgeAllEvents: FAILED to delete event $eventId: ${e.message}")
-            }
-        }
-        println("[FirestoreEventRepo] purgeAllEvents: DONE")
-    }
-
     override suspend fun findUidByEmail(email: String): String? {
         return try {
             val snapshot = db.collection("users")

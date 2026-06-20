@@ -225,19 +225,8 @@ private fun MainAppContent(
 
     // Start staggered sync after first render AND on user change
     val syncScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
-
-    // ── ONE-TIME purge: deletes all events/expenses/debts from Firestore + SQLDelight ──
-    // Remove this block after the purge completes (next session).
-    var purged by remember { mutableStateOf(false) }
-
     LaunchedEffect(user.uid) {
-        if (!purged) {
-            repositoryProvider.purgeAllRemoteData()
-            purged = true
-            println("[MainActivity] Remote data purged successfully")
-        }
-
-        // Profile sync + data sync (runs after purge, or immediately if already purged)
+        // Profile sync runs in background (non-blocking)
         runCatching {
             FirebaseUserSyncManager.syncCurrentUser()
             FirebaseUserSyncManager.ensureOwnProfile()
