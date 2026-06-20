@@ -140,6 +140,35 @@ class FirestoreDebtRepository : DebtRepository {
         }
     }
 
+    override suspend fun fetchAllDebts(): List<EventDebtItem> {
+        val uid = auth.currentUser?.uid ?: return emptyList()
+
+        // Resolve all event IDs for this user (same logic as observeAllDebts)
+        val ownerSnapshot = db.collection("events").where { "ownerId" equalTo uid }.get()
+        val memberSnapshot = db.collection("events").where { "memberIds" contains uid }.get()
+        val participantSnapshot = db.collection("events").where { "participantIds" contains uid }.get()
+
+        val eventIds = (ownerSnapshot.documents + memberSnapshot.documents + participantSnapshot.documents)
+            .map { it.id }
+            .distinct()
+
+        if (eventIds.isEmpty()) return emptyList()
+
+        // One-shot fetch per event, then flatten
+        val allDebts = mutableListOf<EventDebtItem>()
+        for (eventId in eventIds) {
+            val debts = try {
+                db.collection("events").document(eventId).collection("debts").get()
+                    .documents.mapNotNull { it.toDebtItem() }
+            } catch (e: Exception) {
+                println("[FirestoreDebtRepo] fetchAllDebts for event $eventId failed: ${e.message}")
+                emptyList()
+            }
+            allDebts.addAll(debts)
+        }
+        return allDebts
+    }
+
     private fun EventDebtItem.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
         "eventId" to eventId,

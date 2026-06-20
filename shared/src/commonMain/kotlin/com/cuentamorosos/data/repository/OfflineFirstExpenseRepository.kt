@@ -16,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class OfflineFirstExpenseRepository(
     private val remoteRepository: ExpenseRepository,
@@ -89,7 +90,18 @@ class OfflineFirstExpenseRepository(
                     // 1. Drain pending operations FIRST
                     pendingQueue.drainAll(expenseRemoteOps)
 
-                    // 2. Single subscription to remote
+                    // 2. One-shot initial fetch — populates cache BEFORE snapshot listener
+                    val initialExpenses = withTimeoutOrNull(15_000) {
+                        remoteRepository.fetchAllExpenses()
+                    }
+                    if (initialExpenses != null) {
+                        upsertExpenses(initialExpenses)
+                        println("[OfflineFirstExpenseRepo] Initial fetch: ${initialExpenses.size} expenses")
+                    } else {
+                        println("[OfflineFirstExpenseRepo] Initial fetch timed out after 15s")
+                    }
+
+                    // 3. Then subscribe to realtime changes
                     remoteRepository.observeAllExpenses()
                         .onEach { remoteExpenses ->
                             upsertExpenses(remoteExpenses)
@@ -183,6 +195,10 @@ class OfflineFirstExpenseRepository(
 
     override suspend fun fetchExpensesForEvent(eventId: String): List<EventExpenseItem> {
         return remoteRepository.fetchExpensesForEvent(eventId)
+    }
+
+    override suspend fun fetchAllExpenses(): List<EventExpenseItem> {
+        return remoteRepository.fetchAllExpenses()
     }
 
     private fun List<String>.toJsonArray(): String =

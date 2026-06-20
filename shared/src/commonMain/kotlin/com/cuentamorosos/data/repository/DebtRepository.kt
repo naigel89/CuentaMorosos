@@ -12,4 +12,6 @@ interface DebtRepository {
     suspend fun deleteDebtsForProfile(profileId: String)
     suspend fun replaceProfileId(oldId: String, newId: String)
     suspend fun fetchDebtsForEvent(eventId: String): List<EventDebtItem>
+    /** One-shot fetch of ALL debts for the current user across all events. */
+    suspend fun fetchAllDebts(): List<EventDebtItem>
 }

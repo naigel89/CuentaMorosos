@@ -16,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class OfflineFirstDebtRepository(
     private val remoteRepository: DebtRepository,
@@ -92,7 +93,18 @@ class OfflineFirstDebtRepository(
                     // 1. Drain pending operations FIRST
                     pendingQueue.drainAll(debtRemoteOps)
 
-                    // 2. Single subscription to remote
+                    // 2. One-shot initial fetch — populates cache BEFORE snapshot listener
+                    val initialDebts = withTimeoutOrNull(15_000) {
+                        remoteRepository.fetchAllDebts()
+                    }
+                    if (initialDebts != null) {
+                        upsertDebts(initialDebts)
+                        println("[OfflineFirstDebtRepo] Initial fetch: ${initialDebts.size} debts")
+                    } else {
+                        println("[OfflineFirstDebtRepo] Initial fetch timed out after 15s")
+                    }
+
+                    // 3. Then subscribe to realtime changes
                     remoteRepository.observeAllDebts()
                         .onEach { remoteDebts ->
                             println("[OfflineFirstDebtRepo] received ${remoteDebts.size} debts from Firestore")
@@ -192,6 +204,10 @@ class OfflineFirstDebtRepository(
 
     override suspend fun fetchDebtsForEvent(eventId: String): List<EventDebtItem> {
         return remoteRepository.fetchDebtsForEvent(eventId)
+    }
+
+    override suspend fun fetchAllDebts(): List<EventDebtItem> {
+        return remoteRepository.fetchAllDebts()
     }
 
     private fun com.cuentamorosos.db.CachedDebt.toDebtItem(): EventDebtItem = EventDebtItem(

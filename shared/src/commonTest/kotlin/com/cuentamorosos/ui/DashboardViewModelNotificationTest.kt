@@ -217,6 +217,7 @@ private class FakeDebtRepository(
     override suspend fun deleteDebtsForProfile(profileId: String) {}
     override suspend fun replaceProfileId(oldId: String, newId: String) {}
     override suspend fun fetchDebtsForEvent(eventId: String): List<EventDebtItem> = flow.value
+    override suspend fun fetchAllDebts(): List<EventDebtItem> = flow.value
 }
 
 private class FakeExpenseRepository(
@@ -228,6 +229,7 @@ private class FakeExpenseRepository(
     override suspend fun deleteExpense(eventId: String, expenseId: String) {}
     override suspend fun replaceProfileId(oldId: String, newId: String) {}
     override suspend fun fetchExpensesForEvent(eventId: String): List<EventExpenseItem> = flow.value
+    override suspend fun fetchAllExpenses(): List<EventExpenseItem> = flow.value
 }
 
 private class FakeProfileRepository(
