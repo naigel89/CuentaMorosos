@@ -173,6 +173,33 @@ class FirestoreEventRepository : EventRepository {
         }
     }
 
+    /** Purges ALL events and their sub-collections. Keeps profiles. Call once to reset. */
+    suspend fun purgeAllEvents() {
+        val uid = auth.currentUser?.uid ?: return
+        val events = collection.where { "ownerId" equalTo uid }.get()
+        println("[FirestoreEventRepo] purgeAllEvents: deleting ${events.documents.size} events")
+
+        for (doc in events.documents) {
+            val eventId = doc.id
+
+            // Delete debts sub-collection
+            val debts = collection.document(eventId).collection("debts").get()
+            debts.documents.forEach { debtDoc ->
+                collection.document(eventId).collection("debts").document(debtDoc.id).delete()
+            }
+
+            // Delete expenses sub-collection
+            val expenses = collection.document(eventId).collection("expenses").get()
+            expenses.documents.forEach { expenseDoc ->
+                collection.document(eventId).collection("expenses").document(expenseDoc.id).delete()
+            }
+
+            // Delete the event document
+            collection.document(eventId).delete()
+        }
+        println("[FirestoreEventRepo] purgeAllEvents: done")
+    }
+
     override suspend fun findUidByEmail(email: String): String? {
         return try {
             val snapshot = db.collection("users")
