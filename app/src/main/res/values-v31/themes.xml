@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Override Theme.CuentaMorosos for Android 12+ (API 31) splash screen -->
+    <style name="Theme.CuentaMorosos" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowSplashScreenBackground">#131313</item>
+    </style>
+</resources>

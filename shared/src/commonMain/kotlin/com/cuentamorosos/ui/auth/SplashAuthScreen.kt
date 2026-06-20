@@ -3,6 +3,7 @@ package com.cuentamorosos.ui.auth
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,7 +81,7 @@ fun SplashAuthScreen(
     // ═══════════════════════════════════════════════════════════════
     val logoSizeDp = 280.dp
     val logoEndSizeDp = 164.dp
-    val logoStartFromTopDp = 240.dp
+    val logoStartFromTopDp = 300.dp
     val logoEndFromTopDp = 80.dp
 
     // Distancia total que se mueve (negativo = hacia arriba)
@@ -142,6 +143,7 @@ fun SplashAuthScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(color = colors.background)
             .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top,
@@ -156,6 +158,7 @@ fun SplashAuthScreen(
                 translationY = logoOffsetY.value,
                 scaleX = logoScale.value,
                 scaleY = logoScale.value,
+                clip = true,
             ),
         ) {
             logo(Modifier.size(logoEndSizeDp))

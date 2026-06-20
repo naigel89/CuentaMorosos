@@ -163,6 +163,8 @@ class OfflineFirstDebtRepository(
         try {
             remoteRepository.saveDebt(debt)
         } catch (e: Exception) {
+            println("[OfflineFirstDebtRepo] saveDebt remote FAILED for ${debt.id}: ${e.message}")
+            e.printStackTrace()
             pendingQueue.enqueue(
                 id = "debt_${debt.id}_${currentTimeMillis()}",
                 entityType = "debt",
@@ -178,6 +180,8 @@ class OfflineFirstDebtRepository(
         try {
             remoteRepository.deleteDebt(eventId, debtId)
         } catch (e: Exception) {
+            println("[OfflineFirstDebtRepo] deleteDebt remote FAILED for $debtId: ${e.message}")
+            e.printStackTrace()
             pendingQueue.enqueue(
                 id = "debt_${debtId}_${currentTimeMillis()}",
                 entityType = "debt",
@@ -193,6 +197,8 @@ class OfflineFirstDebtRepository(
         try {
             remoteRepository.deleteDebtsForProfile(profileId)
         } catch (e: Exception) {
+            println("[OfflineFirstDebtRepo] deleteDebtsForProfile remote FAILED for $profileId: ${e.message}")
+            e.printStackTrace()
             pendingQueue.enqueue(
                 id = "debt_${profileId}_${currentTimeMillis()}",
                 entityType = "debt",

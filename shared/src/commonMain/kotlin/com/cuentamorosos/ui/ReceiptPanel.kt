@@ -25,6 +25,7 @@ import com.cuentamorosos.formatDateMillis
 import com.cuentamorosos.model.CalculationSnapshot
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.SplitMode
 import com.cuentamorosos.model.formattedDate
 import kotlinx.coroutines.launch
 
@@ -150,7 +151,7 @@ fun ReceiptPanel(
                     color = colors.onSurfaceVariant,
                 )
                 Text(
-                    text = event.lastCalculationMode ?: "—",
+                    text = event.lastCalculationMode?.let { SplitMode.fromId(it).label } ?: "—",
                     style = typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = colors.onSurface,
                 )

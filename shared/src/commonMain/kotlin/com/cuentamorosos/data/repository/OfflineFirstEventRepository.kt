@@ -183,6 +183,8 @@ class OfflineFirstEventRepository(
         try {
             remoteRepository.saveEvent(event)
         } catch (e: Exception) {
+            println("[OfflineFirstEventRepo] saveEvent remote FAILED for ${event.id}: ${e.message}")
+            e.printStackTrace()
             pendingQueue.enqueue(
                 id = "event_${event.id}_${currentTimeMillis()}",
                 entityType = "event",
@@ -198,6 +200,8 @@ class OfflineFirstEventRepository(
         try {
             remoteRepository.deleteEvent(eventId)
         } catch (e: Exception) {
+            println("[OfflineFirstEventRepo] deleteEvent remote FAILED for $eventId: ${e.message}")
+            e.printStackTrace()
             pendingQueue.enqueue(
                 id = "event_${eventId}_${currentTimeMillis()}",
                 entityType = "event",

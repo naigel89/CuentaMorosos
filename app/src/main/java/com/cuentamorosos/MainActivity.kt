@@ -55,6 +55,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
 
@@ -79,6 +81,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        window.decorView.setBackgroundColor(android.graphics.Color.parseColor("#131313"))
 
         // Prevent Firebase Firestore permission errors from crashing the app
         // while Firestore rules are being configured
@@ -312,7 +315,13 @@ private fun MainAppContent(
         },
         networkMonitor = networkMonitor,
         onSignOut = {
-            // 1. Cancel sync scope FIRST to prevent re-populating data after clear
+            // 0. Last-chance sync: drain pending operations to Firestore before clearing
+            runBlocking {
+                withTimeoutOrNull(10_000) {
+                    repositoryProvider.drainAllBeforeLogout()
+                }
+            }
+            // 1. Cancel sync scope to prevent re-populating data after clear
             syncScope.cancel()
             // 2. Cancel scheduled reminders
             ReminderWorker.cancel(application)

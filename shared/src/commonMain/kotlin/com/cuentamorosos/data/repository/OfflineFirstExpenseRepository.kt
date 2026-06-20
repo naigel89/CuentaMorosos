@@ -169,6 +169,8 @@ class OfflineFirstExpenseRepository(
         try {
             remoteRepository.saveExpense(expense)
         } catch (e: Exception) {
+            println("[OfflineFirstExpenseRepo] saveExpense remote FAILED for ${expense.id}: ${e.message}")
+            e.printStackTrace()
             pendingQueue.enqueue(
                 id = "expense_${expense.id}_${currentTimeMillis()}",
                 entityType = "expense",
@@ -184,6 +186,8 @@ class OfflineFirstExpenseRepository(
         try {
             remoteRepository.deleteExpense(eventId, expenseId)
         } catch (e: Exception) {
+            println("[OfflineFirstExpenseRepo] deleteExpense remote FAILED for $expenseId: ${e.message}")
+            e.printStackTrace()
             pendingQueue.enqueue(
                 id = "expense_${expenseId}_${currentTimeMillis()}",
                 entityType = "expense",
@@ -245,7 +249,7 @@ class OfflineFirstExpenseRepository(
         debtorIds = debtor_ids.toStringArray(),
         exchangeRate = null,
         itemCurrency = null,
-        createdAtMillis = 0L,
+        createdAtMillis = dateMillis,
         createdByProfileId = ""
     )
 }

@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS CachedProfile (
 selectAll:
 SELECT * FROM CachedProfile ORDER BY name ASC;
 
+selectById:
+SELECT * FROM CachedProfile WHERE id = ?;
+
 upsert:
 INSERT OR REPLACE INTO CachedProfile
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);

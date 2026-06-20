@@ -156,6 +156,8 @@ class OfflineFirstProfileRepository(
         try {
             remoteRepository.saveProfile(profile)
         } catch (e: Exception) {
+            println("[OfflineFirstProfileRepo] saveProfile remote FAILED for ${profile.id}: ${e.message}")
+            e.printStackTrace()
             pendingQueue.enqueue(
                 id = "profile_${profile.id}_${currentTimeMillis()}",
                 entityType = "profile",
@@ -171,6 +173,8 @@ class OfflineFirstProfileRepository(
         try {
             remoteRepository.deleteProfile(profileId)
         } catch (e: Exception) {
+            println("[OfflineFirstProfileRepo] deleteProfile remote FAILED for $profileId: ${e.message}")
+            e.printStackTrace()
             pendingQueue.enqueue(
                 id = "profile_${profileId}_${currentTimeMillis()}",
                 entityType = "profile",
