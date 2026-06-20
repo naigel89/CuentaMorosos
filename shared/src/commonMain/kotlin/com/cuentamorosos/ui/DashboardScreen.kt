@@ -76,23 +76,19 @@ fun DashboardScreen(
             }
         }
 
-        // Financial Summary Row — only show when there are amounts
-        if (summary.debes > 0.0 || summary.teDeben > 0.0) {
-            item(key = "financial-summary") {
-                FinancialSummaryRow(
-                    debes = summary.debes,
-                    teDeben = summary.teDeben,
-                    debesCount = summary.debesCount,
-                    teDebenCount = summary.teDebenCount,
-                )
-            }
+        // Financial Summary Row — siempre visible
+        item(key = "financial-summary") {
+            FinancialSummaryRow(
+                debes = summary.debes,
+                teDeben = summary.teDeben,
+                debesCount = summary.debesCount,
+                teDebenCount = summary.teDebenCount,
+            )
         }
 
-        // Net Balance Card — only show when non-zero
-        if (summary.netBalance != 0.0) {
-            item(key = "net-balance") {
-                NetBalanceCard(balance = summary.netBalance)
-            }
+        // Net Balance Card — siempre visible
+        item(key = "net-balance") {
+            NetBalanceCard(balance = summary.netBalance)
         }
 
         // Unified debts card (all profiles in one list)
@@ -194,9 +190,22 @@ private fun FinancialSummaryRow(
 private fun NetBalanceCard(balance: Double) {
     val colors = LocalNeoFintechColors.current
     val isPositive = balance >= 0
-    val accentColor = if (isPositive) colors.primaryContainer else colors.error
-    val label = if (isPositive) "Balance a tu favor" else "Debes saldar"
-    val prefix = if (isPositive) "+" else ""
+    val isZero = balance == 0.0
+    val accentColor = when {
+        isZero -> colors.onSurfaceVariant
+        isPositive -> colors.primaryContainer
+        else -> colors.error
+    }
+    val label = when {
+        isZero -> "Sin deudas pendientes"
+        isPositive -> "Balance a tu favor"
+        else -> "Debes saldar"
+    }
+    val prefix = when {
+        isZero -> ""
+        isPositive -> "+"
+        else -> ""
+    }
 
     Card(
         modifier = Modifier
