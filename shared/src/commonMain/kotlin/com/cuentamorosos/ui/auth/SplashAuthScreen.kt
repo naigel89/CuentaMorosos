@@ -68,11 +68,33 @@ fun SplashAuthScreen(
     val isDark = isSystemInDarkTheme()
     val colors = remember(isDark) { if (isDark) NeoFintechColors.dark() else NeoFintechColors.light() }
     val density = LocalDensity.current
-    val logoSlideDistancePx = remember { with(density) { 60.dp.toPx() } }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  CONTROLES DE POSICIÓN DEL LOGO — ajustalos a tu gusto
+    // ═══════════════════════════════════════════════════════════════
+    // logoSizeDp          → tamaño INICIAL del logo (ancho y alto)
+    // logoEndSizeDp       → tamaño FINAL del logo (se escala durante la subida)
+    // logoStartFromTopDp  → distancia desde el borde SUPERIOR donde ARRANCA
+    // logoEndFromTopDp    → distancia desde el borde SUPERIOR donde TERMINA
+    //                       (debe ser MENOR que start — el logo sube)
+    // ═══════════════════════════════════════════════════════════════
+    val logoSizeDp = 164.dp
+    val logoEndSizeDp = 80.dp
+    val logoStartFromTopDp = 240.dp
+    val logoEndFromTopDp = 80.dp
+
+    // Distancia total que se mueve (negativo = hacia arriba)
+    val slideAmountPx = remember {
+        with(density) { (logoEndFromTopDp - logoStartFromTopDp).toPx() }
+    }
+
+    // Factor de escala del logo: tamaño final / tamaño inicial
+    val logoScaleFactor = remember { logoEndSizeDp / logoSizeDp }
 
     // ── Logo animation state ──
     val logoAlpha = remember { Animatable(if (animationsEnabled) 0f else 1f) }
     val logoOffsetY = remember { Animatable(0f) }
+    val logoScale = remember { Animatable(if (animationsEnabled) 1f else logoScaleFactor) }
 
     // ── Login form state ──
     var email by remember { mutableStateOf("") }
@@ -101,8 +123,14 @@ fun SplashAuthScreen(
         // Phase 2: Logo slide-up (800ms)
         kotlinx.coroutines.delay(400)
         logoOffsetY.animateTo(
-            targetValue = -logoSlideDistancePx,
-            animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+            targetValue = slideAmountPx,
+            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        )
+
+        // Phase 2b: Logo scale-down (just after slide)
+        logoScale.animateTo(
+            targetValue = logoScaleFactor,
+            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
         )
 
         // Phases 3-4 handled by slideUp modifiers on title + form elements
@@ -115,16 +143,21 @@ fun SplashAuthScreen(
             .fillMaxSize()
             .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Top,
     ) {
+        // ── Spacer que controla dónde arranca el logo ──
+        Spacer(Modifier.height(logoStartFromTopDp))
+
         // ── Logo ──
         Box(
             modifier = Modifier.graphicsLayer(
                 alpha = logoAlpha.value,
                 translationY = logoOffsetY.value,
+                scaleX = logoScale.value,
+                scaleY = logoScale.value,
             ),
         ) {
-            logo(Modifier.size(164.dp))
+            logo(Modifier.size(logoSizeDp))
         }
 
         Spacer(Modifier.height(24.dp))
