@@ -78,8 +78,8 @@ fun SplashAuthScreen(
     // logoEndFromTopDp    → distancia desde el borde SUPERIOR donde TERMINA
     //                       (debe ser MENOR que start — el logo sube)
     // ═══════════════════════════════════════════════════════════════
-    val logoSizeDp = 164.dp
-    val logoEndSizeDp = 80.dp
+    val logoSizeDp = 280.dp
+    val logoEndSizeDp = 164.dp
     val logoStartFromTopDp = 240.dp
     val logoEndFromTopDp = 80.dp
 
@@ -88,13 +88,14 @@ fun SplashAuthScreen(
         with(density) { (logoEndFromTopDp - logoStartFromTopDp).toPx() }
     }
 
-    // Factor de escala del logo: tamaño final / tamaño inicial
-    val logoScaleFactor = remember { logoEndSizeDp / logoSizeDp }
+    // Factor de escala: el layout usa logoEndSizeDp, la escala arranca grande para
+    // que el logo se vea de logoSizeDp y termina en 1f (coincidiendo con el layout)
+    val logoScaleFactor = remember { logoSizeDp / logoEndSizeDp }
 
     // ── Logo animation state ──
     val logoAlpha = remember { Animatable(if (animationsEnabled) 0f else 1f) }
     val logoOffsetY = remember { Animatable(0f) }
-    val logoScale = remember { Animatable(if (animationsEnabled) 1f else logoScaleFactor) }
+    val logoScale = remember { Animatable(if (animationsEnabled) logoScaleFactor else 1f) }
 
     // ── Login form state ──
     var email by remember { mutableStateOf("") }
@@ -127,9 +128,9 @@ fun SplashAuthScreen(
             animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
         )
 
-        // Phase 2b: Logo scale-down (just after slide)
+        // Phase 2b: Logo scale-down to match layout size
         logoScale.animateTo(
-            targetValue = logoScaleFactor,
+            targetValue = 1f,
             animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
         )
 
@@ -157,131 +158,137 @@ fun SplashAuthScreen(
                 scaleY = logoScale.value,
             ),
         ) {
-            logo(Modifier.size(logoSizeDp))
+            logo(Modifier.size(logoEndSizeDp))
         }
 
-        Spacer(Modifier.height(24.dp))
-
-        // ── Title ──
-        Text(
-            text = "CuentaMorosos",
-            style = MaterialTheme.typography.headlineLarge,
-            color = colors.primaryContainer,
-            modifier = Modifier.slideUp(delayMs = 1400, durationMs = 400),
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        // ── Subtitle ──
-        Text(
-            text = "Inicia sesión para continuar",
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.onSurfaceVariant,
-            modifier = Modifier.slideUp(delayMs = 1800),
-        )
-
-        Spacer(Modifier.height(24.dp))
-
-        // ── Email field (REAL, interactive) ──
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it.trim(); errorMessage = null },
-            label = { Text("Email") },
-            singleLine = true,
-            isError = emailError != null,
-            supportingText = emailError?.let { { Text(it) } },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            modifier = Modifier
-                .fillMaxWidth()
-                .slideUp(delayMs = 1900),
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        // ── Password field (REAL, interactive) ──
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it; errorMessage = null },
-            label = { Text("Contraseña") },
-            singleLine = true,
-            isError = passwordError != null,
-            supportingText = passwordError?.let { { Text(it) } },
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña",
-                    )
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .slideUp(delayMs = 2000),
-        )
-
-        // ── Error message ──
-        if (errorMessage != null) {
+        // ── Contenido que sigue al logo en su subida ──
+        Column(
+            modifier = Modifier.graphicsLayer(translationY = logoOffsetY.value),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Spacer(Modifier.height(8.dp))
+
+            // ── Title ──
             Text(
-                text = errorMessage!!,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.slideUp(delayMs = 2100),
+                text = "CuentaMorosos",
+                style = MaterialTheme.typography.headlineLarge,
+                color = colors.primaryContainer,
+                modifier = Modifier.slideUp(delayMs = 1400, durationMs = 400),
             )
-        }
 
-        Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(8.dp))
 
-        // ── Login button (REAL, interactive) ──
-        Button(
-            onClick = {
-                isLoading = true
-                errorMessage = null
-                onLogin(email, password) { error ->
-                    isLoading = false
-                    if (error == null) onLoginSuccess()
-                    else errorMessage = error
-                }
-            },
-            enabled = canSubmit,
-            modifier = Modifier
-                .fillMaxWidth()
-                .slideUp(delayMs = 2100),
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
+            // ── Subtitle ──
+            Text(
+                text = "Inicia sesión para continuar",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.slideUp(delayMs = 1800),
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            // ── Email field (REAL, interactive) ──
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it.trim(); errorMessage = null },
+                label = { Text("Email") },
+                singleLine = true,
+                isError = emailError != null,
+                supportingText = emailError?.let { { Text(it) } },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .slideUp(delayMs = 1900),
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            // ── Password field (REAL, interactive) ──
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it; errorMessage = null },
+                label = { Text("Contraseña") },
+                singleLine = true,
+                isError = passwordError != null,
+                supportingText = passwordError?.let { { Text(it) } },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña",
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .slideUp(delayMs = 2000),
+            )
+
+            // ── Error message ──
+            if (errorMessage != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = errorMessage!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.slideUp(delayMs = 2100),
                 )
-            } else {
-                Text("Iniciar sesión")
             }
-        }
 
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(24.dp))
 
-        // ── Forgot password link ──
-        TextButton(
-            onClick = onNavigateToForgotPassword,
-            modifier = Modifier.slideUp(delayMs = 2100),
-        ) {
-            Text("¿Olvidaste tu contraseña?")
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // ── Register link ──
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.slideUp(delayMs = 2100),
-        ) {
-            Text("¿No tienes cuenta?", style = MaterialTheme.typography.bodyMedium)
-            TextButton(onClick = onNavigateToRegister) {
-                Text("Regístrate")
+            // ── Login button (REAL, interactive) ──
+            Button(
+                onClick = {
+                    isLoading = true
+                    errorMessage = null
+                    onLogin(email, password) { error ->
+                        isLoading = false
+                        if (error == null) onLoginSuccess()
+                        else errorMessage = error
+                    }
+                },
+                enabled = canSubmit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .slideUp(delayMs = 2100),
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Text("Iniciar sesión")
+                }
             }
-        }
-    }
+
+            Spacer(Modifier.height(8.dp))
+
+            // ── Forgot password link ──
+            TextButton(
+                onClick = onNavigateToForgotPassword,
+                modifier = Modifier.slideUp(delayMs = 2100),
+            ) {
+                Text("¿Olvidaste tu contraseña?")
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // ── Register link ──
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.slideUp(delayMs = 2100),
+            ) {
+                Text("¿No tienes cuenta?", style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = onNavigateToRegister) {
+                    Text("Regístrate")
+                }
+            }
+        }  // inner Column (slides with logo)
+    }  // outer Column
 }
