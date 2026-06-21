@@ -20,8 +20,10 @@ class FirestoreProfileRepository : ProfileRepository {
     override fun observeProfiles(): Flow<List<ProfileItem>> {
         val uid = auth.currentUser?.uid ?: return flowOf(emptyList())
         println("[FirestoreProfileRepo] observeProfiles called, uid=$uid")
-        return collection.where { "ownerId" equalTo uid }
-            .snapshots
+        // NOTE: intentionally no ownerId filter — users need to see other participants'
+        // profiles in shared events. The UI (ProfilesScreen) already separates own vs others
+        // by matching currentUid, and Firestore rules allow any authenticated read.
+        return collection.snapshots
             .map { snapshot ->
                 val items = snapshot.documents
                     .mapNotNull { doc ->

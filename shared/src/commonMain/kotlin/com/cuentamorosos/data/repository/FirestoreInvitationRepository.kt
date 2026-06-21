@@ -1,12 +1,16 @@
 package com.cuentamorosos.data.repository
 
+import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.EventInvitation
 import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.InvitationStatus
+import com.cuentamorosos.model.PermissionEngine
+import com.cuentamorosos.notifications.NotificationEvent
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
@@ -25,42 +29,102 @@ class FirestoreInvitationRepository : InvitationRepository {
             }
             .snapshots
             .map { snapshot ->
-                snapshot.documents.mapNotNull { it.toInvitation() }
+                snapshot.documents
+                    .mapNotNull { it.toInvitation() }
+                    .filter { it.invitedEmail == email } // Safety net: local cache may return docs that don't match the where filter
             }
     }
 
     override suspend fun sendInvitation(invitation: EventInvitation) {
+        // Defense-in-depth: verify caller has ManageParticipants permission
+        val eventDoc = db.collection("events").document(invitation.eventId).get()
+        val data = eventDoc.getRawData()
+        if (data != null) {
+            val senderId = invitation.invitedByUid
+            val ownerId = data["ownerId"] as? String ?: ""
+            @Suppress("UNCHECKED_CAST")
+            val rawParticipants = (data["participants"] as? List<Map<String, Any?>>) ?: emptyList()
+            val senderRole = if (senderId == ownerId) {
+                EventRole.OWNER
+            } else {
+                val participant = rawParticipants.find { it["profileId"] == senderId }
+                val roleName = participant?.get("role") as? String
+                if (roleName != null) {
+                    try { EventRole.valueOf(roleName) } catch (_: Exception) { EventRole.READER }
+                } else {
+                    EventRole.READER
+                }
+            }
+            if (!canSendInvitation(senderRole)) {
+                return
+            }
+        }
+        val finalEmail = invitation.invitedEmail.trim().lowercase()
         invitationsCollection.document(invitation.id)
-            .set(invitation.copy(invitedEmail = invitation.invitedEmail.trim().lowercase()).toMap())
+            .set(invitation.copy(invitedEmail = finalEmail).toFirestoreMap())
     }
 
-    override suspend fun acceptInvitation(invitation: EventInvitation) {
-        val uid = auth.currentUser?.uid ?: return
+    override suspend fun acceptInvitation(invitation: EventInvitation, inviteeName: String) {
+        runCatching {
+            val uid = auth.currentUser?.uid
+            if (uid == null) {
+                println("[FirestoreInvitationRepo] acceptInvitation skipped: currentUser?.uid is null")
+                return
+            }
 
-        val eventsCollection = db.collection("events")
-        val doc = eventsCollection.document(invitation.eventId).get()
-        val current = (doc.get("memberIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            println("[FirestoreInvitationRepo] acceptInvitation: uid=$uid eventId=${invitation.eventId}")
 
-        @Suppress("UNCHECKED_CAST")
-        val currentParticipants = (doc.get("participants") as? List<Map<String, Any?>>) ?: emptyList()
+            val eventsCollection = db.collection("events")
+            val doc = eventsCollection.document(invitation.eventId).get()
+            println("[FirestoreInvitationRepo] doc exists=${doc.exists}")
 
-        if (!current.contains(uid)) {
-            val newParticipant = mapOf(
-                "profileId" to uid,
-                "role" to EventRole.CONTRIBUTOR.name,
-                "joinedAtMillis" to com.cuentamorosos.currentTimeMillis(),
-            )
-            val newParticipants = currentParticipants + newParticipant
-            eventsCollection.document(invitation.eventId)
-                .update(
-                    "memberIds" to (current + uid),
-                    "participants" to newParticipants,
-                    "participantIds" to newParticipants.map { it["profileId"] },
-                )
+            val eventData = doc.getRawData()
+            println("[FirestoreInvitationRepo] eventData keys=${eventData?.keys}")
+            val rawMemberIds = eventData?.get("memberIds")
+            println("[FirestoreInvitationRepo] raw memberIds=$rawMemberIds")
+            val current = (rawMemberIds as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+
+            @Suppress("UNCHECKED_CAST")
+            val rawParticipants = eventData?.get("participants")
+            println("[FirestoreInvitationRepo] raw participants=$rawParticipants")
+            val currentParticipants = (rawParticipants as? List<Map<String, Any?>>) ?: emptyList()
+
+            if (!current.contains(uid)) {
+                val newParticipant = createAcceptanceParticipant(uid)
+                val newParticipants = currentParticipants + newParticipant
+                println("[FirestoreInvitationRepo] Updating event: memberIds=$current + $uid, participants count=${newParticipants.size}")
+                eventsCollection.document(invitation.eventId)
+                    .update(
+                        "memberIds" to (current + uid),
+                        "participants" to newParticipants,
+                        "participantIds" to newParticipants.map { it["profileId"] },
+                    )
+                println("[FirestoreInvitationRepo] Event update done")
+            } else {
+                println("[FirestoreInvitationRepo] uid already in memberIds, skipping event update")
+            }
+
+            println("[FirestoreInvitationRepo] Marking invitation as ACCEPTED")
+            invitationsCollection.document(invitation.id)
+                .update("status" to InvitationStatus.ACCEPTED)
+            println("[FirestoreInvitationRepo] Invitation accepted successfully")
+
+            // Fire-and-forget: notify the inviter — acceptance succeeds even if this fails
+            runCatching {
+                db.collection("notifications")
+                    .document(invitation.invitedByUid)
+                    .collection("invitation-accepted")
+                    .document(invitation.id)
+                    .set(mapOf(
+                        "eventId" to invitation.eventId,
+                        "eventName" to invitation.eventName,
+                        "inviteeName" to inviteeName,
+                    ))
+            }
+        }.onFailure { e ->
+            println("[FirestoreInvitationRepo] ACCEPT INVITATION FAILED: ${e.message}")
+            e.printStackTrace()
         }
-
-        invitationsCollection.document(invitation.id)
-            .update("status" to InvitationStatus.ACCEPTED)
     }
 
     override suspend fun rejectInvitation(invitationId: String) {
@@ -68,35 +132,96 @@ class FirestoreInvitationRepository : InvitationRepository {
             .update("status" to InvitationStatus.REJECTED)
     }
 
-    private fun EventInvitation.toMap(): Map<String, Any?> = mapOf(
-        "id" to id,
-        "eventId" to eventId,
-        "eventName" to eventName,
-        "invitedByUid" to invitedByUid,
-        "invitedByEmail" to invitedByEmail,
-        "invitedEmail" to invitedEmail,
-        "status" to status,
-        "createdAtMillis" to createdAtMillis,
-        "expiresAtMillis" to expiresAtMillis,
-    )
+    override fun observeInvitationAccepted(): Flow<NotificationEvent.InvitationAccepted> {
+        val uid = auth.currentUser?.uid ?: return flowOf()
+        return db.collection("notifications")
+            .document(uid)
+            .collection("invitation-accepted")
+            .snapshots
+            .flatMapConcat { snapshot ->
+                val events = snapshot.documents.mapNotNull { doc ->
+                    val data = doc.getRawData() ?: return@mapNotNull null
+                    val eventId = data["eventId"] as? String ?: return@mapNotNull null
+                    val eventName = data["eventName"] as? String ?: ""
+                    val inviteeName = data["inviteeName"] as? String ?: ""
+                    NotificationEvent.InvitationAccepted(
+                        eventId = eventId,
+                        eventName = eventName,
+                        inviteeName = inviteeName,
+                    )
+                }
+                flowOf(*events.toTypedArray())
+            }
+    }
 
     private fun dev.gitlive.firebase.firestore.DocumentSnapshot.toInvitation(): EventInvitation? {
         return try {
             val data = this.getRawData() ?: return null
-            EventInvitation(
-                id = data["id"] as? String ?: return null,
-                eventId = data["eventId"] as? String ?: return null,
-                eventName = data["eventName"] as? String ?: "",
-                invitedByUid = data["invitedByUid"] as? String ?: return null,
-                invitedByEmail = data["invitedByEmail"] as? String ?: "",
-                invitedEmail = data["invitedEmail"] as? String ?: return null,
-                status = data["status"] as? String ?: InvitationStatus.PENDING,
-                createdAtMillis = (data["createdAtMillis"] as? Number)?.toLong() ?: com.cuentamorosos.currentTimeMillis(),
-                expiresAtMillis = (data["expiresAtMillis"] as? Number)?.toLong()
-                    ?: (com.cuentamorosos.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000),
-            )
+            data.toEventInvitation()
         } catch (e: Exception) {
             null
         }
     }
 }
+
+/**
+ * Serializes an [EventInvitation] to a Firestore-compatible map.
+ */
+internal fun EventInvitation.toFirestoreMap(): Map<String, Any?> = mapOf(
+    "id" to id,
+    "eventId" to eventId,
+    "eventName" to eventName,
+    "invitedByUid" to invitedByUid,
+    "invitedByEmail" to invitedByEmail,
+    "invitedEmail" to invitedEmail,
+    "status" to status,
+    "createdAtMillis" to createdAtMillis,
+    "expiresAtMillis" to expiresAtMillis,
+    "invitedByName" to invitedByName,
+    "invitedByPhotoUrl" to invitedByPhotoUrl,
+)
+
+/**
+ * Deserializes a Firestore document map into an [EventInvitation].
+ *
+ * [invitedByName] defaults to [invitedByEmail] when absent (legacy fallback).
+ * [invitedByPhotoUrl] defaults to null when absent.
+ */
+internal fun Map<String, Any?>.toEventInvitation(): EventInvitation? {
+    return try {
+        EventInvitation(
+            id = this["id"] as? String ?: return null,
+            eventId = this["eventId"] as? String ?: return null,
+            eventName = this["eventName"] as? String ?: "",
+            invitedByUid = this["invitedByUid"] as? String ?: return null,
+            invitedByEmail = this["invitedByEmail"] as? String ?: "",
+            invitedEmail = this["invitedEmail"] as? String ?: return null,
+            status = this["status"] as? String ?: InvitationStatus.PENDING,
+            createdAtMillis = (this["createdAtMillis"] as? Number)?.toLong() ?: com.cuentamorosos.currentTimeMillis(),
+            expiresAtMillis = (this["expiresAtMillis"] as? Number)?.toLong()
+                ?: (com.cuentamorosos.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000),
+            invitedByName = this["invitedByName"] as? String
+                ?: (this["invitedByEmail"] as? String ?: ""),
+            invitedByPhotoUrl = this["invitedByPhotoUrl"] as? String,
+        )
+    } catch (e: Exception) {
+        null
+    }
+}
+
+/**
+ * Creates the participant map for a newly accepted invitation.
+ * Assigns [EventRole.READER] — the user can be promoted later.
+ */
+internal fun createAcceptanceParticipant(uid: String): Map<String, Any?> = mapOf(
+    "profileId" to uid,
+    "role" to EventRole.READER.name,
+    "joinedAtMillis" to com.cuentamorosos.currentTimeMillis(),
+)
+
+/**
+ * Returns `true` if a user with the given [role] can send invitations.
+ * OWNER and CONTRIBUTOR may manage participants; READER may not.
+ */
+internal fun canSendInvitation(role: EventRole): Boolean =
+    PermissionEngine.hasPermission(role, EventAction.ManageParticipants)

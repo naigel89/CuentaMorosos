@@ -499,6 +499,8 @@ fun CuentaMorososApp(
                                             eventName = currentEvent.name,
                                             invitedByUid = currentUserUid,
                                             invitedByEmail = currentProfile?.linkedEmail ?: "",
+                                            invitedByName = currentProfile?.name ?: currentProfile?.linkedEmail ?: "",
+                                            invitedByPhotoUrl = currentProfile?.photoUrl,
                                             invitedEmail = email,
                                         )
                                     )
@@ -653,7 +655,9 @@ fun CuentaMorososApp(
                                     .padding(innerPadding),
                                 invitations = pendingInvitations,
                                 onAccept = { invitation ->
-                                    invitationsViewModel.acceptInvitation(invitation)
+                                    invitationsViewModel.acceptInvitation(
+                                        invitation, inviteeName = currentProfile?.name ?: ""
+                                    )
                                     feedbackMessage = "Invitación aceptada. ¡Bienvenido a ${invitation.eventName}!"
                                 },
                                 onReject = { invitation ->

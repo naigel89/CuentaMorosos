@@ -46,6 +46,7 @@ class AppViewModelFactory(
                 InvitationsViewModel(
                     invitationRepository = repositoryProvider.invitationRepository,
                     onNewInvitation = notificationCallbacks.onInvitationReceived,
+                    onInvitationAccepted = notificationCallbacks.onInvitationAccepted,
                 ) as T
             }
             modelClass.isAssignableFrom(DashboardViewModel::class.java) -> {

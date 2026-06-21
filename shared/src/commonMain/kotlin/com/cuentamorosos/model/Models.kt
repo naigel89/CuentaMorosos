@@ -220,6 +220,8 @@ data class EventInvitation(
     val status: String = InvitationStatus.PENDING,
     val createdAtMillis: Long = currentTimeMillis(),
     val expiresAtMillis: Long = currentTimeMillis() + 7L * 24 * 60 * 60 * 1000,
+    val invitedByName: String = "",
+    val invitedByPhotoUrl: String? = null,
 )
 
 object InvitationStatus {

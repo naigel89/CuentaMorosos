@@ -7,6 +7,7 @@ import com.cuentamorosos.notifications.NotificationEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -36,6 +37,7 @@ class InvitationsViewModelNotificationTest {
         eventId: String = "evt-1",
         eventName: String = "Asado",
         email: String = "ana@test.com",
+        name: String = email, // inviterName defaults to email for backward compat
         status: String = InvitationStatus.PENDING,
     ) = EventInvitation(
         id = id,
@@ -45,6 +47,7 @@ class InvitationsViewModelNotificationTest {
         invitedByEmail = email,
         invitedEmail = "me@test.com",
         status = status,
+        invitedByName = name,
     )
 
     @Test
@@ -142,6 +145,7 @@ class InvitationsViewModelNotificationTest {
             eventId = "evt-x",
             eventName = "Cena",
             email = "bob@test.com",
+            name = "Bob",
         )
         val flow = MutableStateFlow<List<EventInvitation>>(listOf(inv))
         val receivedEvents = mutableListOf<NotificationEvent.InvitationReceived>()
@@ -159,7 +163,7 @@ class InvitationsViewModelNotificationTest {
         val event = receivedEvents[0]
         assertEquals("inv-x", event.invitationId)
         assertEquals("evt-x", event.eventId)
-        assertEquals("bob@test.com", event.inviterName)
+        assertEquals("Bob", event.inviterName)
         assertEquals("Cena", event.eventName)
         collectJob.cancel()
     }
@@ -173,6 +177,7 @@ private class FakeInvitationRepository(
 ) : InvitationRepository {
     override fun observePendingInvitations(): Flow<List<EventInvitation>> = flow
     override suspend fun sendInvitation(invitation: EventInvitation) {}
-    override suspend fun acceptInvitation(invitation: EventInvitation) {}
+    override suspend fun acceptInvitation(invitation: EventInvitation, inviteeName: String) {}
     override suspend fun rejectInvitation(invitationId: String) {}
+    override fun observeInvitationAccepted(): Flow<NotificationEvent.InvitationAccepted> = emptyFlow()
 }

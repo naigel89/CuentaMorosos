@@ -16,6 +16,8 @@ class InvitationsViewModel(
     private val invitationRepository: InvitationRepository,
     /** Called when a new invitation arrives so the platform can post a notification. */
     private val onNewInvitation: ((NotificationEvent.InvitationReceived) -> Unit)? = null,
+    /** Called when someone accepts an invitation sent by the current user. */
+    private val onInvitationAccepted: ((NotificationEvent.InvitationAccepted) -> Unit)? = null,
 ) : ViewModel() {
 
     val pendingInvitations: StateFlow<List<EventInvitation>> =
@@ -27,7 +29,7 @@ class InvitationsViewModel(
                             NotificationEvent.InvitationReceived(
                                 invitationId = invitation.id,
                                 eventId = invitation.eventId,
-                                inviterName = invitation.invitedByEmail,
+                                inviterName = invitation.invitedByName,
                                 eventName = invitation.eventName,
                             )
                         )
@@ -36,15 +38,23 @@ class InvitationsViewModel(
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    init {
+        viewModelScope.launch {
+            invitationRepository.observeInvitationAccepted().collect { accepted ->
+                onInvitationAccepted?.invoke(accepted)
+            }
+        }
+    }
+
     fun sendInvitation(invitation: EventInvitation) {
         viewModelScope.launch {
             invitationRepository.sendInvitation(invitation)
         }
     }
 
-    fun acceptInvitation(invitation: EventInvitation) {
+    fun acceptInvitation(invitation: EventInvitation, inviteeName: String = "") {
         viewModelScope.launch {
-            invitationRepository.acceptInvitation(invitation)
+            invitationRepository.acceptInvitation(invitation, inviteeName)
         }
     }
 
