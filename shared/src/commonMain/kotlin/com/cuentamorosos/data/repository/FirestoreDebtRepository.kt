@@ -1,6 +1,7 @@
 package com.cuentamorosos.data.repository
 
 import com.cuentamorosos.model.EventDebtItem
+import com.cuentamorosos.model.SettlementTransfer
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
@@ -71,6 +72,40 @@ class FirestoreDebtRepository : DebtRepository {
             .collection("debts")
             .document(debtId)
             .delete()
+    }
+
+    override suspend fun deleteAllDebtsForEvent(eventId: String) {
+        val docs = db.collection("events")
+            .document(eventId)
+            .collection("debts")
+            .get()
+            .documents
+        if (docs.isEmpty()) return
+        docs.chunked(499).forEach { chunk ->
+            db.batch().apply {
+                chunk.forEach { doc -> delete(db.collection("events").document(eventId).collection("debts").document(doc.id)) }
+                commit()
+            }
+        }
+    }
+
+    override suspend fun applyCalculation(
+        eventId: String,
+        modeId: String,
+        transfers: List<SettlementTransfer>,
+    ) {
+        deleteAllDebtsForEvent(eventId)
+        transfers.forEach { transfer ->
+            saveDebt(
+                EventDebtItem(
+                    eventId = eventId,
+                    profileId = transfer.fromProfileId,
+                    creditorId = transfer.toProfileId,
+                    amountEuros = transfer.amount,
+                    calculationMode = modeId,
+                )
+            )
+        }
     }
 
     override suspend fun deleteDebtsForProfile(profileId: String) {
@@ -172,6 +207,7 @@ class FirestoreDebtRepository : DebtRepository {
         "id" to id,
         "eventId" to eventId,
         "profileId" to profileId,
+        "creditorId" to creditorId,
         "amountEuros" to amountEuros,
         "notes" to notes,
         "paid" to paid,
@@ -185,6 +221,7 @@ class FirestoreDebtRepository : DebtRepository {
                 id = data["id"] as? String ?: return null,
                 eventId = data["eventId"] as? String ?: return null,
                 profileId = data["profileId"] as? String ?: return null,
+                creditorId = data["creditorId"] as? String,
                 amountEuros = (data["amountEuros"] as? Number)?.toDouble() ?: 0.0,
                 notes = data["notes"] as? String ?: "",
                 paid = data["paid"] as? Boolean ?: false,

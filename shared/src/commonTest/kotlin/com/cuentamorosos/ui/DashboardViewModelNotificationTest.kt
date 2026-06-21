@@ -9,6 +9,7 @@ import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.SettlementTransfer
 import com.cuentamorosos.notifications.NotificationEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -214,10 +215,12 @@ private class FakeDebtRepository(
     override fun observeAllDebts(): Flow<List<EventDebtItem>> = flow
     override suspend fun saveDebt(debt: EventDebtItem) {}
     override suspend fun deleteDebt(eventId: String, debtId: String) {}
+    override suspend fun deleteAllDebtsForEvent(eventId: String) {}
     override suspend fun deleteDebtsForProfile(profileId: String) {}
     override suspend fun replaceProfileId(oldId: String, newId: String) {}
     override suspend fun fetchDebtsForEvent(eventId: String): List<EventDebtItem> = flow.value
     override suspend fun fetchAllDebts(): List<EventDebtItem> = flow.value
+    override suspend fun applyCalculation(eventId: String, modeId: String, transfers: List<SettlementTransfer>) {}
 }
 
 private class FakeExpenseRepository(

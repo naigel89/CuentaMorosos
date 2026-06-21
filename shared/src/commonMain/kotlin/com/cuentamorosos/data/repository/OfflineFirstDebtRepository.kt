@@ -6,6 +6,7 @@ import com.cuentamorosos.data.PendingOperationQueue
 import com.cuentamorosos.data.RemoteOperations
 import com.cuentamorosos.db.CuentaMorososDatabase
 import com.cuentamorosos.model.EventDebtItem
+import com.cuentamorosos.model.SettlementTransfer
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.CoroutineScope
@@ -16,6 +17,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
 class OfflineFirstDebtRepository(
@@ -28,6 +31,8 @@ class OfflineFirstDebtRepository(
 
     private val queries = database.cachedDebtQueries
     private var syncAllJob: Job? = null
+    private val applyMutex = Mutex()
+    private val applyingEvents = mutableSetOf<String>()
 
     private val debtRemoteOps = object : RemoteOperations {
         override suspend fun saveEvent(entityId: String) = throw UnsupportedOperationException()
@@ -112,8 +117,12 @@ class OfflineFirstDebtRepository(
                     // 3. Then subscribe to realtime changes
                     remoteRepository.observeAllDebts()
                         .onEach { remoteDebts ->
-                            println("[OfflineFirstDebtRepo] received ${remoteDebts.size} debts from Firestore")
-                            upsertDebts(remoteDebts)
+                            val filtered = remoteDebts.filter { it.eventId !in applyingEvents }
+                            if (filtered.size != remoteDebts.size) {
+                                println("[OfflineFirstDebtRepo] filtered ${remoteDebts.size - filtered.size} debts from applying events")
+                            }
+                            println("[OfflineFirstDebtRepo] received ${remoteDebts.size} debts from Firestore, upserting ${filtered.size}")
+                            upsertDebts(filtered)
                         }
                         .collect()
 
@@ -139,6 +148,7 @@ class OfflineFirstDebtRepository(
                     id = debt.id,
                     eventId = debt.eventId,
                     profileId = debt.profileId,
+                    creditorId = debt.creditorId,
                     amountEuros = debt.amountEuros,
                     paid = if (debt.paid) 1 else 0,
                     notes = debt.notes,
@@ -154,6 +164,7 @@ class OfflineFirstDebtRepository(
             id = debt.id,
             eventId = debt.eventId,
             profileId = debt.profileId,
+            creditorId = debt.creditorId,
             amountEuros = debt.amountEuros,
             paid = if (debt.paid) 1 else 0,
             notes = debt.notes,
@@ -192,6 +203,44 @@ class OfflineFirstDebtRepository(
         }
     }
 
+    override suspend fun deleteAllDebtsForEvent(eventId: String) {
+        queries.deleteByEvent(eventId)
+        try {
+            remoteRepository.deleteAllDebtsForEvent(eventId)
+        } catch (e: Exception) {
+            println("[OfflineFirstDebtRepo] deleteAllDebtsForEvent remote FAILED for $eventId: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    override suspend fun applyCalculation(
+        eventId: String,
+        modeId: String,
+        transfers: List<SettlementTransfer>,
+    ) {
+        withTimeoutOrNull(30_000L) {
+            applyMutex.withLock {
+                applyingEvents.add(eventId)
+                try {
+                    deleteAllDebtsForEvent(eventId)
+                    transfers.forEach { transfer ->
+                        saveDebt(
+                            EventDebtItem(
+                                eventId = eventId,
+                                profileId = transfer.fromProfileId,
+                                creditorId = transfer.toProfileId,
+                                amountEuros = transfer.amount,
+                                calculationMode = modeId,
+                            )
+                        )
+                    }
+                } finally {
+                    applyingEvents.remove(eventId)
+                }
+            }
+        }
+    }
+
     override suspend fun deleteDebtsForProfile(profileId: String) {
         queries.deleteByProfile(profileId)
         try {
@@ -225,6 +274,7 @@ class OfflineFirstDebtRepository(
         id = id,
         eventId = eventId,
         profileId = profileId,
+        creditorId = creditorId,
         amountEuros = amountEuros,
         notes = notes,
         paid = paid == 1L,
