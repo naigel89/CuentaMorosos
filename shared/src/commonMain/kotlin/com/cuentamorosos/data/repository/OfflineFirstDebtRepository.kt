@@ -33,6 +33,7 @@ class OfflineFirstDebtRepository(
     private var syncAllJob: Job? = null
     private val applyMutex = Mutex()
     private val applyingEvents = mutableSetOf<String>()
+    private val pendingEventDeletes = mutableSetOf<String>()
 
     private val debtRemoteOps = object : RemoteOperations {
         override suspend fun saveEvent(entityId: String) = throw UnsupportedOperationException()
@@ -100,6 +101,19 @@ class OfflineFirstDebtRepository(
             val maxBackoffMs = 30000L
             while (isActive) {
                 try {
+                    // 0. Drain pending event deletes FIRST (Fix 8)
+                    if (pendingEventDeletes.isNotEmpty()) {
+                        val toRetry = pendingEventDeletes.toSet()
+                        for (eventId in toRetry) {
+                            try {
+                                remoteRepository.deleteAllDebtsForEvent(eventId)
+                                pendingEventDeletes.remove(eventId)
+                            } catch (e: Exception) {
+                                println("[OfflineFirstDebtRepo] pending delete retry FAILED for $eventId")
+                            }
+                        }
+                    }
+
                     // 1. Drain pending operations FIRST
                     pendingQueue.drainAll(debtRemoteOps)
 
@@ -108,8 +122,12 @@ class OfflineFirstDebtRepository(
                         remoteRepository.fetchAllDebts()
                     }
                     if (initialDebts != null) {
-                        upsertDebts(initialDebts)
-                        println("[OfflineFirstDebtRepo] Initial fetch: ${initialDebts.size} debts")
+                        val filtered = initialDebts.filter { it.eventId !in applyingEvents }
+                        if (filtered.size != initialDebts.size) {
+                            println("[OfflineFirstDebtRepo] initial fetch filtered ${initialDebts.size - filtered.size} debts from applying events")
+                        }
+                        upsertDebts(filtered)
+                        println("[OfflineFirstDebtRepo] Initial fetch: ${filtered.size} debts (from ${initialDebts.size} total)")
                     } else {
                         println("[OfflineFirstDebtRepo] Initial fetch timed out after 15s")
                     }
@@ -210,6 +228,7 @@ class OfflineFirstDebtRepository(
         } catch (e: Exception) {
             println("[OfflineFirstDebtRepo] deleteAllDebtsForEvent remote FAILED for $eventId: ${e.message}")
             e.printStackTrace()
+            pendingEventDeletes.add(eventId)
         }
     }
 

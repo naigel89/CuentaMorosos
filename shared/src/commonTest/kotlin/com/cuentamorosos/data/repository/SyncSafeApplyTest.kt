@@ -304,6 +304,53 @@ class SyncSafeApplyTest {
         assertEquals(2, filtered.size)
     }
 
+    // ── Test 9: fetchAllDebts filter by applyingEvents (Fix 9) ───────────
+
+    @Test
+    fun `fetchAllDebts filters out debts from events currently being applied`() = runTest {
+        val repo = FakeGuardedDebtRepository()
+        val eventId = "ev-1"
+        val modeId = "settlement-v1"
+        val otherEventId = "ev-2"
+
+        // Pre-populate with debts for both events
+        repo.saveDebt(makeOldDebt(eventId, "p-a"))
+        repo.saveDebt(makeOldDebt(otherEventId, "p-b"))
+
+        // Start apply in background, holding the lock
+        repo.holdApplyUntilReleased = true
+        val debtRepo: DebtRepository = repo
+        val job = launch {
+            debtRepo.applyCalculation(eventId, modeId, emptyList())
+        }
+        delay(100) // Let it acquire the lock
+        assertTrue(repo.isApplyInProgress)
+
+        // fetchAllDebtsFiltered should exclude debts from applying events
+        val fetched = repo.fetchAllDebtsFiltered()
+        assertEquals(1, fetched.size, "Only non-applying event debts should be returned")
+        assertEquals(otherEventId, fetched[0].eventId)
+
+        // Release and verify filter passes all after apply completes
+        repo.releaseApply()
+        job.join()
+
+        val fetchedAfter = repo.fetchAllDebtsFiltered()
+        assertEquals(1, fetchedAfter.size, "After apply, only remaining debt should be returned")
+    }
+
+    @Test
+    fun `fetchAllDebts returns all when no events are applying`() = runTest {
+        val repo = FakeGuardedDebtRepository()
+
+        repo.saveDebt(makeOldDebt("ev-1", "p-a"))
+        repo.saveDebt(makeOldDebt("ev-2", "p-b"))
+        repo.saveDebt(makeOldDebt("ev-3", "p-c"))
+
+        val fetched = repo.fetchAllDebtsFiltered()
+        assertEquals(3, fetched.size, "All debts should be returned when no events are applying")
+    }
+
     // ── Fake implementation ───────────────────────────────────────────────
 
     /**
@@ -431,6 +478,14 @@ class SyncSafeApplyTest {
 
         override suspend fun fetchAllDebts(): List<EventDebtItem> {
             return debts.toList()
+        }
+
+        /**
+         * Mirrors the fetchAllDebts filter in OfflineFirstDebtRepository.startSyncAll():
+         * debts whose eventId is in [applyingEvents] are skipped.
+         */
+        suspend fun fetchAllDebtsFiltered(): List<EventDebtItem> {
+            return debts.filter { it.eventId !in applyingEvents }.toList()
         }
     }
 }
