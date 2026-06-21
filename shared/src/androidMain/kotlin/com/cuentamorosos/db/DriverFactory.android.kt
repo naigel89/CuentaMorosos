@@ -82,16 +82,60 @@ actual class DriverFactory(private val context: Context) {
                     }
                 }
 
-                val debtColumns = mutableSetOf<String>()
+                val debtColumns = mutableListOf<String>()
                 db.rawQuery("PRAGMA table_info(CachedDebt)", null).use { cursor ->
-                    while (cursor.moveToNext()) debtColumns.add(cursor.getString(1))
-                }
-                for (columnDef in listOf("creditorId TEXT")) {
-                    val columnName = columnDef.substringBefore(' ')
-                    if (columnName !in debtColumns) {
-                        println("[DB] Adding missing column: $columnName to CachedDebt")
-                        db.execSQL("ALTER TABLE CachedDebt ADD COLUMN $columnDef")
+                    while (cursor.moveToNext()) {
+                        val colIndex = cursor.getInt(0)  // cid = column index (0-based)
+                        val colName = cursor.getString(1)
+                        debtColumns.add(colName)
+                        println("[DB] CachedDebt column[$colIndex]: $colName")
                     }
+                }
+
+                val expectedDebtOrder = listOf("id", "eventId", "profileId", "creditorId", "amountEuros", "paid", "notes", "calculationMode", "updatedAt")
+                val needsRecreate = debtColumns != expectedDebtOrder
+
+                if (needsRecreate) {
+                    println("[DB] CachedDebt column order is WRONG. Recreating table...")
+                    println("[DB]   Current: $debtColumns")
+                    println("[DB]   Expected: $expectedDebtOrder")
+
+                    // 1. Rename old table
+                    db.execSQL("ALTER TABLE CachedDebt RENAME TO CachedDebt_old")
+
+                    // 2. Create new table with correct column order
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS CachedDebt (
+                            id TEXT NOT NULL PRIMARY KEY,
+                            eventId TEXT NOT NULL,
+                            profileId TEXT NOT NULL,
+                            creditorId TEXT,
+                            amountEuros REAL NOT NULL DEFAULT 0.0,
+                            paid INTEGER NOT NULL DEFAULT 0,
+                            notes TEXT NOT NULL DEFAULT '',
+                            calculationMode TEXT,
+                            updatedAt INTEGER NOT NULL
+                        )
+                    """)
+
+                    // 3. Migrate data with explicit column mapping
+                    val oldCols = debtColumns.joinToString(", ")
+                    val newCols = expectedDebtOrder.joinToString(", ")
+                    // Build column mapping: for each column in the new table,
+                    // find the matching column name in the old table
+                    val colMapping = expectedDebtOrder.joinToString(", ") { col ->
+                        if (col in debtColumns) col else "NULL"
+                    }
+                    db.execSQL("""
+                        INSERT INTO CachedDebt ($newCols)
+                        SELECT $colMapping FROM CachedDebt_old
+                    """)
+
+                    // 4. Drop old table
+                    db.execSQL("DROP TABLE CachedDebt_old")
+                    println("[DB] CachedDebt table recreated successfully")
+                } else {
+                    println("[DB] CachedDebt column order is correct")
                 }
             }
         } catch (e: Exception) {

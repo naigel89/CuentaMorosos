@@ -20,7 +20,7 @@ selectByEvent:
 SELECT * FROM CachedDebt WHERE eventId = ?;
 
 upsert:
-INSERT OR REPLACE INTO CachedDebt
+INSERT OR REPLACE INTO CachedDebt (id, eventId, profileId, creditorId, amountEuros, paid, notes, calculationMode, updatedAt)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteById:
