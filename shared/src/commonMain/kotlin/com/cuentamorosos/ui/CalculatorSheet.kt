@@ -75,7 +75,7 @@ fun CalculatorSheet(
     profiles: List<ProfileItem>,
     eventExpenses: List<EventExpenseItem>,
     onDismiss: () -> Unit,
-    onApply: (modeId: String, CalculationResult) -> Unit,
+    onApply: (modeId: String, CalculationResult, paidTransferIndices: List<Int>) -> Unit,
     _deletedProfileIds: Set<String> = emptySet(),
     _priorSnapshot: CalculationSnapshot? = null,
     currentUserUid: String? = null,
@@ -446,7 +446,7 @@ fun CalculatorSheet(
                         calculationResult?.let { result ->
                             scope.launch { sheetState.hide() }.invokeOnCompletion {
                                 if (!sheetState.isVisible) {
-                                    onApply(selectedModeId, result)
+                                    onApply(selectedModeId, result, paidTransferIndices.toList())
                                 }
                             }
                         }

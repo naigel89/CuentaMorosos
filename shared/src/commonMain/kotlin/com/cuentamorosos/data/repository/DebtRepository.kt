@@ -21,10 +21,14 @@ interface DebtRepository {
      * Atomically replaces all debts for [eventId] with the given [transfers],
      * tagged with [modeId]. Implementations MUST guard against sync-loop
      * interference during the delete+create window.
+     *
+     * @param paidTransferIndices Indices of [transfers] whose debts should be
+     *   marked as paid immediately upon creation. Defaults to empty list (all unpaid).
      */
     suspend fun applyCalculation(
         eventId: String,
         modeId: String,
         transfers: List<SettlementTransfer>,
+        paidTransferIndices: List<Int> = emptyList(),
     )
 }

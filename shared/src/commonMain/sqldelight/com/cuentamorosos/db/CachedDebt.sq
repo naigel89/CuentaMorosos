@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS CachedDebt (
     id TEXT NOT NULL PRIMARY KEY,
     eventId TEXT NOT NULL,
     profileId TEXT NOT NULL,
+    creditorId TEXT,
     amountEuros REAL NOT NULL DEFAULT 0.0,
     paid INTEGER NOT NULL DEFAULT 0,         -- BOOLEAN stored as 0/1
     notes TEXT NOT NULL DEFAULT '',
@@ -20,7 +21,7 @@ SELECT * FROM CachedDebt WHERE eventId = ?;
 
 upsert:
 INSERT OR REPLACE INTO CachedDebt
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteById:
 DELETE FROM CachedDebt WHERE id = ?;

@@ -21,6 +21,7 @@ class SettlementEngineTest {
     )
 
     private fun testExpense(
+        id: String = "exp1",
         eventId: String = "evt1",
         name: String = "Test Expense",
         amountEuros: Double,
@@ -29,6 +30,7 @@ class SettlementEngineTest {
         splitMode: String = "SIMPLE_AVG",
         profileWeights: Map<String, Double> = emptyMap(),
     ) = EventExpenseItem(
+        id = id,
         eventId = eventId,
         name = name,
         amountEuros = amountEuros,
@@ -105,14 +107,15 @@ class SettlementEngineTest {
     // ── CA-10: Micro-amounts ─────────────────────────────────────────────────
 
     @Test
-    fun `micro amount 0_01 split among 3 — remainder goes to first debtor`() {
+    fun `micro amount 0_01 split among 3 — remainder distributed via round-robin seed`() {
         val event = testEvent(memberIds = listOf("A", "B", "C"))
         // A pays 0.01, split equally among A, B, C
-        // calculateEqual: 1 cent / 3 → base 0, remainder 1 → first debtor (A) gets it
+        // 1 cent / 3 → base 0, remainder 1 → distributed round-robin from seed offset
+        // Using id="a" with eventId="evt1" → seed%3=0 → remainder goes to A (index 0)
         // A owes 0.01, B owes 0.00, C owes 0.00
         // A paid 0.01, owes 0.01 → balance 0
         val expenses = listOf(
-            testExpense(amountEuros = 0.01, payerContributions = mapOf("A" to 0.01), debtorIds = listOf("A", "B", "C")),
+            testExpense(id = "a", amountEuros = 0.01, payerContributions = mapOf("A" to 0.01), debtorIds = listOf("A", "B", "C")),
         )
 
         val result = SettlementEngine.calculate(event, expenses)
@@ -285,10 +288,13 @@ class SettlementEngineTest {
         SettlementEngine.CalculationLock.clearAllForTest()
         val event = testEventWithId(id = "evt-rnd", memberIds = listOf("A", "B", "C"))
         // A pays 0.01, split among A, B, C
-        // 1 cent / 3 → base 0, remainder 1 → first debtor (A) gets it
+        // 1 cent / 3 → base 0, remainder 1 → distributed round-robin from seed offset
+        // Using id="e" with eventId="evt-rnd" → seed%3=0 → remainder goes to A (index 0)
         // A: +1 - 1 = 0; B: 0; C: 0 → all zero
         val expenses = listOf(
             testExpense(
+                id = "e",
+                eventId = "evt-rnd",
                 amountEuros = 0.01,
                 payerContributions = mapOf("A" to 0.01),
                 debtorIds = listOf("A", "B", "C"),

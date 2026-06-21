@@ -120,6 +120,7 @@ object MigrationManager {
         "id" to id,
         "eventId" to eventId,
         "profileId" to profileId,
+        "creditorId" to creditorId,
         "amountEuros" to amountEuros,
         "notes" to notes,
         "paid" to paid,

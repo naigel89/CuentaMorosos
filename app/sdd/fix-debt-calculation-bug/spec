@@ -1,0 +1,196 @@
+# Delta Specs: fix-debt-calculation-bug
+
+## Domain: debt-calculation
+
+### ADDED Requirements
+
+#### Requirement 1: Fair Remainder Distribution
+The system MUST distribute remainder cents via round-robin across debtors, seeded by event/item ID for determinism. (Previously: all remainder to index 0, producing outliers like 11.58 when average is 11.548.)
+
+##### Scenario: Five debtors with remainder (57.74€ ÷ 5)
+- GIVEN item 57.74€, 5 debtors, event ID "ev1", item ID "it1"
+- WHEN `SplitCalculator.calculateEqual()` computes equal shares
+- THEN every share is 11.54 or 11.55 (all within 1 cent of average 11.548)
+- AND no share exceeds average + 1 cent
+
+##### Scenario: Pennies with more debtors than cents (0.03€ ÷ 5)
+- GIVEN item 0.03€ and 5 debtors
+- WHEN equal split is computed
+- THEN exactly 3 debtors receive 0.01 and 2 receive 0.00
+- AND total sum equals 0.03€
+
+##### Scenario: Exact division (10.00€ ÷ 2)
+- GIVEN item 10.00€ and 2 debtors
+- WHEN equal split is computed
+- THEN each debtor receives exactly 5.00€
+
+##### Scenario: Deterministic reproducibility
+- GIVEN same event ID, item ID, amount, and debtor list
+- WHEN calculation runs multiple times
+- THEN same indices receive remainder cents every invocation
+
+#### Requirement 2: REAL_CONSUMPTION Settlement Mode
+`SettlementEngine.computeDebtorAmounts()` MUST handle `"real_consumption"` split mode by using `expense.profileWeights` for per-debtor amounts. (Previously: no matching `when` branch, fell through to `else → calculateEqual`.)
+
+##### Scenario: REAL_CONSUMPTION with defined weights
+- GIVEN expense mode `"real_consumption"` with profileWeights {A: 23.50, B: 34.24}
+- WHEN `computeDebtorAmounts(expense)` is called
+- THEN returns {A: 23.50, B: 34.24}
+- AND amounts match CalculatorSheet preview
+
+##### Scenario: REAL_CONSUMPTION with empty weights
+- GIVEN expense mode `"real_consumption"` and empty profileWeights
+- WHEN `computeDebtorAmounts(expense)` is called
+- THEN falls back to equal split among expense.debtorIds
+
+##### Scenario: Weight sum mismatch > 0.02€
+- GIVEN weights sum differs from item total by more than 0.02€
+- WHEN `computeDebtorAmounts(expense)` is called
+- THEN returns declared weights as-is
+- AND emits a warning log with the discrepancy
+
+---
+
+## Domain: debt-sync-integrity
+
+### ADDED Requirements
+
+#### Requirement 3: Sync-Safe Calculation Apply
+`OfflineFirstDebtRepository` MUST guard `applyCalculation()` against sync loop interference by suspending the Firestore snapshot listener's `upsertDebts()` call during the delete+create operation. Uses a coroutine mutex-protected flag with 30s timeout. (Previously: listener could re-introduce old debts mid-operation, creating 64€ artifacts.)
+
+##### Scenario: Apply completes without sync interference
+- GIVEN debts exist in local cache and Firestore for event E
+- WHEN `applyCalculation()` deletes old debts and saves new transfers
+- THEN snapshot listener does NOT call `upsertDebts()` on the local cache while apply is in progress
+- AND local cache contains ONLY debts created by this apply
+- AND zero old debt artifacts remain
+
+##### Scenario: Timeout releases the flag
+- GIVEN `applyCalculation()` exceeds 30 seconds elapsed
+- WHEN timeout fires
+- THEN the apply guard flag is cleared
+- AND snapshot listener resumes normal `upsertDebts()` calls
+- AND a timeout warning is logged
+
+##### Scenario: Concurrent apply serialized via mutex
+- GIVEN `applyCalculation()` is in progress for event E
+- WHEN a second apply for event E is requested
+- THEN the second request suspends until the first completes (coroutine mutex)
+- AND both operations produce consistent state without race conditions
+
+##### Scenario: Normal sync resumes after apply
+- GIVEN apply completed successfully and guard flag is cleared
+- WHEN Firestore snapshot listener emits new remote data
+- THEN `upsertDebts(remoteDebts)` updates local cache normally
+
+#### Requirement 8: Reliable Remote Delete
+`OfflineFirstDebtRepository.deleteAllDebtsForEvent()` MUST ensure remote deletes succeed or are queued for retry via `PendingOperationQueue`. Silently swallowing failures causes old debts to survive on Firestore and be re-fetched as duplicates after `applyCalculation`. (Previously: remote failure was caught and logged but never retried, line 210-213.)
+
+##### Scenario: Remote delete fails, debts not re-fetched
+- GIVEN remote delete for event E fails
+- WHEN `applyCalculation` completes and sync loop emits snapshot
+- THEN old debts are NOT re-fetched from Firestore on next snapshot
+- AND local cache contains only the newly created debts
+
+##### Scenario: Remote delete succeeds
+- GIVEN remote `deleteAllDebtsForEvent(E)` succeeds
+- WHEN sync loop emits snapshot for event E
+- THEN only newly created settlement debts exist on Firestore
+- AND zero old debts are upserted into local cache
+
+##### Scenario: Network unreachable during delete
+- GIVEN remote is unreachable when `deleteAllDebtsForEvent(E)` is called
+- WHEN the call is made
+- THEN local delete succeeds immediately
+- AND a `deleteAll` operation for event E is enqueued in `PendingOperationQueue`
+- AND the queue drains the failed delete on next connectivity
+
+#### Requirement 9: Sync Loop Guard on All Paths
+The `applyingEvents` filter MUST apply to BOTH the snapshot listener AND the `fetchAllDebts()` initial fetch path in `startSyncAll()`. (Previously: only the snapshot listener at line 120 filtered by `applyingEvents`; the one-shot `fetchAllDebts()` at line 107-115 upserted ALL Firestore debts unfiltered, causing stale data to overwrite local changes during sync loop restart.)
+
+##### Scenario: Sync loop restarts during apply
+- GIVEN sync loop restarts while `applyCalculation` is in progress for event E
+- WHEN `fetchAllDebts()` returns Firestore data including old debts for E
+- THEN debts for event E are filtered out before `upsertDebts()`
+- AND local cache is not overwritten with stale Firestore data
+
+##### Scenario: Normal sync loop restart without apply
+- GIVEN no `applyCalculation` is in progress
+- WHEN sync loop restarts and `fetchAllDebts()` returns Firestore data
+- THEN all fetched debts are upserted into local cache normally
+- AND no filtering occurs
+
+---
+
+## Domain: debt-ui
+
+### ADDED Requirements
+
+#### Requirement 4: Multi-Debt Participant Checkboxes
+A profile MAY have multiple debts to different creditors after settlement. The checkbox MUST toggle ALL debts for that profile atomically. (Previously: `onTogglePaid(debt)` toggled only `firstOrNull()` while `isPaid` checked `all`, causing permanently stuck checkboxes.)
+
+| Scenario | GIVEN | WHEN | THEN |
+|---|---|---|---|
+| Multi-debt toggle | Charlie owes Alice €33.33 AND Bob €6.67 | User clicks Charlie's checkbox | ALL Charlie's debts toggle to inverse of current aggregate paid state |
+| Single-debt backward compat | Profile has exactly one debt | User clicks checkbox | That single debt toggles |
+| Uncheck all | All profile debts are paid | User unchecks | All debts become unpaid |
+| Zero debts | Profile has no debts | — | Checkbox is hidden/disabled |
+| Sync immutability | Debts list is updating | User clicks checkbox | Toggle uses immutable snapshot of debts at click time |
+
+#### Requirement 5: Correct Total Display After Settlement
+After calculation is applied, displayed totals MUST reflect the two separate concepts: total expense (immutable event cost) vs. net transfers (settlement amounts). (Previously: `pendingTotal` summed unpaid transfers, displaying a misleading value that differed from total expense.)
+
+| Scenario | GIVEN | WHEN | THEN |
+|---|---|---|---|
+| CALCULATED event total | Event total €100, settlement creates €66.67 net transfers | Viewing CALCULATED event | "Total del evento" shows €100 (from snapshot.totalExpense or lastCalculationTotal) |
+| CALCULATED pending label | Event state is CALCULATED | Viewing event | "Pendiente" is hidden OR relabeled as "Transferencias netas" |
+| OPEN event pending | Event is OPEN, debts are expense-based amounts | Viewing event | "Pendiente" shows sum of unpaid expense debts (current behavior preserved) |
+
+#### Requirement 6: Atomic Apply — Synchronized Debts + Event State
+The apply operation MUST update debts AND event state sequentially in one coroutine, with paidTransferIndices embedded in the result. (Previously: two concurrent coroutines caused race where debts appeared before event state changed, hiding checkboxes; paidTransferIndices were computed in CalculatorSheet but never passed to apply.)
+
+| Scenario | GIVEN | WHEN | THEN |
+|---|---|---|---|
+| Sequential atomic apply | User clicks "Aplicar cálculo" | Apply completes | Debts AND event state (CALCULATED) are updated BEFORE UI recomposes |
+| paidTransferIndices applied | CalculationResult has paidTransferIndices=[0,2] | Apply executes | Transfers at indices 0 and 2 are saved with paid=true |
+| Concurrent apply blocked | Apply in progress for event E | Second apply requested for event E | Second apply serializes behind first (mutex) or is rejected |
+| Auto-scroll after apply | Apply completes and UI updates | EventDetailScreen recomposes | Auto-scrolls to settlement panel (existing behavior preserved) |
+
+---
+
+## Domain: debt-creditor-resolution
+
+### ADDED Requirements
+
+#### Requirement 7: Correct Creditor Resolution
+`resolveEventCreditor()` MUST resolve the creditor from `payerContributions.keys` (multi-payer map), not from the legacy `paidByProfileId` single field. When `creditorId` is null on a debt, the resolver falls back through payer contributions, then event owner, then event ID as last resort. (Previously: line 25 used `it.paidByProfileId` — an arbitrary single-payer field — instead of the multi-payer `payerContributions` map, causing wrong creditor assignment for events with multiple payers.)
+
+##### Scenario: Single payer via payerContributions
+- GIVEN expense has `payerContributions` {Alice: 57.74} and debt.creditorId is null
+- WHEN `resolveEventCreditor()` is called
+- THEN returns ["Alice"] (the actual creditor from payer map)
+- AND does NOT fall back to `paidByProfileId` or event owner
+
+##### Scenario: Multiple payers via payerContributions
+- GIVEN expense has `payerContributions` {Alice: 30, Bob: 27.74} and debt.creditorId is null
+- WHEN `resolveEventCreditor()` is called
+- THEN returns all payers ["Alice", "Bob"] (all distinct non-current-user payers)
+- AND order is deterministic (sorted alphabetically)
+
+##### Scenario: Empty payerContributions — legacy fallback
+- GIVEN expense has empty `payerContributions` but non-empty `paidByProfileId`
+- WHEN `resolveEventCreditor()` is called and debt.creditorId is null
+- THEN falls back to `paidByProfileId` (legacy compatibility)
+- AND only includes IDs that are not blank and not the current user
+
+##### Scenario: Explicit creditorId — direct return
+- GIVEN debt has explicit `creditorId = "Bob"` set
+- WHEN `resolveEventCreditor()` is called
+- THEN returns "Bob" directly
+- AND no fallback resolution is attempted
+
+##### Scenario: No payer info — event owner fallback
+- GIVEN expense has empty `payerContributions` AND empty `paidByProfileId`
+- WHEN `resolveEventCreditor()` is called and debt.creditorId is null
+- THEN returns `event.ownerId` (if non-blank and non-current-user)
+- AND falls back to `eventId` as ultimate last resort

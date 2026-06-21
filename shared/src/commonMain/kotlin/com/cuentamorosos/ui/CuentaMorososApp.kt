@@ -254,7 +254,7 @@ fun CuentaMorososApp(
                         yourShareByEvent[debt.eventId] =
                             (yourShareByEvent[debt.eventId] ?: 0.0) + debt.amountEuros
 
-                        val creditorId = resolveEventCreditor(debt, allExpenses, eventMap, uid)
+                        val creditorId = debt.creditorId ?: resolveEventCreditor(debt, allExpenses, eventMap, uid)
                         creditorAmounts[creditorId] =
                             (creditorAmounts[creditorId] ?: 0.0) + debt.amountEuros
 
@@ -263,8 +263,9 @@ fun CuentaMorososApp(
                             owedToProfileEvents.getOrPut(creditorId) { mutableListOf() }
                                 .add(EventDebt(event.id, event.name, -debt.amountEuros))
                         }
-                    } else {
-                        // Other profile owes
+                    } else if (debt.creditorId == uid || debt.creditorId == null) {
+                        // Other profile owes current user (explicit creditorId)
+                        // Legacy debts (no creditorId): preserved for backward compat
                         activeTotalsByProfile[debt.profileId] =
                             (activeTotalsByProfile[debt.profileId] ?: 0.0) + debt.amountEuros
                         youAreOwedByEvent[debt.eventId] =
@@ -441,13 +442,11 @@ fun CuentaMorososApp(
                                 feedbackMessage = "Importe y notas actualizados."
                             },
                             onTogglePaid = { debt ->
-                                eventDetailViewModel.saveDebt(
-                                    debt.copy(paid = !debt.paid)
-                                )
+                                eventDetailViewModel.saveDebt(debt)
                                 feedbackMessage = if (debt.paid) {
-                                    "El perfil vuelve a pendientes."
-                                } else {
                                     "Perfil movido a Han pagado."
+                                } else {
+                                    "El perfil vuelve a pendientes."
                                 }
                             },
                             onRemoveDebt = { debtId ->
@@ -462,46 +461,17 @@ fun CuentaMorososApp(
                                 eventDetailViewModel.deleteExpense(currentEvent.id, expenseId)
                                 feedbackMessage = "Ítem eliminado del evento."
                             },
-                            onApplyCalculation = { modeId, result ->
-                                val eventEntries = debts.filter { it.eventId == currentEvent.id }
-                                val balances = result.snapshot?.participantBalances ?: emptyMap()
+                            onApplyCalculation = { modeId, result, paidTransferIndices ->
+                                val transfers = result.snapshot?.transfers ?: emptyList()
 
-                                // Pass 1: update existing debts
-                                eventEntries.forEach { debt ->
-                                    val balance = balances[debt.profileId] ?: 0.0
-                                    val amount = if (balance < 0) -balance else 0.0
-                                    eventDetailViewModel.saveDebt(
-                                        debt.copy(
-                                            amountEuros = amount,
-                                            calculationMode = modeId
-                                        )
-                                    )
-                                }
-
-                                // Pass 2: create debts for profiles in balances without existing entries
-                                val existingProfileIds = eventEntries.map { it.profileId }.toSet()
-                                balances.forEach { (profileId, balance) ->
-                                    if (profileId !in existingProfileIds) {
-                                        val amount = if (balance < 0) -balance else 0.0
-                                        eventDetailViewModel.saveDebt(
-                                            EventDebtItem(
-                                                eventId = currentEvent.id,
-                                                profileId = profileId,
-                                                amountEuros = amount,
-                                                calculationMode = modeId
-                                            )
-                                        )
-                                    }
-                                }
-
-                                eventsViewModel.saveEvent(
-                                    currentEvent.copy(
-                                        lastCalculationMode = modeId,
-                                        lastCalculationTotal = result.snapshot?.totalExpense,
-                                        lastCalculationTimestamp = currentTimeMillis(),
-                                        lastCalculationSummary = result.snapshot?.toJson(),
-                                        state = EventState.CALCULATED,
-                                    )
+                                // Fix 6: Single sequential coroutine — debts THEN event state
+                                eventDetailViewModel.applyCalculationSequential(
+                                    eventId = currentEvent.id,
+                                    modeId = modeId,
+                                    transfers = transfers,
+                                    paidTransferIndices = paidTransferIndices,
+                                    event = currentEvent,
+                                    result = result,
                                 )
                                 feedbackMessage = "Cálculo aplicado al evento."
                                 // Celebration: set showCelebration = true SYNCHRONOUSLY (not inside

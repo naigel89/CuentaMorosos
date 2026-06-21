@@ -153,7 +153,8 @@ class RepositoryProvider(
                     .executeAsOneOrNull()?.let { d ->
                         EventDebtItem(
                             id = d.id, eventId = d.eventId,
-                            profileId = d.profileId, amountEuros = d.amountEuros,
+                            profileId = d.profileId, creditorId = d.creditorId,
+                            amountEuros = d.amountEuros,
                             notes = d.notes, paid = d.paid == 1L,
                             calculationMode = d.calculationMode
                         )

@@ -205,6 +205,78 @@ class SyncSafeApplyTest {
         assertTrue(!repo.isApplyInProgress, "Flag should be released after timeout")
     }
 
+    // ── Test 6: paidTransferIndices are saved correctly (Fix 6) ─────────
+
+    @Test
+    fun `paidTransferIndices are applied to correct debts`() = runTest {
+        val repo = FakeGuardedDebtRepository()
+        val eventId = "ev-1"
+        val modeId = "settlement-v1"
+
+        val transfers = listOf(
+            makeTransfer("p-a", "p-b", 50.0),
+            makeTransfer("p-c", "p-d", 30.0),
+            makeTransfer("p-e", "p-f", 20.0),
+        )
+        val paidTransferIndices = listOf(0, 2) // first and third transfers are paid
+
+        val debtRepo: DebtRepository = repo
+        debtRepo.applyCalculation(eventId, modeId, transfers, paidTransferIndices)
+
+        val result = repo.fetchDebtsForEvent(eventId)
+        assertEquals(3, result.size, "Three debts should exist")
+
+        // Transfer at index 0 (p-a → p-b) should be paid
+        val debt0 = result.find { it.profileId == "p-a" }
+        assert(debt0 != null) { "Debt for p-a should exist" }
+        assert(debt0!!.paid) { "Transfer index 0 should be paid" }
+
+        // Transfer at index 1 (p-c → p-d) should NOT be paid
+        val debt1 = result.find { it.profileId == "p-c" }
+        assert(debt1 != null) { "Debt for p-c should exist" }
+        assert(!debt1!!.paid) { "Transfer index 1 should NOT be paid" }
+
+        // Transfer at index 2 (p-e → p-f) should be paid
+        val debt2 = result.find { it.profileId == "p-e" }
+        assert(debt2 != null) { "Debt for p-e should exist" }
+        assert(debt2!!.paid) { "Transfer index 2 should be paid" }
+    }
+
+    @Test
+    fun `empty paidTransferIndices leaves all debts unpaid`() = runTest {
+        val repo = FakeGuardedDebtRepository()
+        val eventId = "ev-1"
+        val modeId = "settlement-v1"
+
+        val transfers = listOf(
+            makeTransfer("p-a", "p-b", 50.0),
+            makeTransfer("p-c", "p-d", 30.0),
+        )
+
+        val debtRepo: DebtRepository = repo
+        debtRepo.applyCalculation(eventId, modeId, transfers, emptyList())
+
+        val result = repo.fetchDebtsForEvent(eventId)
+        assertEquals(2, result.size)
+        assert(result.all { !it.paid }) { "All debts should be unpaid with empty paidTransferIndices" }
+    }
+
+    @Test
+    fun `default paidTransferIndices leaves all debts unpaid`() = runTest {
+        val repo = FakeGuardedDebtRepository()
+        val eventId = "ev-1"
+        val modeId = "settlement-v1"
+
+        val transfers = listOf(makeTransfer("p-a", "p-b", 50.0))
+
+        val debtRepo: DebtRepository = repo
+        debtRepo.applyCalculation(eventId, modeId, transfers) // no paidTransferIndices param
+
+        val result = repo.fetchDebtsForEvent(eventId)
+        assertEquals(1, result.size)
+        assert(!result[0].paid) { "Default paidTransferIndices should leave debt unpaid" }
+    }
+
     // ── Test 5: Normal sync resumes after apply completes ────────────────
 
     @Test
@@ -281,6 +353,7 @@ class SyncSafeApplyTest {
             eventId: String,
             modeId: String,
             transfers: List<SettlementTransfer>,
+            paidTransferIndices: List<Int>,
         ) {
             val effectiveTimeout = if (timeoutOverrideMs > 0) timeoutOverrideMs else 30_000L
             applyMutex.withLock {
@@ -301,8 +374,8 @@ class SyncSafeApplyTest {
                             delay(applyDelayMs)
                         }
 
-                        // Create new debts from transfers
-                        transfers.forEach { transfer ->
+                        // Create new debts from transfers with paidTransferIndices
+                        transfers.forEachIndexed { index, transfer ->
                             debts.add(
                                 EventDebtItem(
                                     eventId = eventId,
@@ -310,6 +383,7 @@ class SyncSafeApplyTest {
                                     creditorId = transfer.toProfileId,
                                     amountEuros = transfer.amount,
                                     calculationMode = modeId,
+                                    paid = index in paidTransferIndices,
                                 )
                             )
                         }

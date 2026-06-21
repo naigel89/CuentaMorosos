@@ -345,10 +345,11 @@ object SettlementEngine {
      * Computes how much each debtor owes for a single expense,
      * based on its split mode.
      */
-    private fun computeDebtorAmounts(expense: EventExpenseItem): Map<String, Double> {
+    internal fun computeDebtorAmounts(expense: EventExpenseItem): Map<String, Double> {
+        val seed = expense.id.hashCode() xor expense.eventId.hashCode()
         return when (expense.splitMode) {
             "SIMPLE_AVG" -> {
-                SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds)
+                SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
             }
             "CUSTOM_PERCENTAGE" -> {
                 SplitCalculator.calculatePercentage(expense.amountEuros, expense.profileWeights)
@@ -357,7 +358,7 @@ object SettlementEngine {
                 if (expense.profileWeights.isNotEmpty()) {
                     SplitCalculator.calculateExact(expense.amountEuros, expense.profileWeights)
                 } else {
-                    SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds)
+                    SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
                 }
             }
             "PARTS" -> {
@@ -365,10 +366,22 @@ object SettlementEngine {
                 if (parts.isNotEmpty()) {
                     SplitCalculator.calculateParts(expense.amountEuros, parts)
                 } else {
-                    SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds)
+                    SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
                 }
             }
-            else -> SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds)
+            "REAL_CONSUMPTION" -> {
+                if (expense.profileWeights.isNotEmpty()) {
+                    val weightSum = expense.profileWeights.values.sum()
+                    val diff = kotlin.math.abs(weightSum - expense.amountEuros)
+                    if (diff > 0.02) {
+                        println("[SettlementEngine] REAL_CONSUMPTION weight sum (${weightSum}) differs from item total (${expense.amountEuros}) by ${diff}")
+                    }
+                    expense.profileWeights
+                } else {
+                    SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
+                }
+            }
+            else -> SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
         }
     }
 }

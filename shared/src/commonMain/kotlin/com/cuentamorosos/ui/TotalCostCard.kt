@@ -15,17 +15,55 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.formatEuros
+
+// Fix 5: Pure functions for total display logic ────────────────────────────────
+
+/**
+ * Returns the label for the "pending" row based on event state.
+ * - OPEN: "Pendiente" (current behavior)
+ * - CALCULATED/CLOSED: "Transferencias netas" (settlement transfers, not debts)
+ */
+internal fun computeTotalDisplayLabel(eventState: EventState): String {
+    return when (eventState) {
+        EventState.OPEN -> "Pendiente"
+        EventState.CALCULATED, EventState.CLOSED -> "Transferencias netas"
+    }
+}
+
+/**
+ * Returns the total amount to display as the main "TOTAL DEL EVENTO" value.
+ * - CALCULATED: uses [calculationTotal] (from snapshot) when available,
+ *   falls back to [totalExpenses]
+ * - OPEN/CLOSED: uses [totalExpenses] (immutable event cost)
+ */
+internal fun computeTotalAmountForDisplay(
+    eventState: EventState,
+    totalExpenses: Double,
+    calculationTotal: Double?,
+): Double {
+    return when (eventState) {
+        EventState.CALCULATED -> calculationTotal ?: totalExpenses
+        EventState.OPEN, EventState.CLOSED -> totalExpenses
+    }
+}
+
+// ── Composable ────────────────────────────────────────────────────────────────
 
 /**
  * Compact total cost card for the EventDetail header.
  * Shows the total event cost prominently with a neon green accent.
+ * Fix 5: Accepts [eventState] and [calculationTotal] to correctly display
+ * post-settlement totals.
  */
 @Composable
 fun TotalCostCard(
     totalExpenses: Double,
     totalPending: Double,
     expenseCount: Int,
+    eventState: EventState = EventState.OPEN,
+    calculationTotal: Double? = null,
 ) {
     val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
@@ -48,8 +86,9 @@ fun TotalCostCard(
                 color = themeColors.onSurfaceVariant,
                 fontWeight = FontWeight.Medium,
             )
+            val displayTotal = computeTotalAmountForDisplay(eventState, totalExpenses, calculationTotal)
             Text(
-                text = formatEuros(totalExpenses),
+                text = formatEuros(displayTotal),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = colors.primaryContainer,
@@ -71,7 +110,8 @@ fun TotalCostCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("Pendiente", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                val pendingLabel = computeTotalDisplayLabel(eventState)
+                Text(pendingLabel, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 Text(
                     formatEuros(totalPending),
                     style = MaterialTheme.typography.bodySmall,

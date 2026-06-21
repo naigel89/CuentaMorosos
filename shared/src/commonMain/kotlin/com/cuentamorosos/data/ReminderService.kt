@@ -48,25 +48,9 @@ object ReminderService {
                 if (eventAge < thresholdMillis) return@forEach
 
                 pendingDebts.forEach { debt ->
-                    if (debt.profileId != currentUserUid) {
-                        // Debt owed TO current user ("te debe")
-                        val profile = profileMap[debt.profileId]
-                        val profileName = profile?.displayName ?: profile?.name ?: debt.profileId
-
-                        add(
-                            ReminderMessage(
-                                title = "Pendientes en ${event.name}",
-                                body = "$profileName te debe ${formatEuros(debt.amountEuros)}",
-                                type = ReminderType.PENDING_DEBT,
-                                eventId = event.id,
-                                profileName = profileName,
-                                amountEuros = debt.amountEuros,
-                                isOwedToYou = true,
-                            )
-                        )
-                    } else {
+                    if (debt.profileId == currentUserUid) {
                         // Debt owed BY current user ("debes a")
-                        val creditorId = resolveEventCreditor(debt, expenses, eventMap, currentUserUid)
+                        val creditorId = debt.creditorId ?: resolveEventCreditor(debt, expenses, eventMap, currentUserUid)
                         val creditorProfile = profileMap[creditorId]
                         val profileName = creditorProfile?.displayName ?: creditorProfile?.name ?: creditorId
 
@@ -79,6 +63,24 @@ object ReminderService {
                                 profileName = profileName,
                                 amountEuros = debt.amountEuros,
                                 isOwedToYou = false,
+                            )
+                        )
+                    } else if (debt.creditorId == currentUserUid || debt.creditorId == null) {
+                        // Debt owed TO current user ("te debe")
+                        // New debts: verified via creditorId. Legacy debts (no creditorId):
+                        // preserved for backward compat, gets fixed on next recalculation.
+                        val profile = profileMap[debt.profileId]
+                        val profileName = profile?.displayName ?: profile?.name ?: debt.profileId
+
+                        add(
+                            ReminderMessage(
+                                title = "Pendientes en ${event.name}",
+                                body = "$profileName te debe ${formatEuros(debt.amountEuros)}",
+                                type = ReminderType.PENDING_DEBT,
+                                eventId = event.id,
+                                profileName = profileName,
+                                amountEuros = debt.amountEuros,
+                                isOwedToYou = true,
                             )
                         )
                     }

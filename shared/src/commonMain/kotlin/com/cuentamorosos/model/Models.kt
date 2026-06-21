@@ -158,6 +158,7 @@ data class EventDebtItem(
     val id: String = generateUuid(),
     val eventId: String,
     val profileId: String,
+    val creditorId: String? = null,
     val amountEuros: Double = 0.0,
     val notes: String = "",
     val paid: Boolean = false,

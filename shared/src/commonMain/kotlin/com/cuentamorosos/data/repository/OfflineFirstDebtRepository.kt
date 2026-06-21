@@ -217,13 +217,14 @@ class OfflineFirstDebtRepository(
         eventId: String,
         modeId: String,
         transfers: List<SettlementTransfer>,
+        paidTransferIndices: List<Int>,
     ) {
         withTimeoutOrNull(30_000L) {
             applyMutex.withLock {
                 applyingEvents.add(eventId)
                 try {
                     deleteAllDebtsForEvent(eventId)
-                    transfers.forEach { transfer ->
+                    transfers.forEachIndexed { index, transfer ->
                         saveDebt(
                             EventDebtItem(
                                 eventId = eventId,
@@ -231,6 +232,7 @@ class OfflineFirstDebtRepository(
                                 creditorId = transfer.toProfileId,
                                 amountEuros = transfer.amount,
                                 calculationMode = modeId,
+                                paid = index in paidTransferIndices,
                             )
                         )
                     }

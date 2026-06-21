@@ -81,6 +81,18 @@ actual class DriverFactory(private val context: Context) {
                         db.execSQL("ALTER TABLE CachedProfile_new RENAME TO CachedProfile")
                     }
                 }
+
+                val debtColumns = mutableSetOf<String>()
+                db.rawQuery("PRAGMA table_info(CachedDebt)", null).use { cursor ->
+                    while (cursor.moveToNext()) debtColumns.add(cursor.getString(1))
+                }
+                for (columnDef in listOf("creditorId TEXT")) {
+                    val columnName = columnDef.substringBefore(' ')
+                    if (columnName !in debtColumns) {
+                        println("[DB] Adding missing column: $columnName to CachedDebt")
+                        db.execSQL("ALTER TABLE CachedDebt ADD COLUMN $columnDef")
+                    }
+                }
             }
         } catch (e: Exception) {
             println("[DB] Failed to ensure columns: ${e.message}. Deleting database.")

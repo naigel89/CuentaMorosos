@@ -116,10 +116,12 @@ class DashboardViewModel(
 
     /**
      * Splits debts into two groups:
-     * 1. **owedToYou** — debts where OTHERS owe the current user (profileId != currentUserUid).
-     *    Grouped by debtor profile (the person who owes you).
+     * 1. **owedToYou** — debts where the current user is the creditor.
+     *    Uses [EventDebtItem.creditorId] when available; falls back to heuristic
+     *    for legacy debts (no creditorId set).
      * 2. **youOwe** — debts where the current user OWES others (profileId == currentUserUid).
-     *    Resolves the creditor from expenses (paidByProfileId), then groups by that person.
+     *    Uses [EventDebtItem.creditorId] directly for the creditor; falls back to
+     *    [resolveEventCreditor] for legacy debts.
      */
     private fun computeProfileBreakdown(
         debts: List<EventDebtItem>,
@@ -129,8 +131,12 @@ class DashboardViewModel(
         currentUserUid: String,
     ): Pair<List<DebtBreakdownItem>, List<DebtBreakdownItem>> {
         // ── "Te deben" — others owe you ──
+        // New debts: creditorId == currentUserUid (explicit creditor)
+        // Legacy debts (creditorId == null): preserve old behaviour temporarily,
+        // they get replaced with explicit debts on next recalculation.
         val owedToYou = debts
             .filter { !it.paid && it.profileId != currentUserUid && it.amountEuros > 0.0 }
+            .filter { it.creditorId == currentUserUid || it.creditorId == null }
             .groupBy { it.profileId }
             .map { (profileId, profileDebts) ->
                 val profile = profileMap[profileId]
@@ -153,10 +159,10 @@ class DashboardViewModel(
         // ── "Debes" — you owe others ──
         val youOweDebts = debts.filter { !it.paid && it.profileId == currentUserUid && it.amountEuros > 0.0 }
 
-        // Build a map: expense paidByProfileId → total amount owed
+        // Use creditorId directly when available, fall back to resolver for legacy debts
         val creditorAmounts = mutableMapOf<String, Double>()
         for (debt in youOweDebts) {
-            val creditorId = resolveEventCreditor(debt, expenses, eventMap, currentUserUid)
+            val creditorId = debt.creditorId ?: resolveEventCreditor(debt, expenses, eventMap, currentUserUid)
             creditorAmounts[creditorId] = (creditorAmounts[creditorId] ?: 0.0) + debt.amountEuros
         }
 
@@ -165,9 +171,8 @@ class DashboardViewModel(
             val name = profile?.name
                 ?: eventMap[creditorId]?.name
                 ?: "Desconocido"
-            // Attach event info for the detail view
             val relatedDebts = youOweDebts.filter { debt ->
-                resolveEventCreditor(debt, expenses, eventMap, currentUserUid) == creditorId
+                (debt.creditorId ?: resolveEventCreditor(debt, expenses, eventMap, currentUserUid)) == creditorId
             }
             DebtBreakdownItem(
                 profileId = creditorId,
@@ -268,11 +273,12 @@ internal fun buildUnifiedBreakdown(
 /**
  * Calculates the total amount owed TO the current user by other profiles.
  *
- * Excludes:
- * - Paid debts (settled)
- * - Debts where [currentUserUid] is the debtor (those belong to `totalYouOwe`)
+ * Uses [EventDebtItem.creditorId] when available:
+ * - Explicit creditor = currentUserUid → included
+ * - Explicit creditor != currentUserUid → excluded (debt is owed to someone else)
+ * - Legacy debts (creditorId == null) → included for backward compatibility
  *
- * Only unpaid debts from profiles OTHER than the current user are counted.
+ * Paid debts are always excluded.
  */
 internal fun calculateTotalOwedToYou(
     debts: List<EventDebtItem>,
@@ -280,5 +286,6 @@ internal fun calculateTotalOwedToYou(
 ): Double {
     return debts
         .filter { !it.paid && it.profileId != currentUserUid && it.amountEuros > 0.0 }
+        .filter { it.creditorId == currentUserUid || it.creditorId == null }
         .sumOf { it.amountEuros }
 }

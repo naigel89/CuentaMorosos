@@ -220,7 +220,7 @@ private class FakeDebtRepository(
     override suspend fun replaceProfileId(oldId: String, newId: String) {}
     override suspend fun fetchDebtsForEvent(eventId: String): List<EventDebtItem> = flow.value
     override suspend fun fetchAllDebts(): List<EventDebtItem> = flow.value
-    override suspend fun applyCalculation(eventId: String, modeId: String, transfers: List<SettlementTransfer>) {}
+    override suspend fun applyCalculation(eventId: String, modeId: String, transfers: List<SettlementTransfer>, paidTransferIndices: List<Int>) {}
 }
 
 private class FakeExpenseRepository(

@@ -85,7 +85,7 @@ fun EventDetailScreen(
     onRemoveDebt: (String) -> Unit,
     onSaveExpense: (EventExpenseItem) -> Unit,
     onRemoveExpense: (String) -> Unit,
-    onApplyCalculation: (modeId: String, CalculationResult) -> Unit,
+    onApplyCalculation: (modeId: String, CalculationResult, paidTransferIndices: List<Int>) -> Unit,
     onInviteMember: (String) -> Unit,
     _onRemoveMember: (String) -> Unit,
     scrollState: ScrollState,
@@ -207,6 +207,8 @@ fun EventDetailScreen(
                         totalExpenses = eventExpenseTotal,
                         totalPending = pendingTotal,
                         expenseCount = eventExpenses.size,
+                        eventState = event.state,
+                        calculationTotal = event.lastCalculationTotal,
                     )
 
                     ExpensesList(
@@ -344,9 +346,9 @@ fun EventDetailScreen(
             profiles = eventParticipants,
             eventExpenses = eventExpenses,
             onDismiss = { showQuickSplitDialog = false },
-            onApply = { modeId, calculationResult ->
+            onApply = { modeId, calculationResult, paidTransferIndices ->
                 showQuickSplitDialog = false
-                onApplyCalculation(modeId, calculationResult)
+                onApplyCalculation(modeId, calculationResult, paidTransferIndices)
             },
             _deletedProfileIds = deletedProfileIds,
             _priorSnapshot = null, // Prior snapshot not yet persisted — future enhancement

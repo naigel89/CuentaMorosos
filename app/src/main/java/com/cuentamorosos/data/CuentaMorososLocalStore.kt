@@ -179,6 +179,7 @@ class CuentaMorososLocalStore(context: Context) {
                 id = id,
                 eventId = eventId,
                 profileId = profileId,
+                creditorId = item.optString("creditorId").takeIf { it.isNotBlank() },
                 amountEuros = item.optDouble("amountEuros", 0.0),
                 notes = item.optString("notes"),
                 paid = item.optBoolean("paid", false),
@@ -200,6 +201,7 @@ class CuentaMorososLocalStore(context: Context) {
                         .put("paid", debt.paid)
                         .apply {
                             debt.calculationMode?.let { put("calculationMode", it) }
+                            debt.creditorId?.let { put("creditorId", it) }
                         }
                 )
             }

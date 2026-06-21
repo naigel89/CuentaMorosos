@@ -39,6 +39,58 @@ import com.cuentamorosos.model.formatEuros
 import com.cuentamorosos.model.toCalculationSnapshot
 
 /**
+ * Checkbox state for a profile's debts in the settlement panel.
+ */
+data class ProfileCheckState(
+    val hasDebt: Boolean,
+    val isPaid: Boolean,
+)
+
+/**
+ * Computes the display state of a profile's checkbox from their debts.
+ * A profile "has debt" if the list is non-empty. A profile is "paid"
+ * only when ALL their debts are paid.
+ */
+internal fun computeProfileCheckState(
+    profileDebts: List<EventDebtItem>,
+): ProfileCheckState {
+    val hasDebt = profileDebts.isNotEmpty()
+    val isPaid = hasDebt && profileDebts.all { it.paid }
+    return ProfileCheckState(hasDebt, isPaid)
+}
+
+/**
+ * Whether the checkbox should be shown for a profile.
+ * Visible only when the profile has debts AND the event is not OPEN.
+ */
+internal fun computeShouldShowCheckbox(
+    profileDebts: List<EventDebtItem>,
+    eventState: EventState,
+): Boolean {
+    return profileDebts.isNotEmpty() && eventState != EventState.OPEN
+}
+
+/**
+ * Computes the list of debts after toggling ALL profile debts atomically.
+ * Uses an immutable snapshot of the list to prevent concurrent modification issues.
+ *
+ * The returned debts have the new paid state pre-computed. The caller
+ * iterates and calls onTogglePaid for each one.
+ *
+ * @return A snapshot-based list where each debt has `paid = !isAllPaid`.
+ *         Empty list when [profileDebts] is empty.
+ */
+internal fun computeMultiDebtToggleActions(
+    profileDebts: List<EventDebtItem>,
+): List<EventDebtItem> {
+    if (profileDebts.isEmpty()) return emptyList()
+    val snapshot = profileDebts.toList()
+    val isAllPaid = snapshot.all { it.paid }
+    val newPaid = !isAllPaid
+    return snapshot.map { it.copy(paid = newPaid) }
+}
+
+/**
  * Formats a euro amount with comma as decimal separator (Spanish locale style).
  * E.g., 23.0 → "23,00", 13.5 → "13,50".
  */
@@ -223,16 +275,18 @@ fun SettlementPanel(
                     eventMembers.forEach { profile ->
                         val profileDebts = debts.filter { it.profileId == profile.id }
                         val totalOwed = profileDebts.filter { !it.paid }.sumOf { it.amountEuros }
-                        val hasDebt = profileDebts.isNotEmpty()
-                        val isPaid = profileDebts.all { it.paid } && profileDebts.isNotEmpty()
-                        val debt = profileDebts.firstOrNull()
+                        val checkState = computeProfileCheckState(profileDebts)
+                        val showCheckbox = computeShouldShowCheckbox(profileDebts, eventState)
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
                                 .then(
-                                    if (hasDebt && eventState != EventState.OPEN) Modifier.clickable { debt?.let { onTogglePaid(it) } }
+                                    if (showCheckbox) Modifier.clickable {
+                                        val toggled = computeMultiDebtToggleActions(profileDebts)
+                                        toggled.forEach { onTogglePaid(it) }
+                                    }
                                     else Modifier
                                 ),
                             verticalAlignment = Alignment.CenterVertically,
@@ -242,11 +296,14 @@ fun SettlementPanel(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                // Checkbox (only if has debt and event is not OPEN)
-                                if (hasDebt && eventState != EventState.OPEN) {
+                                // Checkbox (Fix 4: toggles ALL debts atomically)
+                                if (showCheckbox) {
                                     Checkbox(
-                                        checked = isPaid,
-                                        onCheckedChange = { debt?.let { onTogglePaid(it) } },
+                                        checked = checkState.isPaid,
+                                        onCheckedChange = {
+                                            val toggled = computeMultiDebtToggleActions(profileDebts)
+                                            toggled.forEach { onTogglePaid(it) }
+                                        },
                                     )
                                 }
 
@@ -288,7 +345,7 @@ fun SettlementPanel(
                                             fontWeight = FontWeight.Medium,
                                             fontFamily = JetBrainsMonoFontFamily(),
                                         )
-                                    } else if (isPaid) {
+                                    } else if (checkState.isPaid) {
                                         Text(
                                             text = "Pagado ✓",
                                             style = MaterialTheme.typography.bodySmall,

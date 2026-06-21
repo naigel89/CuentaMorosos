@@ -2,8 +2,10 @@ package com.cuentamorosos.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cuentamorosos.currentTimeMillis
 import com.cuentamorosos.data.repository.DebtRepository
 import com.cuentamorosos.data.repository.EventRepository
+import com.cuentamorosos.model.toJson
 import com.cuentamorosos.data.repository.ExpenseRepository
 import com.cuentamorosos.model.CalculationResult
 import com.cuentamorosos.model.EventAction
@@ -139,9 +141,40 @@ class EventDetailViewModel(
         eventId: String,
         modeId: String,
         transfers: List<SettlementTransfer>,
+        paidTransferIndices: List<Int> = emptyList(),
     ) {
         viewModelScope.launch {
-            debtRepository.applyCalculation(eventId, modeId, transfers)
+            debtRepository.applyCalculation(eventId, modeId, transfers, paidTransferIndices)
+        }
+    }
+
+    /**
+     * Applies calculation and saves event state sequentially in a single coroutine.
+     * Fix 6: Ensures debts are saved BEFORE the event state is updated to CALCULATED,
+     * preventing race conditions where debts appear but the event state is still OPEN.
+     */
+    fun applyCalculationSequential(
+        eventId: String,
+        modeId: String,
+        transfers: List<SettlementTransfer>,
+        paidTransferIndices: List<Int>,
+        event: EventItem,
+        result: CalculationResult,
+    ) {
+        viewModelScope.launch {
+            // Step 1: Apply debts (sequential, guarded by repository's mutex)
+            debtRepository.applyCalculation(eventId, modeId, transfers, paidTransferIndices)
+
+            // Step 2: Save event state (sequential after debts complete)
+            eventRepository.saveEvent(
+                event.copy(
+                    lastCalculationMode = modeId,
+                    lastCalculationTotal = result.snapshot?.totalExpense,
+                    lastCalculationTimestamp = currentTimeMillis(),
+                    lastCalculationSummary = result.snapshot?.toJson(),
+                    state = EventState.CALCULATED,
+                )
+            )
         }
     }
 
@@ -313,6 +346,18 @@ class EventDetailViewModel(
                 val parts = expense.profileWeights.mapValues { (_, v) -> v.toInt() }
                 if (parts.isNotEmpty()) {
                     SplitCalculator.calculateParts(expense.amountEuros, parts)
+                } else {
+                    SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
+                }
+            }
+            "REAL_CONSUMPTION" -> {
+                if (expense.profileWeights.isNotEmpty()) {
+                    val weightSum = expense.profileWeights.values.sum()
+                    val diff = kotlin.math.abs(weightSum - expense.amountEuros)
+                    if (diff > 0.02) {
+                        println("[EventDetailVM] REAL_CONSUMPTION weight sum (${weightSum}) differs from item total (${expense.amountEuros}) by ${diff}")
+                    }
+                    expense.profileWeights
                 } else {
                     SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
                 }

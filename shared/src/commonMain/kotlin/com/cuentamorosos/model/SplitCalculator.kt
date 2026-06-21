@@ -11,19 +11,26 @@ object SplitCalculator {
 
     /**
      * SM-01: IGUAL — Equal split among debtors.
-     * Remainder cents go to the first debtor.
+     * Remainder cents are distributed via round-robin starting from
+     * [seed] % debtorCount offset. seed=0 (default) starts at the
+     * first debtor, preserving backward compatibility with tests.
      */
     fun calculateEqual(
         total: Double,
         debtorIds: List<String>,
+        seed: Int = 0,
     ): Map<String, Double> {
         require(debtorIds.isNotEmpty()) { "Debe haber al menos un deudor para repartir" }
         val totalCents = (total * 100).roundToInt()
         val baseCents = totalCents / debtorIds.size
         val remainderCents = totalCents % debtorIds.size
 
+        val startIndex = seed.mod(debtorIds.size)
+
         return debtorIds.mapIndexed { index, id ->
-            val assignedCents = baseCents + if (index == 0) remainderCents else 0
+            val offset = (index - startIndex).mod(debtorIds.size)
+            val getsExtra = offset < remainderCents
+            val assignedCents = baseCents + if (getsExtra) 1 else 0
             id to assignedCents / 100.0
         }.toMap()
     }

@@ -93,9 +93,10 @@ class FirestoreDebtRepository : DebtRepository {
         eventId: String,
         modeId: String,
         transfers: List<SettlementTransfer>,
+        paidTransferIndices: List<Int>,
     ) {
         deleteAllDebtsForEvent(eventId)
-        transfers.forEach { transfer ->
+        transfers.forEachIndexed { index, transfer ->
             saveDebt(
                 EventDebtItem(
                     eventId = eventId,
@@ -103,6 +104,7 @@ class FirestoreDebtRepository : DebtRepository {
                     creditorId = transfer.toProfileId,
                     amountEuros = transfer.amount,
                     calculationMode = modeId,
+                    paid = index in paidTransferIndices,
                 )
             )
         }
