@@ -176,6 +176,16 @@ object SettlementEngine {
         val totalExpenseCents = expenses.sumOf { (it.amountEuros * 100).roundToInt() }
         val balancesAsDoubles = balances.mapValues { it.value / 100.0 }
 
+        println("🔍 [SettlementEngine] === CALCULATION RESULT ===")
+        println("🔍   transfers: ${transfers.size}")
+        transfers.forEach { t ->
+            println("🔍   transfer: ${t.fromProfileId} -> ${t.toProfileId} ${t.amount}€")
+        }
+        println("🔍   totalExpenseCents=$totalExpenseCents -> euros=${totalExpenseCents / 100.0}")
+        println("🔍   balances=$balancesAsDoubles")
+        val totalTransferAmount = transfers.sumOf { it.amount }
+        println("🔍   sum(transfers.amount)=$totalTransferAmount")
+
         val snapshot = CalculationSnapshot(
             transfers = transfers,
             totalExpense = totalExpenseCents / 100.0,

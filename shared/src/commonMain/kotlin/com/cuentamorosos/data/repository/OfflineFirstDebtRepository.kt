@@ -238,23 +238,48 @@ class OfflineFirstDebtRepository(
         transfers: List<SettlementTransfer>,
         paidTransferIndices: List<Int>,
     ) {
+        println("🔍 [applyCalculation] eventId=$eventId transfers=${transfers.size}")
+        transfers.forEachIndexed { i, t ->
+            println("🔍   transfer[$i]: from=${t.fromProfileId} to=${t.toProfileId} amount=${t.amount}")
+        }
+        println("🔍 [applyCalculation] paidTransferIndices=$paidTransferIndices")
+
+        var totalBefore = 0.0
+        var totalAfter = 0.0
+        val before = queries.selectByEvent(eventId).executeAsList()
+        println("🔍 [applyCalculation] debts BEFORE delete: ${before.size}")
+        before.forEach { d ->
+            println("🔍   debt: ${d.profileId} -> ${d.creditorId} amount=${d.amountEuros} paid=${d.paid}")
+            totalBefore += d.amountEuros
+        }
+        println("🔍 [applyCalculation] totalBefore=$totalBefore")
+
         withTimeoutOrNull(30_000L) {
             applyMutex.withLock {
                 applyingEvents.add(eventId)
                 try {
                     deleteAllDebtsForEvent(eventId)
+
                     transfers.forEachIndexed { index, transfer ->
-                        saveDebt(
-                            EventDebtItem(
-                                eventId = eventId,
-                                profileId = transfer.fromProfileId,
-                                creditorId = transfer.toProfileId,
-                                amountEuros = transfer.amount,
-                                calculationMode = modeId,
-                                paid = index in paidTransferIndices,
-                            )
+                        val debt = EventDebtItem(
+                            eventId = eventId,
+                            profileId = transfer.fromProfileId,
+                            creditorId = transfer.toProfileId,
+                            amountEuros = transfer.amount,
+                            calculationMode = modeId,
+                            paid = index in paidTransferIndices,
                         )
+                        println("🔍   saving debt: profile=${debt.profileId} creditor=${debt.creditorId} amount=${debt.amountEuros} paid=${debt.paid}")
+                        saveDebt(debt)
                     }
+
+                    val after = queries.selectByEvent(eventId).executeAsList()
+                    println("🔍 [applyCalculation] debts AFTER apply: ${after.size}")
+                    after.forEach { d ->
+                        println("🔍   debt: ${d.profileId} -> ${d.creditorId} amount=${d.amountEuros} paid=${d.paid}")
+                        totalAfter += d.amountEuros
+                    }
+                    println("🔍 [applyCalculation] totalAfter=$totalAfter")
                 } finally {
                     applyingEvents.remove(eventId)
                 }
