@@ -15,6 +15,7 @@ import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.PermissionEngine
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.SettlementEngine
+import com.cuentamorosos.model.SettlementTransfer
 import com.cuentamorosos.model.SplitCalculator
 import com.cuentamorosos.model.StateTransitionResult
 import com.cuentamorosos.model.TransitionContext
@@ -118,6 +119,29 @@ class EventDetailViewModel(
     fun deleteDebt(eventId: String, debtId: String) {
         viewModelScope.launch {
             debtRepository.deleteDebt(eventId, debtId)
+        }
+    }
+
+    fun deleteAllDebtsForEvent(eventId: String) {
+        viewModelScope.launch {
+            debtRepository.deleteAllDebtsForEvent(eventId)
+        }
+    }
+
+    /**
+     * Applies a calculation result to the event: atomically replaces all debts
+     * for the event with the given [transfers], tagged with [modeId].
+     *
+     * The underlying repository guards against sync-loop interference using
+     * a Mutex + applyingEvents flag with 30s timeout.
+     */
+    fun applyCalculation(
+        eventId: String,
+        modeId: String,
+        transfers: List<SettlementTransfer>,
+    ) {
+        viewModelScope.launch {
+            debtRepository.applyCalculation(eventId, modeId, transfers)
         }
     }
 
@@ -274,14 +298,15 @@ class EventDetailViewModel(
      * mirroring SettlementEngine's computeDebtorAmounts logic.
      */
     private fun computeDebtorAmountsForExpense(expense: EventExpenseItem): Map<String, Double> {
+        val seed = expense.id.hashCode() xor expense.eventId.hashCode()
         return when (expense.splitMode) {
-            "SIMPLE_AVG" -> SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds)
+            "SIMPLE_AVG" -> SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
             "CUSTOM_PERCENTAGE" -> SplitCalculator.calculatePercentage(expense.amountEuros, expense.profileWeights)
             "EXACT" -> {
                 if (expense.profileWeights.isNotEmpty()) {
                     SplitCalculator.calculateExact(expense.amountEuros, expense.profileWeights)
                 } else {
-                    SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds)
+                    SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
                 }
             }
             "PARTS" -> {
@@ -289,10 +314,10 @@ class EventDetailViewModel(
                 if (parts.isNotEmpty()) {
                     SplitCalculator.calculateParts(expense.amountEuros, parts)
                 } else {
-                    SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds)
+                    SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
                 }
             }
-            else -> SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds)
+            else -> SplitCalculator.calculateEqual(expense.amountEuros, expense.debtorIds, seed = seed)
         }
     }
 }
