@@ -199,18 +199,19 @@ CuentaMorosos/
 │   └── src/
 │       ├── commonMain/
 │       │   ├── composeResources/           # Fuentes (Geist, JetBrains Mono)
-│       │   ├── kotlin/com/cuentamorosos/
-│       │   │   ├── model/                  # 8 engines: SplitCalculator, SettlementEngine,
-│       │   │   │                           #   PermissionEngine, IntegrityGuard, StateMachine,
-│       │   │   │                           #   CalculatorEngine, EventCreditorResolver
-│       │   │   │                           #   + validation/ (4 validadores)
-│       │   │   ├── ui/                     # 49 archivos: screens, ViewModels, design system NeoFintech
+│   │   ├── kotlin/com/cuentamorosos/
+│   │   │   ├── model/                  # 7 engines: SplitCalculator (round-robin remainder),
+│   │   │   │                           #   SettlementEngine (greedy, REAL_CONSUMPTION),
+│   │   │   │                           #   PermissionEngine, IntegrityGuard, StateMachine,
+│   │   │   │                           #   CalculatorEngine, EventCreditorResolver
+│   │   │   │                           #   + validation/ (4 validadores)
+│   │   │   ├── ui/                     # 51 archivos: screens, ViewModels, design system NeoFintech
 │       │   │   │   └── auth/               # Login, Register, ForgotPassword, SplashAuth, UserProfile
 │       │   │   ├── data/repository/        # 21 repositorios (interfaces, Firestore, OfflineFirst)
 │       │   │   ├── db/                     # DriverFactory (expect)
 │       │   │   └── notifications/          # Modelos de notificación, deep links
 │       │   └── sqldelight/                 # 8 esquemas .sq (CachedEvent, CachedProfile, etc.)
-│       ├── commonTest/                     # 41 tests (engines, ViewModels, repos, UI)
+│       ├── commonTest/                     # 48 tests (engines, ViewModels, repos, UI)
 │       ├── androidMain/                    # Platform.android, AppViewModelFactory,
 │       │                                   #   RepositoryProvider, DriverFactory, NetworkMonitor,
 │       │                                   #   SystemBackHandler
@@ -290,7 +291,10 @@ CuentaMorosos/
 
 ### ⚖️ Liquidación
 
-- **Algoritmo greedy**: calcula la cantidad mínima de transferencias necesarias para saldar todas las deudas (`SettlementEngine.kt`).
+- **Algoritmo greedy con round-robin**: además de minimizar el número de transferencias (`SettlementEngine.kt`), los remanentes se distribuyen en **ronda** (`SplitCalculator.calculateEqual(seed)`) para evitar que una misma persona reciba siempre el sobrante por orden alfabético.
+- **Modo REAL_CONSUMPTION**: en eventos con reparto por consumo real, las deudas se calculan respetando quién pagó cada ítem y cómo se dividió, en vez de hacer un promedio simple entre todos.
+- **Aplicación sincro-safe**: `applyCalculation()` recibe `paidTransferIndices` para aplicar transferencias de forma **atómica y secuencial**, protegido por un `Mutex` que evita colisiones con el sync en segundo plano.
+- **Multi-deuda en UI**: `SettlementPanel` permite seleccionar varias deudas con checkbox y aplicarlas de una sola vez.
 - **Casos borde detectados**: saldos compensados internamente, acreedores eliminados, balances en cero.
 - **Versionado de cálculos**: cada ejecución genera un `CalculationVersion` inmutable; las versiones anteriores se preservan.
 - **Ajustes**: `AdjustmentEntry` permite corregir transferencias cobradas sin modificar la deuda original.
@@ -331,6 +335,8 @@ CuentaMorosos/
 ### 📡 Soporte Offline
 
 - **Repositorios offline-first**: todos los datos se cachean en SQLDelight y se sincronizan con Firestore al reconectar.
+- **Sync-safe guard**: `applyingEvents` (Mutex) protege el ciclo de sincronización para que no aplique deudas mientras el usuario está calculando una liquidación, evitando condiciones de carrera.
+- **Eliminaciones remotas resilientes**: las eliminaciones de deudas que fallan por problemas de red se encolan en `PendingEventDeletes` y se reintentan al reconectar, junto con la cola general de operaciones pendientes.
 - **Cola de operaciones pendientes**: `PendingOperationQueue` persiste en SQL las operaciones remotas fallidas y las reintenta al recuperar conexión.
 - **Sincronización escalonada**: eventos → deudas → gastos → perfiles, con 500 ms de retardo entre cada repositorio.
 - **Indicador visual**: banner que muestra el estado de la conexión en la UI.
@@ -384,11 +390,13 @@ CuentaMorosos/
 1. **Módulo compartido KMP**: la lógica de negocio y la UI Compose viven en `shared/` para reutilización entre plataformas. El módulo `app/` es un shell Android delgado.
 2. **Patrón repositorio OfflineFirst en tres capas**: cada entidad define una interfaz (ej. `EventRepository`). Existen dos implementaciones: `Firestore*Repository` para la parte remota y `OfflineFirst*Repository` para la parte local. Esta última cachea en SQLDelight (8 tablas, reactivas vía `Flow`) y sincroniza escrituras a Firestore delegando en el repositorio remoto. Si la red falla, las operaciones se encolan en `PendingOperationQueue` y se reintentan al reconectar.
 3. **Persistencia dual**: SQLDelight como caché primaria + `CuentaMorososLocalStore` (SharedPreferences) solo para migración de datos legacy y desduplicación de notificaciones.
-4. **Motores de modelo puros**: 8 engines (`SplitCalculator`, `SettlementEngine`, `PermissionEngine`, `IntegrityGuard`, `StateMachine`, `CalculatorEngine`, `EventCreditorResolver` + `validation/` con 4 validadores) en Kotlin puro sin dependencias de framework — 100 % testeables.
+4. **Motores de modelo puros**: 7 engines (`SplitCalculator`, `SettlementEngine`, `PermissionEngine`, `IntegrityGuard`, `StateMachine`, `CalculatorEngine`, `EventCreditorResolver` + `validation/` con 4 validadores) en Kotlin puro sin dependencias de framework — 100 % testeables.
 5. **DI manual**: sin Hilt ni Koin. `AppViewModelFactory` construye ViewModels, `RepositoryProvider` cablea los repositorios.
 6. **`derivedStateOf` para propiedades computadas**: agregados del panel, balances netos y mensajes de recordatorio se calculan reactivamente.
 7. **Sincronización escalonada**: 500 ms de retardo entre repositorios al iniciar para no saturar Firestore.
 8. **`PendingOperationQueue`**: operaciones remotas fallidas se persisten en SQLDelight y se reintentan con backoff exponencial al reconectar.
+9. **Aplicación sincro-safe**: `applyCalculation()` ejecuta las transferencias dentro de un `Mutex` (`applyingEvents`) que bloquea el sync concurrente, evitando que el ciclo de sincronización lea estados intermedios.
+10. **Columnas explícitas en SQLDelight**: se usan nombres de columna en `INSERT OR REPLACE` en vez de posición, porque `ALTER TABLE ADD COLUMN` (usado en migraciones) coloca la columna al final de la tabla física, rompiendo el orden posicional que espera el schema `.sq`.
 
 ### Ejemplo de Flujo de Datos: Crear un Gasto
 
@@ -431,7 +439,7 @@ Usuario rellena formulario en EventDetailScreen
 ./gradlew test :shared:allTests connectedAndroidTest
 ```
 
-> **Cobertura actual**: 48 archivos de test (41 en `shared/commonTest`, 7 en `app/src/test`). Sin herramienta de cobertura (JaCoCo) configurada.
+> **Cobertura actual**: 55 archivos de test (48 en `shared/commonTest`, 7 en `app/src/test`). Sin herramienta de cobertura (JaCoCo) configurada.
 
 ---
 
