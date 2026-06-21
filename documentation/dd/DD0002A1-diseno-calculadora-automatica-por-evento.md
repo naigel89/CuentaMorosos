@@ -38,15 +38,12 @@ Como usuario, quiero introducir los gastos de un evento y obtener automáticamen
 ## Lógica de cálculo
 | Modo | Consideración técnica |
 |---|---|
-| `simple_avg` | divide el total entre perfiles activos |
-| `real_consumption` | suma solo los ítems asignados a cada perfil |
+| `real_consumption` | cada ítem se reparte solo entre los perfiles asignados |
+| `simple_avg` | división a partes iguales entre todos los participantes |
+| `by_category` | ítems compartidos se dividen entre todos; el resto, entre asignados |
 | `custom_percentage` | valida en tiempo real el `100%` |
-| `by_category` | ejecuta reglas por categoría y consolida el total final |
-| `by_weight` | usa proporción de factores numéricos |
-| `by_income` | reparte proporcionalmente al valor económico introducido |
-| `base_plus_surplus` | aplica cuota fija y reparte el resto con un modo secundario |
-| `by_attendance` | reparte según días o sesiones asistidas |
-| `mixed` | combina distintos modos por grupo o ítem |
+| `exact` | cada perfil paga un importe fijo (debe coincidir con el total) |
+| `parts` | cada perfil pone partes enteras (1-100); reparto proporcional |
 
 ## Dependencias y riesgos
 - complejidad de UX al mostrar muchos modos en una sola pantalla

@@ -39,7 +39,9 @@ Centralizar el seguimiento operativo de un evento con una jerarquía visual clar
 - "Back to Events" vuelve a `UI0001B1`
 - "Add Expense" abre modal/bottom sheet para registrar gasto
 - "Calculate Totals" abre o ejecuta la calculadora (`UI0005B1`)
+- SettlementPanel permite **selección múltiple de deudas** con checkboxes y aplicar varias transferencias de una sola vez mediante `applyCalculation()`
 - Checkbox de participante: solo visible si `eventState != OPEN`. Al marcar, cambia estado a "Settled" con animación
+- Al aplicar pagos, `paidTransferIndices` se pasan a `applyCalculation()` para aplicar las transferencias de forma **atómica y secuencial**, protegido por un `Mutex` que evita colisiones con el sync
 - Pulsar un gasto: expande detalles o abre edición
 - ReceiptPanel: muestra el modo de cálculo con etiqueta legible (ej. "Consumo Real" en vez de `real_consumption`) usando `SplitMode.fromId().label`
 - Los montos usan JetBrains Mono con figuras tabulares para alineación
@@ -73,3 +75,4 @@ Centralizar el seguimiento operativo de un evento con una jerarquía visual clar
 |---|---|---|---|---|
 | 2026-05-14 | B | 1 | Alta | Rediseño con layout dos columnas, panel de settlement con checkboxes, iconos contextuales por categoría de gasto. Basado en concepto Neo-Fintech Precision. |
 | 2026-06-20 | B | 2 | Actualización | Sincronizado con código: checkboxes de pago solo visibles en estados CALCULATED/CLOSED (regla RN0001A1). Agregado ReceiptPanel con etiqueta legible de modo de cálculo (`SplitMode.fromId().label`). |
+| 2026-06-21 | B | 3 | Actualización | SettlementPanel permite selección múltiple de deudas. Aplicación atómica y secuencial mediante `applyCalculation()` con `paidTransferIndices` y `Mutex` sync-safe. |

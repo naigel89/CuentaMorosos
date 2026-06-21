@@ -16,7 +16,8 @@ Evitar errores manuales al repartir gastos y mantener trazabilidad sobre cómo s
 - si no hay perfiles, el botón o acceso no debe renderizarse
 - si todos los perfiles del evento tienen la deuda vacía, se muestra una sugerencia no intrusiva para usar la calculadora
 - todos los importes calculados se redondean a `2` decimales
-- si queda una diferencia de redondeo, el céntimo restante se asigna al primer perfil de la lista
+- si queda una diferencia de redondeo, el céntimo restante se distribuye en **ronda** (`SplitCalculator.calculateEqual(seed)`) para evitar que un mismo perfil reciba siempre el sobrante
+- en modo `REAL_CONSUMPTION`, las deudas se calculan respetando quién pagó cada ítem y cómo se dividió, en vez de hacer un promedio simple
 - el modo `custom_percentage` exige que la suma sea exactamente `100%` antes de aplicar
 - el modo `by_category` exige que todos los ítems estén categorizados
 - las exenciones o descuentos redistribuyen el importe solo entre quienes sigan participando en el ítem
@@ -30,7 +31,8 @@ Evitar errores manuales al repartir gastos y mantener trazabilidad sobre cómo s
 
 ## Ejemplos
 - **Válido:** total `30,00 €`, tres perfiles y modo `simple_avg` → `10,00 €` por perfil
-- **Válido:** total `10,00 €`, tres perfiles → `3,33 €`, `3,33 €` y `3,34 €` asignando el céntimo restante al primer perfil
+- **Válido:** total `10,00 €`, tres perfiles → `3,33 €`, `3,33 €` y `3,34 €` con redondeo round-robin
+- **Válido:** reparto por consumo real: ítem A (Juan), ítem B (María, Pedro) → cada perfil paga solo lo que le corresponde
 - **No válido:** permitir aplicar `custom_percentage` con una suma del `95%`
 - **No válido:** aplicar `by_category` con ítems sin categoría asignada
 
@@ -38,3 +40,4 @@ Evitar errores manuales al repartir gastos y mantener trazabilidad sobre cómo s
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
 |---|---|---|---|---|
 | 2026-04-05 | A | 1 | Alta | Creación inicial de las reglas de reparto y redondeo automático. |
+| 2026-06-21 | A | 2 | Actualización | Redondeo round-robin (ya no se asigna al primer perfil). Añadido modo REAL_CONSUMPTION. |

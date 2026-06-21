@@ -73,7 +73,7 @@ Esta carpeta centraliza la documentación funcional, técnica, de planificación
 
 ### UI — Versión B (rediseño Neo-Fintech Precision)
 - `UI0001B1-pantalla-eventos.md` — Eventos con LazyVerticalGrid y filter chips
-- `UI0002B1-detalle-evento-y-pagos.md` — Detalle con panel de settlement y recepción de pagos
+- `UI0002B1-detalle-evento-y-pagos.md` — Detalle con panel de settlement multi-deuda, applyCalculation sync-safe
 - `UI0003B1-pantalla-perfiles.md` — Perfiles con avatar, monto y color semántico
 - `UI0004B1-ajustes-y-apariencia.md` — Ajustes con theme selector, reminders y sign-out
 - `UI0005B1-calculadora-automatica-por-evento.md` — Calculadora con 6 modos SplitMode visibles
@@ -123,3 +123,4 @@ Los archivos `DESIGN.md` en `neo_fintech_precision_1/` y `neo_fintech_precision_
 | 2026-04-05 | A | 5 | Actualización | Se incorpora la funcionalidad de calculadora automática de cuentas por evento. |
 | 2026-05-14 | B | 1 | Alta | Rediseño Neo-Fintech Precision: 6 documentos UI versión B + NFR0001B1 con sistema de diseño completo, paleta dual, Geist + JetBrains Mono y guía de animaciones. Nueva pantalla Panel de Control (UI0007B1). Referencias de diseño añadidas. |
 | 2026-06-18 | B | 2 | Actualización | Índice completado: añadidos FR0006A1, FR0008A1, FR0009A1, DD0003A1, DD0004A1, DD0005A1. Eliminado FR0007A1. |
+| 2026-06-21 | B | 3 | Actualización | UI0002B1 revisión 3: multi-deuda y applyCalculation sync-safe. RN0003A1 revisión 2: round-robin. FR0005A1 revisión 2: modos reales. |
