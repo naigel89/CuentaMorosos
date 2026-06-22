@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
+    id("com.google.firebase.appdistribution")
 }
 
 android {
@@ -28,6 +29,10 @@ android {
             keyAlias = "CuentaMorosos"
             keyPassword = "llevalatararaunvestidoblancollenodecascabeles"
         }
+    }
+
+    firebaseAppDistribution {
+        groups = "testers"
     }
 
     buildTypes {

@@ -1,0 +1,107 @@
+name: Release APK v1.0.0
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Nombre del tag (ej: v1.0.0)'
+        required: false
+        type: string
+
+jobs:
+  release:
+    name: Build & Release signed APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Java 17 ───────────────────────────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # ── 3. Gradle cache ──────────────────────────────────────────────────
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # ── 4. google-services.json ──────────────────────────────────────────
+      - name: Inject google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 --decode > app/google-services.json
+            echo "google-services.json injected successfully."
+          else
+            echo "WARNING: GOOGLE_SERVICES_JSON secret not set. Build will fail if Firebase is required."
+          fi
+
+      # ── 5. Run unit tests ────────────────────────────────────────────────
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --continue
+
+      # ── 6. Build release APK (firmado con keystore del repo) ─────────────
+      - name: Build release APK
+        run: ./gradlew :app:assembleRelease --stacktrace
+
+      # ── 7. Upload to Firebase App Distribution ───────────────────────────
+      # Requiere: secret FIREBASE_SERVICE_ACCOUNT con JSON de service account
+      # (rol: Firebase App Distribution Admin). Si no está configurado, se saltea.
+      - name: Distribute to Firebase App Distribution
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+        env:
+          FIREBASE_APP_DISTRIBUTION_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: ./gradlew :app:appDistributionUploadRelease
+
+      # ── 8. Upload APK as workflow artifact ───────────────────────────────
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: app/build/outputs/apk/release/app-release.apk
+          retention-days: 90
+
+      # ── 9. Create GitHub Release ─────────────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/app-release.apk
+          generate_release_notes: true
+          name: CuentaMorosos ${{ github.ref_name }}
+          body: |
+            🎉 **CuentaMorosos ${{ github.ref_name }}** — Divide gastos. Sin vueltas. Sin cuentas pendientes.
+
+            ## Novedades
+            - Gestión completa de **eventos** con gastos compartidos
+            - **6 modos de reparto**: consumo real, media simple, por categoría, % personalizado, importe exacto, por partes
+            - **Motor de liquidación inteligente** con greedy + round-robin que minimiza transferencias
+            - **Soporte offline-first** con SQLDelight + sincronización escalonada con Firestore
+            - **11 categorías** de gasto con iconos y colores
+            - **Roles**: propietario, colaborador, lector
+            - **Notificaciones push** (FCM) y recordatorios locales
+            - **Panel de control** con balances y resúmenes financieros
+            - **Modo oscuro** con diseño NeoFintech
+
+            ## Instalación
+            1. Descargá el APK desde esta release
+            2. En tu Android, habilitá "Instalar apps desconocidas" para tu navegador/files
+            3. Abrí el APK y seguí las instrucciones
+
+            > ⚠️ Requiere Android 7.0 (API 24) o superior
+          draft: false
+          prerelease: false
