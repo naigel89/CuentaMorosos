@@ -160,6 +160,10 @@ fun ProfilesScreen(
         val netBalance = profile.totalPendingEuros
         val events = pendingEventsByProfile[profile.id].orEmpty()
         val direction = if (netBalance >= 0) DebtDirection.OWED_TO_YOU else DebtDirection.YOU_OWE
+        // Solo los perfiles ghost (locales) pueden editarse o eliminarse.
+        // Los perfiles reales (Firebase Auth) se gestionan desde la cuenta del usuario.
+        val canEdit = profile.isGhost
+        val canDelete = profile.isGhost
         EventBreakdownDialog(
             item = UnifiedDebtItem(
                 profileId = profile.id,
@@ -169,14 +173,18 @@ fun ProfilesScreen(
                 events = events,
             ),
             onDismiss = { selectedProfile = null },
-            onEdit = {
-                selectedProfile = null
-                editableProfile = profile
-            },
-            onDelete = {
-                selectedProfile = null
-                profileToDelete = profile
-            },
+            onEdit = if (canEdit) {
+                {
+                    selectedProfile = null
+                    editableProfile = profile
+                }
+            } else null,
+            onDelete = if (canDelete) {
+                {
+                    selectedProfile = null
+                    profileToDelete = profile
+                }
+            } else null,
         )
     }
 

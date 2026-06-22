@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -26,6 +27,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cuentamorosos.isValidEmail
+import com.cuentamorosos.data.repository.ProfileRepository
 import com.cuentamorosos.model.CalculationResult
 import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.EventDebtItem
@@ -65,7 +69,50 @@ import com.cuentamorosos.model.formattedDate
 import com.cuentamorosos.model.parseEuroAmount
 import com.cuentamorosos.model.toCalculationSnapshot
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+
+// ── SearchState ────────────────────────────────────────────────────────────────
+
+/** UI state for the InviteMemberDialog username search. */
+sealed class SearchState {
+    /** No search initiated yet. */
+    data object Idle : SearchState()
+    /** Firestore query in progress. */
+    data object Loading : SearchState()
+    /** Matching profiles found. */
+    data class Results(val profiles: List<ProfileItem>) : SearchState()
+    /** Query returned no matches. */
+    data class Empty(val query: String) : SearchState()
+    /** Device has no network connectivity. */
+    data object Offline : SearchState()
+}
+
+/**
+ * Determines SearchState from search results.
+ * - null results → Loading
+ * - empty list → Empty
+ * - non-empty list → Results
+ */
+fun determineSearchState(results: List<ProfileItem>?, query: String): SearchState {
+    return when {
+        results == null -> SearchState.Loading
+        results.isEmpty() -> SearchState.Empty(query)
+        else -> SearchState.Results(results)
+    }
+}
+
+/**
+ * Determines SearchState after an error.
+ * - IOException → Offline
+ * - other errors → Empty with the query
+ */
+fun determineSearchStateForError(isOffline: Boolean, query: String): SearchState {
+    return if (isOffline) SearchState.Offline else SearchState.Empty(query)
+}
 
 // ── EventDetailScreen ─────────────────────────────────────────────────────────
 
@@ -92,6 +139,7 @@ fun EventDetailScreen(
     currentRole: EventRole = EventRole.OWNER,
     canDo: (EventAction) -> Boolean = { true },
     onCloseEvent: (() -> Unit)? = null,
+    profileRepository: ProfileRepository? = null,
 ) {
     val profileById = profiles.associateBy { it.id }
     val eventParticipants = profiles.filter { it.id in event.effectiveMemberIds }
@@ -379,7 +427,10 @@ fun EventDetailScreen(
             onInvite = { email ->
                 showInviteMemberDialog = false
                 onInviteMember(email)
-            }
+            },
+            profileRepository = profileRepository,
+            currentUserUid = currentUserUid,
+            existingParticipantIds = event.effectiveMemberIds,
         )
     }
 
@@ -592,9 +643,54 @@ private fun ExpensesList(
 private fun InviteMemberDialog(
     onDismiss: () -> Unit,
     onInvite: (email: String) -> Unit,
+    profileRepository: ProfileRepository? = null,
+    currentUserUid: String? = null,
+    existingParticipantIds: List<String> = emptyList(),
 ) {
-    var email by remember { mutableStateOf("") }
-    var validationMessage by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedProfile by remember { mutableStateOf<ProfileItem?>(null) }
+    var searchState by remember { mutableStateOf<SearchState>(SearchState.Idle) }
+
+    // Debounced search via LaunchedEffect
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.length < 2) {
+            searchState = SearchState.Idle
+            selectedProfile = null
+            return@LaunchedEffect
+        }
+
+        // Debounce: wait 500ms before searching
+        delay(500)
+        if (!isActive) return@LaunchedEffect
+
+        val repo = profileRepository ?: run {
+            searchState = SearchState.Offline
+            return@LaunchedEffect
+        }
+
+        searchState = SearchState.Loading
+        try {
+            val results = repo.searchByUsername(searchQuery)
+                .filter { it.id != currentUserUid }
+                .filter { it.id !in existingParticipantIds }
+            searchState = if (results.isEmpty()) {
+                SearchState.Empty(searchQuery)
+            } else {
+                SearchState.Results(results)
+            }
+        } catch (e: Exception) {
+            searchState = if (e is java.io.IOException || e.message?.contains("network", ignoreCase = true) == true) {
+                SearchState.Offline
+            } else {
+                SearchState.Empty(searchQuery)
+            }
+        }
+    }
+
+    // Reset selection when query changes
+    LaunchedEffect(searchQuery) {
+        selectedProfile = null
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -602,33 +698,113 @@ private fun InviteMemberDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Introduce el email del usuario que quieres invitar a este evento.",
+                    "Busca por @nombre de usuario e invitá al evento.",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 OutlinedTextField(
-                    value = email,
-                    onValueChange = {
-                        email = it
-                        validationMessage = null
-                    },
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Email") },
+                    label = { Text("@nombre de usuario") },
+                    prefix = { Text("@") },
                     singleLine = true,
                 )
-                validationMessage?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+
+                // ── Search state rendering ──
+                when (val state = searchState) {
+                    is SearchState.Idle -> {
+                        Text(
+                            "Escribe 2+ caracteres para buscar",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    is SearchState.Loading -> {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Text("Buscando...", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    is SearchState.Offline -> {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Sin conexión",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    is SearchState.Empty -> {
+                        Text(
+                            "Sin resultados para '${state.query}'",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    is SearchState.Results -> {
+                        // Max 6 visible, scrollable beyond
+                        val maxVisible = 6
+                        val visibleProfiles = state.profiles.take(maxVisible)
+                        LazyColumn(
+                            modifier = Modifier.height((visibleProfiles.size * 56).dp.coerceAtMost(336.dp))
+                        ) {
+                            items(state.profiles, key = { it.id }) { profile ->
+                                val displayName = profile.displayNameFor(currentUserUid ?: "")
+                                val isSelected = selectedProfile?.id == profile.id
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { selectedProfile = profile }
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                            else MaterialTheme.colorScheme.surface
+                                        )
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    ProfileAvatar(
+                                        name = profile.name,
+                                        photoUrl = profile.photoUrl,
+                                        size = 36.dp,
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            displayName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                        if (profile.username != null) {
+                                            Text(
+                                                "@${profile.username}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val trimmed = email.trim()
-                if (trimmed.isEmpty() || !isValidEmail(trimmed)) {
-                    validationMessage = "Introduce un email válido."
-                } else {
-                    onInvite(trimmed)
-                }
-            }) {
+            TextButton(
+                onClick = {
+                    val email = selectedProfile?.linkedEmail
+                    if (email != null) {
+                        onInvite(email)
+                    }
+                },
+                enabled = selectedProfile != null && selectedProfile?.linkedEmail != null,
+            ) {
                 Text("Invitar")
             }
         },
