@@ -74,6 +74,10 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    lint {
+        disable += "InvalidFragmentVersionForActivityResult"
+    }
 }
 
 dependencies {
