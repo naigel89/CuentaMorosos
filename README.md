@@ -259,7 +259,7 @@ CuentaMorosos/
   - **Propietario** (`OWNER`): control total — calcular, cerrar, reabrir, eliminar, gestionar roles.
   - **Colaborador** (`CONTRIBUTOR`): crea y edita sus propios gastos, ve todo.
   - **Lector** (`READER`): acceso de solo lectura.
-- **Invitaciones por email**: invita a otras personas a unirse a tus eventos. Flujo pendiente → aceptar → rechazar.
+- **Invitaciones por email y @username**: invita a otras personas a unirse a tus eventos. Búsqueda por nombre de usuario con filtrado automático de participantes existentes. Flujo pendiente → aceptar → rechazar.
 - **Vista de calendario**: navegación visual por la línea temporal de eventos.
 
 <p align="center">
@@ -308,7 +308,7 @@ CuentaMorosos/
 ### 👤 Perfiles
 
 - **Gestión completa**: crea, edita y elimina perfiles con nombre, emoji de icono y email vinculado.
-- **Perfiles fantasma**: perfiles temporales (`isGhost = true`) para participantes puntuales sin cuenta.
+- **Perfiles fantasma**: perfiles temporales (`isGhost = true`) para participantes sin cuenta. Cuando el email vinculado se registra, el perfil fantasma se reconcilia automáticamente — sus deudas, gastos y participaciones migran al perfil real y el fantasma se elimina. Solo los perfiles fantasma pueden editarse o eliminarse desde la pestaña de Perfiles; los perfiles reales se gestionan desde Configuración de cuenta.
 - **Nombres personalizados**: cada usuario puede asignar un nombre visible distinto al de otros perfiles (`customNames`).
 - **Foto de perfil**: subida de imagen a Firebase Storage, vinculada al perfil de autenticación.
 - **Resumen de balances**: posición neta por perfil (saldo positivo = te deben, negativo = debes).
