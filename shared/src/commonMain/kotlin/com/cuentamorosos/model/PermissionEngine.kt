@@ -28,19 +28,10 @@ object PermissionEngine {
      * Defaults to READER if not found.
      */
     fun getRole(profileId: String, event: EventItem): EventRole {
-        if (profileId.isBlank()) {
-            println("[PermissionEngine] getRole: profileId is BLANK → READER")
-            return EventRole.READER
-        }
-        if (event.ownerId == profileId) {
-            println("[PermissionEngine] getRole: ownerId==profileId ($profileId) → OWNER")
-            return EventRole.OWNER
-        }
-        println("[PermissionEngine] getRole: ownerId='${event.ownerId}' != profileId='$profileId', checking participants...")
+        if (profileId.isBlank()) return EventRole.READER
+        if (event.ownerId == profileId) return EventRole.OWNER
         val participant = event.participants.find { it.profileId == profileId }
-        val role = participant?.role ?: EventRole.READER
-        println("[PermissionEngine] getRole: participant found=${participant != null}, participants=${event.participants.map { "${it.profileId}:${it.role}" }}, role=$role")
-        return role
+        return participant?.role ?: EventRole.READER
     }
 
     /**

@@ -64,11 +64,9 @@ class EventDetailViewModel(
         viewModelScope.launch {
             _currentEvent.collect { event ->
                 if (event != null) {
-                    println("[EventDetailVM] observeRole: currentProfileId='$currentProfileId', event.ownerId='${event.ownerId}'")
                     _currentRole.value = if (currentProfileId.isNotBlank()) {
                         PermissionEngine.getRole(currentProfileId, event)
                     } else {
-                        println("[EventDetailVM] observeRole: currentProfileId is BLANK → READER")
                         EventRole.READER
                     }
                 } else {
@@ -83,7 +81,6 @@ class EventDetailViewModel(
             _eventId.flatMapLatest { id ->
                 if (id == null) flowOf(null) else eventRepository.observeEvent(id)
             }.collect { event ->
-                println("[EventDetailVM] observeCurrentEvent: event loaded id=${event?.id} ownerId='${event?.ownerId}' participants=${event?.participants?.map { "${it.profileId}:${it.role}" }}")
                 _currentEvent.value = event
             }
         }
@@ -322,14 +319,8 @@ class EventDetailViewModel(
      */
     fun canDo(action: EventAction): Boolean {
         val event = _currentEvent.value
-        if (event == null) {
-            println("[EventDetailVM] canDo($action): _currentEvent is NULL → false")
-            return false
-        }
-        val result = PermissionEngine.canDo(currentProfileId, event, action)
-        val role = PermissionEngine.getRole(currentProfileId, event)
-        println("[EventDetailVM] canDo($action): profileId='$currentProfileId' role=$role action=$action result=$result")
-        return result
+        if (event == null) return false
+        return PermissionEngine.canDo(currentProfileId, event, action)
     }
 
     /**

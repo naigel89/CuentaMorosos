@@ -66,48 +66,32 @@ class FirestoreInvitationRepository : InvitationRepository {
 
     override suspend fun acceptInvitation(invitation: EventInvitation, inviteeName: String) {
         runCatching {
-            val uid = auth.currentUser?.uid
-            if (uid == null) {
-                println("[FirestoreInvitationRepo] acceptInvitation skipped: currentUser?.uid is null")
-                return
-            }
-
-            println("[FirestoreInvitationRepo] acceptInvitation: uid=$uid eventId=${invitation.eventId}")
+            val uid = auth.currentUser?.uid ?: return
 
             val eventsCollection = db.collection("events")
             val doc = eventsCollection.document(invitation.eventId).get()
-            println("[FirestoreInvitationRepo] doc exists=${doc.exists}")
 
             val eventData = doc.getRawData()
-            println("[FirestoreInvitationRepo] eventData keys=${eventData?.keys}")
             val rawMemberIds = eventData?.get("memberIds")
-            println("[FirestoreInvitationRepo] raw memberIds=$rawMemberIds")
             val current = (rawMemberIds as? List<*>)?.filterIsInstance<String>() ?: emptyList()
 
             @Suppress("UNCHECKED_CAST")
             val rawParticipants = eventData?.get("participants")
-            println("[FirestoreInvitationRepo] raw participants=$rawParticipants")
             val currentParticipants = (rawParticipants as? List<Map<String, Any?>>) ?: emptyList()
 
             if (!current.contains(uid)) {
                 val newParticipant = createAcceptanceParticipant(uid)
                 val newParticipants = currentParticipants + newParticipant
-                println("[FirestoreInvitationRepo] Updating event: memberIds=$current + $uid, participants count=${newParticipants.size}")
                 eventsCollection.document(invitation.eventId)
                     .update(
                         "memberIds" to (current + uid),
                         "participants" to newParticipants,
                         "participantIds" to newParticipants.map { it["profileId"] },
                     )
-                println("[FirestoreInvitationRepo] Event update done")
-            } else {
-                println("[FirestoreInvitationRepo] uid already in memberIds, skipping event update")
             }
 
-            println("[FirestoreInvitationRepo] Marking invitation as ACCEPTED")
             invitationsCollection.document(invitation.id)
                 .update("status" to InvitationStatus.ACCEPTED)
-            println("[FirestoreInvitationRepo] Invitation accepted successfully")
 
             // Fire-and-forget: notify the inviter — acceptance succeeds even if this fails
             runCatching {
@@ -122,8 +106,7 @@ class FirestoreInvitationRepository : InvitationRepository {
                     ))
             }
         }.onFailure { e ->
-            println("[FirestoreInvitationRepo] ACCEPT INVITATION FAILED: ${e.message}")
-            e.printStackTrace()
+            println("[FirestoreInvitationRepo] acceptInvitation failed: ${e.message}")
         }
     }
 
