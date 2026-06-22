@@ -25,7 +25,6 @@
       --teal:          #26A69A;
       --teal-glow:     rgba(38, 166, 154, 0.25);
       --amber:         #FFB74D;
-      --error:         #FFB4AB;
       --border:        #3C4B35;
       --radius-sm:     4px;
       --radius-md:     8px;
@@ -42,6 +41,7 @@
       --font-mono:     'JetBrains Mono', 'Fira Code', monospace;
       --anim-standard: 300ms ease;
       --anim-short:    150ms ease;
+      --anim-slow:     600ms cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -55,115 +55,129 @@
     }
     ::selection { background: var(--accent); color: var(--bg); }
 
-    /* ── Background ornament ───────────────────────────────── */
+    /* ── Floating particles ────────────────────────────────── */
+    .particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+    .particle {
+      position: absolute; border-radius: 50%;
+      background: var(--accent);
+      opacity: 0; filter: blur(1px);
+      animation: floatUp linear infinite;
+    }
+    @keyframes floatUp {
+      0%   { transform: translateY(110vh) scale(0); opacity: 0; }
+      10%  { opacity: 0.3; }
+      90%  { opacity: 0.05; }
+      100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+    }
+
+    /* ── Background orbs ───────────────────────────────────── */
     .bg-orb {
-      position: fixed;
-      border-radius: 50%;
-      filter: blur(120px);
-      pointer-events: none;
-      z-index: 0;
-      opacity: 0.07;
+      position: fixed; border-radius: 50%;
+      filter: blur(120px); pointer-events: none; z-index: 0;
+      animation: orbPulse 8s ease-in-out infinite alternate;
+    }
+    @keyframes orbPulse {
+      0% { transform: scale(1); opacity: 0.06; }
+      100% { transform: scale(1.15); opacity: 0.12; }
     }
     .bg-orb--green {
-      width: 600px; height: 600px;
-      background: var(--accent);
+      width: 600px; height: 600px; background: var(--accent);
       top: -200px; right: -200px;
     }
     .bg-orb--teal {
-      width: 400px; height: 400px;
-      background: var(--teal);
-      bottom: 10%; left: -150px;
+      width: 450px; height: 450px; background: var(--teal);
+      bottom: 15%; left: -180px; animation-delay: 3s;
+    }
+    .bg-orb--amber {
+      width: 300px; height: 300px; background: var(--amber);
+      top: 60%; right: -100px; animation-delay: 5s;
     }
 
     /* ── Layout ────────────────────────────────────────────── */
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 0 var(--space-lg);
-      position: relative;
-      z-index: 1;
-    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 var(--space-lg); position: relative; z-index: 1; }
     section { padding: var(--space-xxl) 0; }
 
     /* ── Header ────────────────────────────────────────────── */
     .header {
       position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      background: rgba(19, 19, 19, 0.75);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-bottom: 1px solid rgba(60, 75, 53, 0.25);
+      background: rgba(19, 19, 19, 0.72);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(60, 75, 53, 0.2);
+      animation: headerSlideIn 0.6s var(--anim-slow);
+    }
+    @keyframes headerSlideIn {
+      from { transform: translateY(-100%); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
     }
     .header .container {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-top: var(--space-sm);
-      padding-bottom: var(--space-sm);
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: var(--space-sm); padding-bottom: var(--space-sm);
     }
-    .header-logo {
-      display: flex; align-items: center; gap: var(--space-sm);
-      text-decoration: none;
-    }
+    .header-logo { display: flex; align-items: center; gap: var(--space-sm); text-decoration: none; }
     .header-logo img { width: 32px; height: 32px; }
-    .header-logo span {
-      font-size: 18px; font-weight: 700; color: var(--text);
-      letter-spacing: -0.02em;
-    }
+    .header-logo span { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
     .header-nav { display: flex; gap: var(--space-lg); list-style: none; }
-    .header-nav a {
-      color: var(--text-2); text-decoration: none;
-      font-size: 14px; font-weight: 500;
-      transition: color var(--anim-short);
-    }
+    .header-nav a { color: var(--text-2); text-decoration: none; font-size: 14px; font-weight: 500; transition: color var(--anim-short); }
     .header-nav a:hover { color: var(--accent); }
 
     /* ── Hero ──────────────────────────────────────────────── */
-    .hero { padding-top: 120px; text-align: center; }
-    .hero-logo { width: 90px; height: 90px; margin-bottom: var(--space-lg); }
+    .hero { padding-top: 140px; text-align: center; }
+    .hero-logo-wrapper {
+      display: inline-block; margin-bottom: var(--space-lg);
+      animation: logoFloat 5s ease-in-out infinite;
+    }
+    @keyframes logoFloat {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25%  { transform: translateY(-6px) rotate(-1deg); }
+      75%  { transform: translateY(-2px) rotate(1deg); }
+    }
+    .hero-logo { width: 96px; height: 96px; filter: drop-shadow(0 0 32px var(--accent-glow)); }
     .hero h1 {
-      font-size: clamp(2rem, 6vw, 3.5rem);
-      font-weight: 700; letter-spacing: -0.03em; line-height: 1.1;
-      background: linear-gradient(135deg, var(--accent) 0%, #00D4AA 60%, var(--teal) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      font-size: clamp(2rem, 6vw, 3.6rem);
+      font-weight: 700; letter-spacing: -0.035em; line-height: 1.08;
+      background: linear-gradient(135deg, var(--accent) 0%, #00D4AA 45%, var(--teal) 70%, var(--accent) 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
-      filter: drop-shadow(0 0 30px var(--accent-glow-soft));
+      animation: gradientShift 4s ease-in-out infinite;
+    }
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
     }
     .hero p {
-      font-size: clamp(1rem, 2.5vw, 1.25rem);
-      color: var(--text-2); max-width: 640px;
-      margin: var(--space-md) auto 0;
+      font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--text-2);
+      max-width: 640px; margin: var(--space-md) auto 0;
     }
     .hero .tagline {
-      font-family: var(--font-mono); font-size: 13px;
-      color: var(--accent); margin-top: var(--space-sm);
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
+      font-family: var(--font-mono); font-size: 13px; color: var(--accent);
+      margin-top: var(--space-sm); letter-spacing: 0.03em; text-transform: uppercase;
     }
     .hero-cta { margin-top: var(--space-xl); }
 
     /* ── Buttons ───────────────────────────────────────────── */
     .btn {
       display: inline-flex; align-items: center; gap: 10px;
-      font-family: var(--font-geist); font-weight: 600;
-      font-size: 16px; padding: 14px 32px;
-      border-radius: var(--radius-lg); border: none;
+      font-family: var(--font-geist); font-weight: 600; font-size: 16px;
+      padding: 14px 32px; border-radius: var(--radius-lg); border: none;
       cursor: pointer; text-decoration: none;
       transition: all var(--anim-standard);
       position: relative; overflow: hidden;
     }
-    .btn::after {
-      content: ''; position: absolute; inset: 0;
-      opacity: 0; transition: opacity var(--anim-standard);
-    }
-    .btn:hover::after { opacity: 1; }
     .btn-primary {
       background: var(--accent); color: #0B0D11;
-      box-shadow: 0 0 32px var(--accent-glow), 0 0 64px rgba(0, 200, 83, 0.08);
+      box-shadow: 0 0 32px var(--accent-glow), 0 0 64px rgba(0, 200, 83, 0.06);
+      animation: btnPulse 3s ease-in-out infinite;
+    }
+    @keyframes btnPulse {
+      0%, 100% { box-shadow: 0 0 32px var(--accent-glow), 0 0 64px rgba(0, 200, 83, 0.06); }
+      50% { box-shadow: 0 0 52px var(--accent-glow), 0 0 96px rgba(0, 200, 83, 0.12); }
     }
     .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 0 48px var(--accent-glow), 0 0 96px rgba(0, 200, 83, 0.12);
+      transform: translateY(-3px);
+      box-shadow: 0 0 52px var(--accent-glow), 0 0 100px rgba(0, 200, 83, 0.15);
+      animation: none;
     }
     .btn-secondary {
       background: transparent; color: var(--text);
@@ -174,44 +188,39 @@
       box-shadow: 0 0 20px var(--accent-glow-soft);
     }
     .btn svg { width: 20px; height: 20px; }
-    .btn-sub {
-      display: block; font-size: 13px; color: var(--text-2);
-      margin-top: var(--space-sm);
-    }
+    .btn-sub { display: block; font-size: 13px; color: var(--text-2); margin-top: var(--space-sm); }
 
     /* ── Stats bar ─────────────────────────────────────────── */
     .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: var(--space-md);
-      margin-top: var(--space-xl);
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: var(--space-md); margin-top: var(--space-xl);
     }
     .stat {
-      background: var(--surface-low);
-      border: 1px solid rgba(60, 75, 53, 0.3);
-      border-radius: var(--radius-lg);
-      padding: var(--space-lg) var(--space-md);
-      text-align: center;
+      background: var(--surface-low); border: 1px solid rgba(60, 75, 53, 0.3);
+      border-radius: var(--radius-lg); padding: var(--space-lg) var(--space-md); text-align: center;
+      transition: all var(--anim-standard);
     }
+    .stat:hover { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow-soft); }
     .stat-num {
-      font-family: var(--font-mono); font-size: 24px; font-weight: 500;
-      color: var(--accent);
+      font-family: var(--font-mono); font-size: 28px; font-weight: 500; color: var(--accent);
     }
     .stat-label { font-size: 13px; color: var(--text-2); margin-top: var(--space-xs); }
 
     /* ── Section titles ────────────────────────────────────── */
     .section-title {
-      font-size: clamp(1.5rem, 3vw, 2rem);
-      font-weight: 700; letter-spacing: -0.02em;
-      text-align: center; margin-bottom: var(--space-xl);
+      font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700;
+      letter-spacing: -0.02em; text-align: center; margin-bottom: var(--space-xl);
       color: var(--text);
     }
     .section-title span {
       background: linear-gradient(135deg, var(--accent), var(--teal));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
     }
+
+    /* ── Feature SVG icons ─────────────────────────────────── */
+    .icon-svg { width: 28px; height: 28px; flex-shrink: 0; }
 
     /* ── Features grid ─────────────────────────────────────── */
     .features {
@@ -220,96 +229,114 @@
       gap: var(--space-lg);
     }
     .feature-card {
-      background: var(--surface-low);
-      border: 1px solid rgba(60, 75, 53, 0.3);
-      border-radius: var(--radius-xl);
-      padding: var(--space-xl) var(--space-lg);
-      transition: all var(--anim-standard);
+      background: var(--surface-low); border: 1px solid rgba(60, 75, 53, 0.3);
+      border-radius: var(--radius-xl); padding: var(--space-xl) var(--space-lg);
+      transition: all var(--anim-slow); cursor: default;
     }
     .feature-card:hover {
       border-color: var(--accent);
-      box-shadow: 0 0 24px var(--accent-glow-soft);
-      transform: translateY(-2px);
+      box-shadow: 0 8px 40px var(--accent-glow-soft);
+      transform: translateY(-4px);
     }
     .feature-icon {
-      width: 44px; height: 44px; border-radius: var(--radius-md);
-      background: rgba(0, 200, 83, 0.1);
+      width: 48px; height: 48px; border-radius: var(--radius-md);
+      background: rgba(0, 200, 83, 0.08);
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; margin-bottom: var(--space-md);
+      margin-bottom: var(--space-md);
+      transition: all var(--anim-standard);
     }
-    .feature-card h3 {
-      font-size: 18px; font-weight: 600; margin-bottom: var(--space-sm);
-      letter-spacing: -0.01em;
+    .feature-card:hover .feature-icon {
+      background: rgba(0, 200, 83, 0.15);
+      box-shadow: 0 0 20px var(--accent-glow-soft);
     }
-    .feature-card p {
-      font-size: 14px; color: var(--text-2); line-height: 1.7;
-    }
+    .feature-card h3 { font-size: 18px; font-weight: 600; margin-bottom: var(--space-sm); letter-spacing: -0.01em; }
+    .feature-card p { font-size: 14px; color: var(--text-2); line-height: 1.7; }
 
     /* ── Split modes ───────────────────────────────────────── */
     .modes {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
       gap: var(--space-md);
     }
     .mode-card {
-      background: var(--surface-low);
-      border: 1px solid rgba(60, 75, 53, 0.25);
-      border-radius: var(--radius-lg);
-      padding: var(--space-lg);
-      text-align: center;
-      transition: all var(--anim-standard);
+      background: var(--surface-low); border: 1px solid rgba(60, 75, 53, 0.25);
+      border-radius: var(--radius-lg); padding: var(--space-lg) var(--space-md);
+      text-align: center; transition: all var(--anim-standard); cursor: default;
     }
     .mode-card:hover {
       border-color: var(--teal);
-      box-shadow: 0 0 16px var(--teal-glow);
+      box-shadow: 0 0 24px var(--teal-glow);
+      transform: translateY(-2px);
     }
-    .mode-card .mode-icon { font-size: 28px; margin-bottom: var(--space-sm); }
+    .mode-icon { margin-bottom: var(--space-sm); display: flex; justify-content: center; }
+    .mode-icon svg { width: 32px; height: 32px; }
     .mode-card h4 { font-size: 14px; font-weight: 600; }
-    .mode-card p {
-      font-size: 12px; color: var(--text-2);
-      margin-top: var(--space-xs);
-    }
+    .mode-card p { font-size: 12px; color: var(--text-2); margin-top: var(--space-xs); }
 
-    /* ── Screenshots ───────────────────────────────────────── */
-    .screenshots {
-      display: grid;
-      grid-template-columns: repeat(7, 160px);
-      gap: var(--space-md);
-      overflow-x: auto;
-      padding-bottom: var(--space-md);
-      scroll-snap-type: x mandatory;
-      -webkit-overflow-scrolling: touch;
-    }
-    .screenshots::-webkit-scrollbar { height: 6px; }
-    .screenshots::-webkit-scrollbar-thumb {
-      background: var(--surface-high); border-radius: 3px;
-    }
-    .screenshots img {
-      width: 160px; height: auto;
-      border-radius: var(--radius-lg);
-      border: 1.5px solid rgba(60, 75, 53, 0.4);
-      scroll-snap-align: start;
+    /* ── Carousel ──────────────────────────────────────────── */
+    .carousel-section { position: relative; }
+    .carousel {
+      position: relative; max-width: 320px; margin: 0 auto;
+      overflow: hidden;
+      border-radius: var(--radius-xl);
+      border: 2px solid rgba(60, 75, 53, 0.4);
+      box-shadow: 0 0 40px var(--accent-glow-soft);
       transition: all var(--anim-standard);
     }
-    .screenshots img:hover {
-      border-color: var(--accent);
-      box-shadow: 0 0 24px var(--accent-glow);
-      transform: scale(1.04);
+    .carousel:hover { border-color: var(--accent); box-shadow: 0 0 60px var(--accent-glow); }
+    .carousel-track {
+      display: flex; transition: transform 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      will-change: transform;
     }
+    .carousel-slide { min-width: 100%; display: flex; }
+    .carousel-slide img {
+      width: 100%; height: auto; display: block;
+      user-select: none; -webkit-user-drag: none;
+    }
+    .carousel-btn {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1.5px solid rgba(60, 75, 53, 0.5);
+      background: rgba(19, 19, 19, 0.85); color: var(--text);
+      backdrop-filter: blur(8px); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; z-index: 10;
+      transition: all var(--anim-short); opacity: 0;
+    }
+    .carousel:hover .carousel-btn { opacity: 1; }
+    .carousel-btn:hover {
+      border-color: var(--accent); color: var(--accent);
+      box-shadow: 0 0 16px var(--accent-glow-soft);
+    }
+    .carousel-btn--prev { left: var(--space-sm); }
+    .carousel-btn--next { right: var(--space-sm); }
+    .carousel-dots {
+      display: flex; justify-content: center; gap: var(--space-sm);
+      margin-top: var(--space-lg);
+    }
+    .carousel-dot {
+      width: 10px; height: 10px; border-radius: 50%; border: none;
+      background: var(--surface-high); cursor: pointer;
+      transition: all var(--anim-standard);
+    }
+    .carousel-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+    .carousel-dot:hover { background: var(--teal); }
 
     /* ── CTA Section ───────────────────────────────────────── */
     .cta-section {
-      background: radial-gradient(ellipse at center, rgba(0, 200, 83, 0.04) 0%, transparent 70%);
+      background: radial-gradient(ellipse at center, rgba(0, 200, 83, 0.05) 0%, transparent 70%);
       border: 1px solid rgba(60, 75, 53, 0.2);
-      border-radius: var(--radius-xl);
-      text-align: center;
-      padding: var(--space-xxl);
-      margin: 0 var(--space-lg);
+      border-radius: var(--radius-xl); text-align: center;
+      padding: var(--space-xxl); margin: 0 var(--space-lg);
+      transition: all var(--anim-slow);
+    }
+    .cta-section:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 60px var(--accent-glow-soft), inset 0 0 60px rgba(0, 200, 83, 0.02);
     }
     .cta-section h2 {
-      font-size: clamp(1.3rem, 3vw, 1.8rem);
-      font-weight: 700; letter-spacing: -0.02em;
-      margin-bottom: var(--space-sm);
+      font-size: clamp(1.3rem, 3vw, 1.8rem); font-weight: 700;
+      letter-spacing: -0.02em; margin-bottom: var(--space-sm);
     }
     .cta-section p { color: var(--text-2); max-width: 500px; margin: 0 auto var(--space-lg); }
     .cta-section .btn-primary { font-size: 18px; padding: 16px 40px; }
@@ -317,8 +344,7 @@
     /* ── Footer ────────────────────────────────────────────── */
     footer {
       border-top: 1px solid rgba(60, 75, 53, 0.2);
-      padding: var(--space-xl) 0;
-      text-align: center;
+      padding: var(--space-xl) 0; text-align: center;
       font-size: 14px; color: var(--text-2);
     }
     footer .footer-links {
@@ -330,10 +356,16 @@
 
     /* ── Reveal animations ─────────────────────────────────── */
     .reveal {
-      opacity: 0; transform: translateY(24px);
-      transition: opacity 500ms ease, transform 500ms ease;
+      opacity: 0; transform: translateY(30px);
+      transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
     }
     .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0ms; }
+    .reveal-delay-2 { transition-delay: 80ms; }
+    .reveal-delay-3 { transition-delay: 160ms; }
+    .reveal-delay-4 { transition-delay: 240ms; }
+    .reveal-delay-5 { transition-delay: 320ms; }
+    .reveal-delay-6 { transition-delay: 400ms; }
 
     /* ── Responsive ────────────────────────────────────────── */
     @media (max-width: 768px) {
@@ -342,22 +374,28 @@
       .header-logo span { font-size: 15px; }
       .features { grid-template-columns: 1fr; }
       .modes { grid-template-columns: repeat(3, 1fr); }
-      .screenshots { grid-template-columns: repeat(7, 140px); }
-      .screenshots img { width: 140px; }
+      .carousel { max-width: 100%; border-radius: var(--radius-lg); }
+      .carousel-btn { width: 32px; height: 32px; font-size: 14px; opacity: 1; }
       .cta-section { padding: var(--space-xl) var(--space-lg); margin: 0; }
+      .particle { display: none; }
     }
     @media (max-width: 480px) {
       .header-nav { display: none; }
       .modes { grid-template-columns: repeat(2, 1fr); }
       .stats { grid-template-columns: repeat(2, 1fr); }
+      .hero-logo { width: 72px; height: 72px; }
     }
   </style>
 </head>
 <body>
 
+  <!-- Particles -->
+  <div class="particles" id="particles"></div>
+
   <!-- Background orbs -->
   <div class="bg-orb bg-orb--green"></div>
   <div class="bg-orb bg-orb--teal"></div>
+  <div class="bg-orb bg-orb--amber"></div>
 
   <!-- Header -->
   <header class="header">
@@ -368,7 +406,7 @@
       </a>
       <ul class="header-nav">
         <li><a href="#features">Features</a></li>
-        <li><a href="#screenshots">Capturas</a></li>
+        <li><a href="#capturas">Capturas</a></li>
         <li><a href="#descargar">Descargar</a></li>
       </ul>
     </div>
@@ -377,7 +415,9 @@
   <!-- Hero -->
   <section class="hero">
     <div class="container">
-      <img src="logoCuentaMorosos.svg" alt="CuentaMorosos" class="hero-logo" />
+      <div class="hero-logo-wrapper">
+        <img src="logoCuentaMorosos.svg" alt="CuentaMorosos" class="hero-logo" />
+      </div>
       <h1>Divide gastos.<br />Sin vueltas.</h1>
       <p>La app que calcula automáticamente las deudas con el <strong>mínimo de transferencias</strong>. Funciona sin conexión, sincroniza cuando vuelve la red.</p>
       <p class="tagline">Open Source · Android 7.0+ · Offline-first</p>
@@ -396,20 +436,20 @@
     <div class="container">
       <div class="stats reveal">
         <div class="stat">
-          <div class="stat-num">6</div>
+          <div class="stat-num" data-target="6">0</div>
           <div class="stat-label">Modos de reparto</div>
         </div>
         <div class="stat">
-          <div class="stat-num">11</div>
+          <div class="stat-num" data-target="11">0</div>
           <div class="stat-label">Categorías</div>
         </div>
         <div class="stat">
-          <div class="stat-num">100%</div>
-          <div class="stat-label">Offline</div>
+          <div class="stat-num" data-target="100">0</div>
+          <div class="stat-label">% Offline</div>
         </div>
         <div class="stat">
-          <div class="stat-num">MIT</div>
-          <div class="stat-label">Open Source</div>
+          <div class="stat-num" data-target="48">0</div>
+          <div class="stat-label">Tests unitarios</div>
         </div>
       </div>
     </div>
@@ -418,37 +458,55 @@
   <!-- Features -->
   <section id="features">
     <div class="container">
-      <h2 class="section-title reveal">⚡ <span>Por qué</span> CuentaMorosos</h2>
+      <h2 class="section-title reveal"><span>Por qué</span> CuentaMorosos</h2>
       <div class="features">
-        <div class="feature-card reveal">
-          <div class="feature-icon">📅</div>
+        <!-- Card 1: Events -->
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M3 16h18"/></svg>
+          </div>
           <h3>Eventos con ciclo de vida</h3>
-          <p>Creá eventos, invitá participantes por email o @username. Cada evento transita por tres estados: Abierto → Calculado → Cerrado. Roles de propietario, colaborador y lector.</p>
+          <p>Creá eventos, invitá participantes por email o @username. Estados Abierto → Calculado → Cerrado con roles de propietario, colaborador y lector.</p>
         </div>
-        <div class="feature-card reveal">
-          <div class="feature-icon">⚖️</div>
+        <!-- Card 2: Settlement -->
+        <div class="feature-card reveal reveal-delay-2">
+          <div class="feature-icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg>
+          </div>
           <h3>Liquidación inteligente</h3>
-          <p>Algoritmo greedy con round-robin que <strong>minimiza las transferencias</strong>. Aplicación atómica protegida por Mutex. Historial de cálculos versionado e inmutable.</p>
+          <p>Algoritmo greedy + round-robin que <strong>minimiza transferencias</strong>. Aplicación atómica con Mutex. Historial de cálculos versionado e inmutable.</p>
         </div>
-        <div class="feature-card reveal">
-          <div class="feature-icon">📡</div>
+        <!-- Card 3: Offline -->
+        <div class="feature-card reveal reveal-delay-3">
+          <div class="feature-icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/><polyline points="21 15 18 18 15 15"/><line x1="18" y1="12" x2="18" y2="18"/></svg>
+          </div>
           <h3>Offline-first</h3>
-          <p>Cache local con SQLDelight. Sincronización escalonada con Firestore al reconectar. Cola de operaciones pendientes con backoff exponencial. No perdés ningún dato.</p>
+          <p>Cache local SQLDelight. Sincronización escalonada con Firestore. Cola de pendientes con backoff exponencial. No perdés datos sin conexión.</p>
         </div>
-        <div class="feature-card reveal">
-          <div class="feature-icon">🔔</div>
+        <!-- Card 4: Notifications -->
+        <div class="feature-card reveal reveal-delay-4">
+          <div class="feature-icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          </div>
           <h3>Notificaciones push</h3>
-          <p>FCM para invitaciones y cálculos nuevos. Recordatorios diarios con WorkManager. Deep links: tocás la notificación y vas directo al evento.</p>
+          <p>FCM + WorkManager. Deep links directos al evento. Recordatorios diarios de deudas pendientes. Desduplicación por huella digital.</p>
         </div>
-        <div class="feature-card reveal">
-          <div class="feature-icon">👤</div>
+        <!-- Card 5: Ghost profiles -->
+        <div class="feature-card reveal reveal-delay-5">
+          <div class="feature-icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
           <h3>Perfiles fantasma</h3>
-          <p>Agregá participantes sin cuenta. Cuando se registran, sus deudas y gastos migran automáticamente al perfil real. Fotos personalizadas y nombres visibles por evento.</p>
+          <p>Participantes sin cuenta con migración automática al registrarse. Deudas y gastos reconciliados. Fotos y nombres personalizables por evento.</p>
         </div>
-        <div class="feature-card reveal">
-          <div class="feature-icon">🌙</div>
+        <!-- Card 6: Dark mode -->
+        <div class="feature-card reveal reveal-delay-6">
+          <div class="feature-icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+          </div>
           <h3>Modo oscuro NeoFintech</h3>
-          <p>Diseño premium con sistema de color WCAG AA. Animaciones staggered, glow neón, glassmorphism. Geist para UI + JetBrains Mono para montos y datos.</p>
+          <p>Diseño premium WCAG AA. Animaciones staggered, glow neón 3-capas, glassmorphism. Geist para UI + JetBrains Mono para montos.</p>
         </div>
       </div>
     </div>
@@ -460,52 +518,73 @@
       <h2 class="section-title reveal"><span>6 modos</span> de reparto</h2>
       <div class="modes reveal">
         <div class="mode-card">
-          <div class="mode-icon">📊</div>
+          <div class="mode-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="7" width="5" height="14" rx="1"/><rect x="17" y="11" width="5" height="10" rx="1"/></svg>
+          </div>
           <h4>Consumo real</h4>
-          <p>Cada ítem se reparte solo entre los asignados</p>
+          <p>Ítems repartidos solo entre asignados</p>
         </div>
         <div class="mode-card">
-          <div class="mode-icon">➗</div>
+          <div class="mode-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="4" rx="1"/><rect x="3" y="11" width="18" height="4" rx="1"/><rect x="3" y="17" width="18" height="4" rx="1"/></svg>
+          </div>
           <h4>Media simple</h4>
-          <p>División a partes iguales entre todos</p>
+          <p>División a partes iguales</p>
         </div>
         <div class="mode-card">
-          <div class="mode-icon">🏷️</div>
+          <div class="mode-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          </div>
           <h4>Por categoría</h4>
-          <p>Ítems compartidos entre todos, el resto individual</p>
+          <p>Compartidos + individuales</p>
         </div>
         <div class="mode-card">
-          <div class="mode-icon">💯</div>
+          <div class="mode-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+          </div>
           <h4>% personalizado</h4>
-          <p>Cada perfil paga un porcentaje del total</p>
+          <p>Cada perfil un porcentaje</p>
         </div>
         <div class="mode-card">
-          <div class="mode-icon">💶</div>
+          <div class="mode-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12M6 8h12M6 12h8"/><circle cx="12" cy="19" r="3"/><line x1="12" y1="16" x2="12" y2="16.01"/></svg>
+          </div>
           <h4>Importe exacto</h4>
-          <p>Cada perfil paga un monto fijo predefinido</p>
+          <p>Monto fijo por persona</p>
         </div>
         <div class="mode-card">
-          <div class="mode-icon">🧩</div>
+          <div class="mode-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>
+          </div>
           <h4>Por partes</h4>
-          <p>Reparto proporcional según partes enteras</p>
+          <p>Reparto proporcional</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Screenshots -->
-  <section id="screenshots">
+  <!-- Screenshots Carousel -->
+  <section id="capturas" class="carousel-section">
     <div class="container">
-      <h2 class="section-title reveal">📸 <span>Capturas</span></h2>
-      <div class="screenshots reveal">
-        <img src="screenshots/pantalla-login.jpeg" alt="Login" loading="lazy" />
-        <img src="screenshots/Eventos.jpeg" alt="Eventos" loading="lazy" />
-        <img src="screenshots/Calendario.jpeg" alt="Calendario" loading="lazy" />
-        <img src="screenshots/detalles-evento.jpeg" alt="Detalle" loading="lazy" />
-        <img src="screenshots/creacion-de-gastos.jpeg" alt="Gastos" loading="lazy" />
-        <img src="screenshots/resumen-factura-transferencias.jpeg" alt="Liquidación" loading="lazy" />
-        <img src="screenshots/Panel.jpeg" alt="Panel" loading="lazy" />
+      <h2 class="section-title reveal"><span>Capturas</span> de la app</h2>
+      <div class="carousel reveal" id="carousel">
+        <div class="carousel-track" id="carouselTrack">
+          <div class="carousel-slide"><img src="screenshots/pantalla-login.jpeg" alt="Pantalla de inicio de sesión" loading="lazy" /></div>
+          <div class="carousel-slide"><img src="screenshots/Eventos.jpeg" alt="Lista de eventos" loading="lazy" /></div>
+          <div class="carousel-slide"><img src="screenshots/detalles-evento.jpeg" alt="Detalle de evento" loading="lazy" /></div>
+          <div class="carousel-slide"><img src="screenshots/creacion-de-gastos.jpeg" alt="Creación de gastos" loading="lazy" /></div>
+          <div class="carousel-slide"><img src="screenshots/resumen-factura-transferencias.jpeg" alt="Liquidación y transferencias" loading="lazy" /></div>
+          <div class="carousel-slide"><img src="screenshots/Calendario.jpeg" alt="Calendario de eventos" loading="lazy" /></div>
+          <div class="carousel-slide"><img src="screenshots/Panel.jpeg" alt="Panel de control" loading="lazy" /></div>
+        </div>
+        <button class="carousel-btn carousel-btn--prev" id="carouselPrev" aria-label="Anterior">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <button class="carousel-btn carousel-btn--next" id="carouselNext" aria-label="Siguiente">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
       </div>
+      <div class="carousel-dots" id="carouselDots"></div>
     </div>
   </section>
 
@@ -535,18 +614,140 @@
     </div>
   </footer>
 
-  <!-- Scroll reveal -->
   <script>
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-          observer.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.1 });
+    /* ── Particles ──────────────────────────────────────────── */
+    (function() {
+      const container = document.getElementById('particles');
+      const count = 18;
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.classList.add('particle');
+        const size = Math.random() * 3 + 2;
+        p.style.width = size + 'px';
+        p.style.height = size + 'px';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.animationDuration = (Math.random() * 10 + 12) + 's';
+        p.style.animationDelay = Math.random() * 10 + 's';
+        container.appendChild(p);
+      }
+    })();
 
-    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    /* ── Stats Counter ──────────────────────────────────────── */
+    (function() {
+      const animated = new Set();
+      const counterObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting || animated.has(entry.target)) return;
+          animated.add(entry.target);
+          const el = entry.target;
+          const target = parseInt(el.dataset.target, 10);
+          const duration = 1200;
+          const start = performance.now();
+          const suffix = target === 100 ? '%' : '';
+          function tick(now) {
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = Math.round(eased * target);
+            el.textContent = current + suffix;
+            if (progress < 1) requestAnimationFrame(tick);
+            else el.textContent = target + suffix;
+          }
+          requestAnimationFrame(tick);
+        });
+      }, { threshold: 0.4 });
+      document.querySelectorAll('.stat-num[data-target]').forEach(el => counterObserver.observe(el));
+    })();
+
+    /* ── Carousel ───────────────────────────────────────────── */
+    (function() {
+      const track = document.getElementById('carouselTrack');
+      const slides = track.querySelectorAll('.carousel-slide');
+      const dotsContainer = document.getElementById('carouselDots');
+      const prev = document.getElementById('carouselPrev');
+      const next = document.getElementById('carouselNext');
+      const total = slides.length;
+      let index = 0;
+      let autoPlayInterval;
+      let touchStartX = 0;
+      let touchEndX = 0;
+
+      // Create dots
+      for (let i = 0; i < total; i++) {
+        const dot = document.createElement('button');
+        dot.classList.add('carousel-dot');
+        dot.setAttribute('aria-label', 'Ir a captura ' + (i + 1));
+        dot.addEventListener('click', () => goTo(i));
+        if (i === 0) dot.classList.add('active');
+        dotsContainer.appendChild(dot);
+      }
+      const dots = dotsContainer.querySelectorAll('.carousel-dot');
+
+      function goTo(i) {
+        index = ((i % total) + total) % total;
+        track.style.transform = 'translateX(-' + (index * 100) + '%)';
+        dots.forEach((d, j) => d.classList.toggle('active', j === index));
+      }
+
+      function goNext() { goTo(index + 1); }
+      function goPrev() { goTo(index - 1); }
+
+      function startAutoPlay() {
+        stopAutoPlay();
+        autoPlayInterval = setInterval(goNext, 4000);
+      }
+      function stopAutoPlay() { clearInterval(autoPlayInterval); }
+
+      prev.addEventListener('click', () => { goPrev(); startAutoPlay(); });
+      next.addEventListener('click', () => { goNext(); startAutoPlay(); });
+
+      // Touch
+      track.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; stopAutoPlay(); });
+      track.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 40) { diff > 0 ? goNext() : goPrev(); }
+        startAutoPlay();
+      });
+
+      // Mouse drag
+      let mouseDown = false, mouseStartX = 0;
+      track.addEventListener('mousedown', (e) => { mouseDown = true; mouseStartX = e.screenX; stopAutoPlay(); });
+      track.addEventListener('mousemove', (e) => { if (mouseDown) e.preventDefault(); });
+      track.addEventListener('mouseup', (e) => {
+        if (!mouseDown) return;
+        mouseDown = false;
+        const diff = mouseStartX - e.screenX;
+        if (Math.abs(diff) > 40) { diff > 0 ? goNext() : goPrev(); }
+        startAutoPlay();
+      });
+      track.addEventListener('mouseleave', () => { mouseDown = false; startAutoPlay(); });
+
+      // Keyboard
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') { goPrev(); startAutoPlay(); }
+        if (e.key === 'ArrowRight') { goNext(); startAutoPlay(); }
+      });
+
+      // Pause on hover
+      const carousel = document.getElementById('carousel');
+      carousel.addEventListener('mouseenter', stopAutoPlay);
+      carousel.addEventListener('mouseleave', startAutoPlay);
+
+      startAutoPlay();
+    })();
+
+    /* ── Scroll Reveal ──────────────────────────────────────── */
+    (function() {
+      const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            revealObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+      document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+    })();
   </script>
 
 </body>
