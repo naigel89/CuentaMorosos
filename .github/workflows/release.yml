@@ -63,10 +63,13 @@ jobs:
       # Requiere: secret FIREBASE_SERVICE_ACCOUNT con JSON de service account
       # (rol: Firebase App Distribution Admin). Si no está configurado, se saltea.
       - name: Distribute to Firebase App Distribution
+        continue-on-error: true
         env:
-          FIREBASE_APP_DISTRIBUTION_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          if [ -n "$FIREBASE_APP_DISTRIBUTION_CREDENTIALS" ]; then
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/firebase-sa.json
+            export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
             ./gradlew :app:appDistributionUploadRelease
           else
             echo "SKIP: FIREBASE_SERVICE_ACCOUNT secret not configured"
