@@ -92,7 +92,7 @@ class AccountViewModel(
                 val own = profiles.firstOrNull { it.id == currentProfileId }
                 _currentProfile.value = own
                 if (!hasInitialLoadDone) {
-                    _displayNameText.value = own?.displayName ?: own?.name ?: ""
+                    _displayNameText.value = own?.name ?: ""
                     _usernameText.value = own?.username ?: ""
                     hasInitialLoadDone = true
                 }
@@ -166,15 +166,19 @@ class AccountViewModel(
         viewModelScope.launch {
             _state.value = AccountUiState.Loading
             val name = _displayNameText.value.trim()
+            println("[AccountViewModel] saveDisplayName called: newName='$name'")
             if (name.isBlank()) {
+                println("[AccountViewModel] saveDisplayName REJECTED: blank name")
                 _state.value = AccountUiState.Error("El nombre no puede estar vacío")
                 return@launch
             }
             profileRepository.updateDisplayName(name)
                 .onSuccess {
+                    println("[AccountViewModel] saveDisplayName SUCCESS: name='$name'")
                     _state.value = AccountUiState.Success("Nombre actualizado")
                 }
                 .onFailure {
+                    println("[AccountViewModel] saveDisplayName FAILED: ${it.message}")
                     _state.value = AccountUiState.Error(it.message ?: "Error al guardar")
                 }
         }
@@ -184,7 +188,9 @@ class AccountViewModel(
         viewModelScope.launch {
             _state.value = AccountUiState.Loading
             val username = _usernameText.value.trim()
+            println("[AccountViewModel] saveUsername called: newUsername='$username'")
             if (!isValidUsernameFormat(username)) {
+                println("[AccountViewModel] saveUsername REJECTED: invalid format")
                 _state.value = AccountUiState.Error(
                     "Solo letras, números y guiones bajos (3-20 caracteres)"
                 )
@@ -192,9 +198,11 @@ class AccountViewModel(
             }
             profileRepository.updateUsername(username)
                 .onSuccess {
+                    println("[AccountViewModel] saveUsername SUCCESS: username='$username' saved")
                     _state.value = AccountUiState.Success("Nombre de usuario actualizado")
                 }
                 .onFailure {
+                    println("[AccountViewModel] saveUsername FAILED: ${it.message}")
                     _state.value = AccountUiState.Error(it.message ?: "Error al guardar")
                 }
         }
