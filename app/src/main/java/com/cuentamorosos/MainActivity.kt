@@ -52,9 +52,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -231,12 +233,24 @@ private fun MainAppContent(
     LaunchedEffect(user.uid) {
         // Profile sync runs in background (non-blocking)
         runCatching {
-            FirebaseUserSyncManager.syncCurrentUser()
-            FirebaseUserSyncManager.ensureOwnProfile()
+            FirebaseUserSyncManager.syncCurrentUser(
+                profileRepository = repositoryProvider.remoteProfileRepository,
+            )
         }.onFailure { e ->
             println("[MainActivity] Profile sync failed: ${e.message}")
         }
         repositoryProvider.startSyncStaggered(syncScope)
+
+        // Trigger idempotent orphan cleanup after initial sync completes (GPS-REQ-006)
+        if (!localStore.isOrphanCleanupDone()) {
+            launch {
+                delay(2000) // let initial sync complete
+                runCatching {
+                    repositoryProvider.remoteProfileRepository.cleanupOrphans()
+                    localStore.markOrphanCleanupDone()
+                }
+            }
+        }
     }
 
     // ── Photo picker bridge ───────────────────────────────────────────────────
@@ -338,6 +352,7 @@ private fun MainAppContent(
         },
         deepLinkEvent = deepLinkEvent,
         onTestNotification = onTestNotification,
+        profileRepository = repositoryProvider.remoteProfileRepository,
     )
 }
 

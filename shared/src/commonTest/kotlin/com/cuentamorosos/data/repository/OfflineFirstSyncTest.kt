@@ -172,5 +172,6 @@ class OfflineFirstSyncTest {
         override suspend fun updateProfileUsername(profileId: String, username: String) {}
         override suspend fun updateProfileDisplayName(profileId: String, displayName: String) {}
         override suspend fun deleteProfilePhoto(profileId: String) {}
+        override suspend fun linkGhostProfile(email: String, realUid: String) {}
     }
 }

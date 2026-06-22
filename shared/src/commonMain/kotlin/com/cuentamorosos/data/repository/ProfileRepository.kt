@@ -34,4 +34,18 @@ interface ProfileRepository {
      * Returns success when the photo URL has been cleared.
      */
     suspend fun deleteProfilePhoto(): Result<Unit>
+
+    /** Searches ALL Firestore profiles whose username starts with [prefix].
+     *  Ghost profiles (username=null) and profiles without linkedEmail are excluded.
+     *  Results are limited to 20 profiles. Case-insensitive. */
+    suspend fun searchByUsername(prefix: String): List<ProfileItem>
+
+    // ── Orphan cleanup (GPS-REQ-006) ─────────────────────────────────────────
+
+    /**
+     * Idempotent orphan cleanup: scans debts, expenses, and events for references
+     * to non-existent profile UUIDs and removes them.
+     * Default no-op; FirestoreProfileRepository provides the real implementation.
+     */
+    suspend fun cleanupOrphans() {}
 }

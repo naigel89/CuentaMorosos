@@ -57,6 +57,7 @@ class OfflineFirstEventRepository(
         override suspend fun updateProfileUsername(profileId: String, username: String) = throw UnsupportedOperationException()
         override suspend fun updateProfileDisplayName(profileId: String, displayName: String) = throw UnsupportedOperationException()
         override suspend fun deleteProfilePhoto(profileId: String) = throw UnsupportedOperationException()
+        override suspend fun linkGhostProfile(email: String, realUid: String) = throw UnsupportedOperationException()
     }
 
     fun startSync() {

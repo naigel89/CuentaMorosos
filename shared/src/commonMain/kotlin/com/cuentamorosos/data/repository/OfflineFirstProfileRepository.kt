@@ -54,6 +54,9 @@ class OfflineFirstProfileRepository(
         override suspend fun deleteProfilePhoto(profileId: String) {
             remoteRepository.deleteProfilePhoto()
         }
+        override suspend fun linkGhostProfile(email: String, realUid: String) {
+            remoteRepository.linkGhostProfile(email, realUid)
+        }
     }
 
     fun startSync() {
@@ -74,7 +77,13 @@ class OfflineFirstProfileRepository(
             .asFlow()
             .mapToList(Dispatchers.Default)
             .map { cachedProfiles ->
-                cachedProfiles.map { it.toProfileItem() }
+                val items = cachedProfiles.map { it.toProfileItem() }
+                items.forEach { p ->
+                    if (p.id == p.ownerId) {
+                        println("[OfflineFirstProfileRepo] observeProfiles → OWN: id=${p.id} name='${p.name}' username='${p.username}'")
+                    }
+                }
+                items
             }
     }
 
@@ -120,6 +129,8 @@ class OfflineFirstProfileRepository(
         queries.transaction {
             profiles.forEach { profile ->
                 val pending = pendingLocalChanges[profile.id]
+                val finalUsername = pending?.get("username") ?: (profile.username ?: "")
+                println("[OfflineFirstProfileRepo] upsertProfiles: id=${profile.id} name='${profile.name}' username='$finalUsername' (pending=${pending != null})")
                 queries.upsert(
                     id = profile.id,
                     name = profile.name,
@@ -129,8 +140,8 @@ class OfflineFirstProfileRepository(
                     updatedAt = currentTimeMillis(),
                     ownerId = profile.ownerId,
                     photo_url = pending?.get("photo_url") ?: (profile.photoUrl ?: ""),
-                    username = pending?.get("username") ?: (profile.username ?: ""),
-                    display_name = pending?.get("display_name") ?: (profile.displayName ?: ""),
+                    username = finalUsername,
+                    display_name = "",
                     custom_names = serializeCustomNames(profile.customNames),
                 )
             }
@@ -148,7 +159,7 @@ class OfflineFirstProfileRepository(
             ownerId = profile.ownerId,
             photo_url = profile.photoUrl ?: "",
             username = profile.username ?: "",
-            display_name = profile.displayName ?: "",
+            display_name = "",
             custom_names = serializeCustomNames(profile.customNames),
         )
         try {
@@ -184,7 +195,19 @@ class OfflineFirstProfileRepository(
     }
 
     override suspend fun linkGhostProfile(userEmail: String, userUid: String) {
-        remoteRepository.linkGhostProfile(userEmail, userUid)
+        try {
+            remoteRepository.linkGhostProfile(userEmail, userUid)
+        } catch (e: Exception) {
+            println("[OfflineFirstProfileRepo] linkGhostProfile remote FAILED for $userUid: ${e.message}")
+            e.printStackTrace()
+            pendingQueue.enqueue(
+                id = "linkghost_${userUid}_${currentTimeMillis()}",
+                entityType = "profile",
+                entityId = userUid,
+                operation = "linkGhost",
+                payload = "$userEmail|$userUid"
+            )
+        }
     }
 
     // ── Phase 2: Profile & Account Settings ─────────────────────────────────
@@ -209,7 +232,7 @@ class OfflineFirstProfileRepository(
                     ownerId = ownProfile.ownerId,
                     photo_url = photoUrl,
                     username = ownProfile.username,
-                    display_name = ownProfile.display_name,
+                    display_name = "",
                     custom_names = ownProfile.custom_names,
                 )
                 println("[OfflineFirstProfileRepo] updateProfilePhoto local cache updated")
@@ -258,7 +281,7 @@ class OfflineFirstProfileRepository(
                     ownerId = ownProfile.ownerId,
                     photo_url = ownProfile.photo_url,
                     username = username,
-                    display_name = ownProfile.display_name,
+                    display_name = "",
                     custom_names = ownProfile.custom_names,
                 )
                 println("[OfflineFirstProfileRepo] updateUsername local cache updated")
@@ -292,14 +315,9 @@ class OfflineFirstProfileRepository(
             println("[OfflineFirstProfileRepo] updateDisplayName called '$displayName'")
             val ownProfile = findOwnProfile()
             if (ownProfile != null) {
-                val pending = pendingLocalChanges[ownProfile.id]?.toMutableMap() ?: mutableMapOf()
-                pending["display_name"] = displayName
-                pendingLocalChanges[ownProfile.id] = pending
-                println("[OfflineFirstProfileRepo] updateDisplayName pending set for ${ownProfile.id}")
-
                 queries.upsert(
                     id = ownProfile.id,
-                    name = ownProfile.name,
+                    name = displayName,
                     email = ownProfile.email,
                     isGhost = ownProfile.isGhost,
                     totalPendingEuros = ownProfile.totalPendingEuros,
@@ -307,28 +325,15 @@ class OfflineFirstProfileRepository(
                     ownerId = ownProfile.ownerId,
                     photo_url = ownProfile.photo_url,
                     username = ownProfile.username,
-                    display_name = displayName,
+                    display_name = "",
                     custom_names = ownProfile.custom_names,
                 )
-                println("[OfflineFirstProfileRepo] updateDisplayName local cache updated")
+                println("[OfflineFirstProfileRepo] updateDisplayName: oldName='${ownProfile.name}' → newName='$displayName' (local cache updated)")
             } else {
                 println("[OfflineFirstProfileRepo] updateDisplayName: own profile not found!")
             }
             val result = remoteRepository.updateDisplayName(displayName)
             println("[OfflineFirstProfileRepo] updateDisplayName remote: success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
-            if (result.isSuccess) {
-                pendingLocalChanges.remove(ownProfile?.id)
-                println("[OfflineFirstProfileRepo] updateDisplayName pending cleared")
-            } else {
-                pendingQueue.enqueue(
-                    id = "displayname_${currentTimeMillis()}",
-                    entityType = "profile",
-                    entityId = ownProfile?.id ?: "",
-                    operation = "updateDisplayName",
-                    payload = displayName
-                )
-                println("[OfflineFirstProfileRepo] updateDisplayName enqueued to pending")
-            }
             result
         } catch (e: Exception) {
             println("[OfflineFirstProfileRepo] updateDisplayName exception: ${e.message}")
@@ -371,7 +376,7 @@ class OfflineFirstProfileRepository(
                     ownerId = ownProfile.ownerId,
                     photo_url = "",
                     username = ownProfile.username,
-                    display_name = ownProfile.display_name,
+                    display_name = "",
                     custom_names = ownProfile.custom_names,
                 )
                 println("[OfflineFirstProfileRepo] deleteProfilePhoto local cache updated")
@@ -394,6 +399,12 @@ class OfflineFirstProfileRepository(
             println("[OfflineFirstProfileRepo] deleteProfilePhoto exception: ${e.message}")
             Result.failure(e)
         }
+    }
+
+    // ── Phase 3: Username Search (remote-only) ───────────────────────────────
+
+    override suspend fun searchByUsername(prefix: String): List<ProfileItem> {
+        throw UnsupportedOperationException("searchByUsername is remote-only; use FirestoreProfileRepository")
     }
 
     override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> {
@@ -467,7 +478,6 @@ class OfflineFirstProfileRepository(
             ownerId = ownerId,
             photoUrl = if (isGhost) null else photo_url.takeIf { it.isNotBlank() },
             username = if (isGhost) null else username.takeIf { it.isNotBlank() },
-            displayName = display_name.takeIf { it.isNotBlank() },
             customNames = parseCustomNames(custom_names),
         )
     }

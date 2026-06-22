@@ -2,7 +2,7 @@ package com.cuentamorosos.model.validation
 
 import com.cuentamorosos.model.ProfileItem
 
-/** Validates [ProfileItem] instances against domain rules PV-01 through PV-03. */
+/** Validates [ProfileItem] instances against domain rules PV-01 through PV-04. */
 object ProfileValidator {
 
     /**
@@ -35,6 +35,19 @@ object ProfileValidator {
             if (duplicate) {
                 errors.add(
                     ValidationError("Ya existe un perfil con ese nombre", "name"),
+                )
+            }
+        }
+
+        // PV-03 (ghost-sync): linkedEmail uniqueness (GPS-REQ-005)
+        if (profile.linkedEmail != null) {
+            val duplicate = existingProfiles
+                .filter { it.id != profile.id } // exclude self
+                .any { it.linkedEmail.equals(profile.linkedEmail, ignoreCase = true) }
+
+            if (duplicate) {
+                errors.add(
+                    ValidationError("linkedEmail duplicado", "linkedEmail"),
                 )
             }
         }

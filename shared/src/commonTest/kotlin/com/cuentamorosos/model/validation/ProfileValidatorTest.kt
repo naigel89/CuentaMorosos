@@ -87,6 +87,59 @@ class ProfileValidatorTest {
         assertFalse(result.allErrors().any { it.message.contains("existe") })
     }
 
+    // ── PV-03 (ghost-sync): linkedEmail uniqueness (GPS-REQ-005) ────────────
+
+    @Test
+    fun `PV-03 ghost-sync duplicate linkedEmail returns error`() {
+        val profile = testProfile(name = "Ghost A").copy(linkedEmail = "dup@test.com")
+        val existing = listOf(
+            testProfile(id = "p2", name = "Ghost B").copy(linkedEmail = "dup@test.com")
+        )
+        val result = ProfileValidator.validate(profile, existing)
+        assertTrue(result.hasErrors())
+        assertEquals("linkedEmail duplicado", result.allErrors().first { it.field == "linkedEmail" }.message)
+        assertEquals("linkedEmail", result.allErrors().first { it.field == "linkedEmail" }.field)
+    }
+
+    @Test
+    fun `PV-03 ghost-sync duplicate linkedEmail case-insensitive`() {
+        val profile = testProfile(name = "Ghost A").copy(linkedEmail = "Dup@Test.com")
+        val existing = listOf(
+            testProfile(id = "p2", name = "Ghost B").copy(linkedEmail = "dup@test.com")
+        )
+        val result = ProfileValidator.validate(profile, existing)
+        assertTrue(result.hasErrors())
+        assertEquals("linkedEmail duplicado", result.allErrors().first { it.field == "linkedEmail" }.message)
+    }
+
+    @Test
+    fun `PV-03 ghost-sync unique linkedEmail passes`() {
+        val profile = testProfile(name = "Ghost C").copy(linkedEmail = "unique@test.com")
+        val existing = listOf(
+            testProfile(id = "p2", name = "Ghost D").copy(linkedEmail = "other@test.com")
+        )
+        val result = ProfileValidator.validate(profile, existing)
+        assertFalse(result.allErrors().any { it.field == "linkedEmail" })
+    }
+
+    @Test
+    fun `PV-03 ghost-sync null linkedEmail ignored`() {
+        val profile = testProfile(name = "Ghost E").copy(linkedEmail = null)
+        val existing = listOf(
+            testProfile(id = "p2", name = "Ghost F").copy(linkedEmail = null)
+        )
+        val result = ProfileValidator.validate(profile, existing)
+        assertFalse(result.allErrors().any { it.field == "linkedEmail" })
+    }
+
+    @Test
+    fun `PV-03 ghost-sync self-edit with same linkedEmail passes`() {
+        val profile = testProfile(id = "p1", name = "Self").copy(linkedEmail = "same@test.com")
+        val existing = listOf(profile) // self only
+        val result = ProfileValidator.validate(profile, existing)
+        assertFalse(result.allErrors().any { it.field == "linkedEmail" })
+    }
+
     // ── PV-03: Delete warning for active events ─────────────────────────────
 
     @Test

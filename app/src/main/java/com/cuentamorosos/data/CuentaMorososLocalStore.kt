@@ -139,7 +139,6 @@ class CuentaMorososLocalStore(context: Context) {
                 ownerId = item.optString("ownerId", ""),
                 photoUrl = item.optString("photoUrl").takeIf { it.isNotBlank() },
                 username = item.optString("username").takeIf { it.isNotBlank() },
-                displayName = item.optString("displayName").takeIf { it.isNotBlank() },
                 customNames = loadCustomNames(item),
             )
         }
@@ -158,7 +157,6 @@ class CuentaMorososLocalStore(context: Context) {
                         .put("ownerId", profile.ownerId)
                         .put("photoUrl", profile.photoUrl)
                         .put("username", profile.username)
-                        .put("displayName", profile.displayName)
                         .put("customNames", JSONObject().apply {
                             profile.customNames.forEach { (k, v) -> put(k, v) }
                         })
@@ -331,6 +329,15 @@ class CuentaMorososLocalStore(context: Context) {
         prefs.edit().clear().apply()
     }
 
+    // ── Orphan Cleanup Flag (GPS-REQ-006) ──────────────────────────────────
+
+    fun isOrphanCleanupDone(): Boolean =
+        prefs.getBoolean(KEY_ORPHAN_CLEANUP_DONE, false)
+
+    fun markOrphanCleanupDone() {
+        prefs.edit().putBoolean(KEY_ORPHAN_CLEANUP_DONE, true).apply()
+    }
+
     private fun <T> readArray(key: String, mapper: (JSONObject) -> T?): List<T> {
         val rawValue = prefs.getString(key, null) ?: return emptyList()
         val jsonArray = runCatching { JSONArray(rawValue) }.getOrElse { return emptyList() }
@@ -448,5 +455,6 @@ class CuentaMorososLocalStore(context: Context) {
         const val KEY_EXPENSES = "expenses"
         const val KEY_PREFERENCES = "preferences"
         const val KEY_SENT_FINGERPRINTS = "sent_fingerprints"
+        const val KEY_ORPHAN_CLEANUP_DONE = "orphan_cleanup_done"
     }
 }

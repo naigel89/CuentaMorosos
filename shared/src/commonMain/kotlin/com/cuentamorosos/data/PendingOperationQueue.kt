@@ -82,6 +82,12 @@ class PendingOperationQueue(
                     "updateUsername" -> remoteOps.updateProfileUsername(op.entityId, op.payload)
                     "updateDisplayName" -> remoteOps.updateProfileDisplayName(op.entityId, op.payload)
                     "deletePhoto" -> remoteOps.deleteProfilePhoto(op.entityId)
+                    "linkGhost" -> {
+                        val parts = op.payload.split("|", limit = 2)
+                        if (parts.size == 2) {
+                            remoteOps.linkGhostProfile(parts[0], parts[1])
+                        }
+                    }
                 }
                 markComplete(op.id)
             } catch (e: Exception) {
@@ -120,4 +126,5 @@ interface RemoteOperations {
     suspend fun updateProfileUsername(profileId: String, username: String)
     suspend fun updateProfileDisplayName(profileId: String, displayName: String)
     suspend fun deleteProfilePhoto(profileId: String)
+    suspend fun linkGhostProfile(email: String, realUid: String)
 }

@@ -14,7 +14,9 @@ import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
-class FirestoreInvitationRepository : InvitationRepository {
+class FirestoreInvitationRepository(
+    private val profileRepository: ProfileRepository? = null,
+) : InvitationRepository {
 
     private val db = Firebase.firestore
     private val auth = Firebase.auth
@@ -67,6 +69,13 @@ class FirestoreInvitationRepository : InvitationRepository {
     override suspend fun acceptInvitation(invitation: EventInvitation, inviteeName: String) {
         runCatching {
             val uid = auth.currentUser?.uid ?: return
+
+            // PRE-INSERT: reconcile ghost profiles first (GPS-REQ-003)
+            profileRepository?.let { repo ->
+                auth.currentUser?.email?.trim()?.lowercase()?.let { email ->
+                    runCatching { repo.linkGhostProfile(email, uid) }
+                }
+            }
 
             val eventsCollection = db.collection("events")
             val doc = eventsCollection.document(invitation.eventId).get()

@@ -140,6 +140,8 @@ object MigrationManager {
         "id" to id,
         "name" to name,
         "totalPendingEuros" to totalPendingEuros,
-        "ownerId" to uid
+        "ownerId" to uid,
+        "isGhost" to isGhost,
+        "linkedEmail" to linkedEmail,
     )
 }

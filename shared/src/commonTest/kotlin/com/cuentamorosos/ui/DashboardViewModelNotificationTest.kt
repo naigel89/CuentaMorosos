@@ -249,4 +249,5 @@ private class FakeProfileRepository(
     override suspend fun isUsernameAvailable(username: String): Boolean = true
     override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> = Result.success(Unit)
     override suspend fun deleteProfilePhoto(): Result<Unit> = Result.success(Unit)
+    override suspend fun searchByUsername(prefix: String): List<ProfileItem> = emptyList()
 }

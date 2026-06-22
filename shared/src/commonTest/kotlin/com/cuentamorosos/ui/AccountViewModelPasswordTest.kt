@@ -47,6 +47,7 @@ class AccountViewModelPasswordTest {
                 return Result.failure(Exception("requiresRecentLogin"))
             }
             override suspend fun deleteProfilePhoto(): Result<Unit> = Result.success(Unit)
+            override suspend fun searchByUsername(prefix: String): List<ProfileItem> = throw UnsupportedOperationException()
         }
 
         val vm = AccountViewModel(repo, "testUid")
@@ -83,6 +84,7 @@ class AccountViewModelPasswordTest {
             override suspend fun isUsernameAvailable(username: String): Boolean = true
             override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> = Result.success(Unit)
             override suspend fun deleteProfilePhoto(): Result<Unit> = Result.success(Unit)
+            override suspend fun searchByUsername(prefix: String): List<ProfileItem> = throw UnsupportedOperationException()
         }
 
         val vm = AccountViewModel(repo, "testUid")
@@ -110,6 +112,7 @@ class AccountViewModelPasswordTest {
             override suspend fun isUsernameAvailable(username: String): Boolean = true
             override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> = Result.success(Unit)
             override suspend fun deleteProfilePhoto(): Result<Unit> = Result.success(Unit)
+            override suspend fun searchByUsername(prefix: String): List<ProfileItem> = throw UnsupportedOperationException()
         }
 
         val vm = AccountViewModel(repo, "testUid")

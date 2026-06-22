@@ -51,7 +51,9 @@ class RepositoryProvider(
     val remoteDebtRepository: DebtRepository = FirestoreDebtRepository()
     val remoteExpenseRepository: ExpenseRepository = FirestoreExpenseRepository()
     val remoteProfileRepository: ProfileRepository = FirestoreProfileRepository()
-    val remoteInvitationRepository: InvitationRepository = FirestoreInvitationRepository()
+    val remoteInvitationRepository: InvitationRepository = FirestoreInvitationRepository(
+        profileRepository = remoteProfileRepository,
+    )
 
     // OfflineFirst repositories — wrap remote with local SQLDelight cache
     val eventRepository: EventRepository = OfflineFirstEventRepository(
@@ -188,7 +190,7 @@ class RepositoryProvider(
                             totalPendingEuros = p.totalPendingEuros,
                             isGhost = p.isGhost == 1L, linkedEmail = p.email,
                             ownerId = p.ownerId, photoUrl = p.photo_url,
-                            username = p.username, displayName = p.display_name,
+                            username = p.username,
                         )
                     }
                 if (local != null) remoteProfileRepository.saveProfile(local)
@@ -198,6 +200,7 @@ class RepositoryProvider(
             override suspend fun updateProfileUsername(profileId: String, username: String) { remoteProfileRepository.updateUsername(username) }
             override suspend fun updateProfileDisplayName(profileId: String, displayName: String) { remoteProfileRepository.updateDisplayName(displayName) }
             override suspend fun deleteProfilePhoto(profileId: String) { remoteProfileRepository.deleteProfilePhoto() }
+            override suspend fun linkGhostProfile(email: String, realUid: String) { remoteProfileRepository.linkGhostProfile(email, realUid) }
         })
         println("[RepositoryProvider] Pending operations drain complete")
     }

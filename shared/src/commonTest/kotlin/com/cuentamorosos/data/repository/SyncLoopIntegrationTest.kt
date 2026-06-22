@@ -101,6 +101,7 @@ class SyncLoopIntegrationTest {
             override suspend fun updateProfileUsername(profileId: String, username: String) {}
             override suspend fun updateProfileDisplayName(profileId: String, displayName: String) {}
             override suspend fun deleteProfilePhoto(profileId: String) {}
+            override suspend fun linkGhostProfile(email: String, realUid: String) {}
         }
 
         queue.enqueue("op-1", "event", "evt-1", "save", """{}""")
@@ -150,6 +151,7 @@ class SyncLoopIntegrationTest {
             override suspend fun updateProfileUsername(profileId: String, username: String) {}
             override suspend fun updateProfileDisplayName(profileId: String, displayName: String) {}
             override suspend fun deleteProfilePhoto(profileId: String) {}
+            override suspend fun linkGhostProfile(email: String, realUid: String) = throw UnsupportedOperationException()
         }
 
         queue.enqueue("op-1", "profile", "prof-1", "save", """{}""")
@@ -182,5 +184,6 @@ class SyncLoopIntegrationTest {
         override suspend fun updateProfileUsername(profileId: String, username: String) {}
         override suspend fun updateProfileDisplayName(profileId: String, displayName: String) {}
         override suspend fun deleteProfilePhoto(profileId: String) {}
+        override suspend fun linkGhostProfile(email: String, realUid: String) {}
     }
 }
