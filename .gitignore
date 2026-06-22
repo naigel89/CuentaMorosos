@@ -13,9 +13,8 @@ shared/build/
 # SDD artifacts (local, not shareable)
 .atl/
 
-# Keystore — NO SUBIR AL REPO
-keystore/
-*.jks
+# Keystore — committed for CI release signing
+# *.jks removed: CuentaMorosos.jks is needed in CI for assembleRelease
 
 # Firebase config files (sensitive — added via GitHub Secrets in CI)
 app/google-services.json
