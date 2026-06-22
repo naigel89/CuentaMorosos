@@ -52,7 +52,7 @@ object ReminderService {
                         // Debt owed BY current user ("debes a")
                         val creditorId = debt.creditorId ?: resolveEventCreditor(debt, expenses, eventMap, currentUserUid)
                         val creditorProfile = profileMap[creditorId]
-                        val profileName = creditorProfile?.displayName ?: creditorProfile?.name ?: creditorId
+                        val profileName = creditorProfile?.name ?: creditorId
 
                         add(
                             ReminderMessage(
@@ -70,7 +70,7 @@ object ReminderService {
                         // New debts: verified via creditorId. Legacy debts (no creditorId):
                         // preserved for backward compat, gets fixed on next recalculation.
                         val profile = profileMap[debt.profileId]
-                        val profileName = profile?.displayName ?: profile?.name ?: debt.profileId
+                        val profileName = profile?.name ?: debt.profileId
 
                         add(
                             ReminderMessage(

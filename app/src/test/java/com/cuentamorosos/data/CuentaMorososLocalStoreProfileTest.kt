@@ -10,8 +10,8 @@ import org.junit.Test
  * Unit tests for ProfileItem JSON serialization/deserialization roundtrip.
  *
  * Since CuentaMorososLocalStore uses org.json.JSONObject for persistence,
- * this test verifies that saving a ProfileItem with all 11 fields to JSON
- * and loading it back preserves every field including the 4 new ones.
+ * this test verifies that saving a ProfileItem with all fields to JSON
+ * and loading it back preserves every field.
  *
  * The serialization/deserialization logic mirrors the exact pattern used
  * in CuentaMorososLocalStore.saveProfiles() and loadProfiles().
@@ -29,7 +29,6 @@ class CuentaMorososLocalStoreProfileTest {
             ownerId = "owner-id",
             photoUrl = "https://example.com/photo.jpg",
             username = "@testuser",
-            displayName = "Test Display",
             customNames = mapOf("friend1" to "Friend Name"),
         )
 
@@ -45,7 +44,6 @@ class CuentaMorososLocalStoreProfileTest {
                 "ownerId": "owner-id",
                 "photoUrl": "https://example.com/photo.jpg",
                 "username": "@testuser",
-                "displayName": "Test Display",
                 "customNames": {"friend1": "Friend Name"}
             }
             """.trimIndent()
@@ -61,7 +59,6 @@ class CuentaMorososLocalStoreProfileTest {
             ownerId = json.optString("ownerId"),
             photoUrl = json.optString("photoUrl").takeIf { it.isNotBlank() },
             username = json.optString("username").takeIf { it.isNotBlank() },
-            displayName = json.optString("displayName").takeIf { it.isNotBlank() },
             customNames = run {
                 val obj = json.optJSONObject("customNames") ?: return@run emptyMap()
                 obj.keys().asSequence().associateWith { obj.optString(it) }
@@ -77,7 +74,6 @@ class CuentaMorososLocalStoreProfileTest {
         assertEquals(original.ownerId, loaded.ownerId)
         assertEquals(original.photoUrl, loaded.photoUrl)
         assertEquals(original.username, loaded.username)
-        assertEquals(original.displayName, loaded.displayName)
         assertEquals(original.customNames, loaded.customNames)
     }
 
@@ -106,7 +102,6 @@ class CuentaMorososLocalStoreProfileTest {
             ownerId = json.optString("ownerId"),
             photoUrl = json.optString("photoUrl").takeIf { it.isNotBlank() },
             username = json.optString("username").takeIf { it.isNotBlank() },
-            displayName = json.optString("displayName").takeIf { it.isNotBlank() },
             customNames = run {
                 val obj = json.optJSONObject("customNames") ?: return@run emptyMap()
                 obj.keys().asSequence().associateWith { obj.optString(it) }
@@ -117,7 +112,6 @@ class CuentaMorososLocalStoreProfileTest {
         assertEquals("Legacy User", loaded.name)
         assertNull("Missing photoUrl should be null", loaded.photoUrl)
         assertNull("Missing username should be null", loaded.username)
-        assertNull("Missing displayName should be null", loaded.displayName)
         assertEquals(emptyMap<String, String>(), loaded.customNames)
     }
 }

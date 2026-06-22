@@ -101,6 +101,7 @@ import com.cuentamorosos.data.ReminderMessage
 import com.cuentamorosos.data.ReminderService
 import com.cuentamorosos.data.NetworkMonitor
 import com.cuentamorosos.formatDateMillis
+import com.cuentamorosos.data.repository.ProfileRepository
 import com.cuentamorosos.isValidEmail
 import com.cuentamorosos.nextMonth
 import com.cuentamorosos.previousMonth
@@ -171,6 +172,7 @@ fun CuentaMorososApp(
     onPickPhoto: ((OnPhotoReady) -> Unit)? = null,
     deepLinkEvent: SharedFlow<DeepLinkTarget>? = null,
     onTestNotification: ((com.cuentamorosos.notifications.NotificationEvent) -> Unit)? = null,
+    profileRepository: ProfileRepository? = null,
 ) {
     val eventsViewModel: EventsViewModel = viewModel(factory = viewModelFactory)
     val eventDetailViewModel: EventDetailViewModel = viewModel(factory = viewModelFactory)
@@ -521,6 +523,7 @@ fun CuentaMorososApp(
                                 )
                                 eventDetailViewModel.closeEvent(ctx)
                             },
+                            profileRepository = profileRepository,
                         )
 
                         // Transition warning dialog for event detail
