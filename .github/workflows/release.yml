@@ -63,10 +63,14 @@ jobs:
       # Requiere: secret FIREBASE_SERVICE_ACCOUNT con JSON de service account
       # (rol: Firebase App Distribution Admin). Si no está configurado, se saltea.
       - name: Distribute to Firebase App Distribution
-        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
         env:
           FIREBASE_APP_DISTRIBUTION_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: ./gradlew :app:appDistributionUploadRelease
+        run: |
+          if [ -n "$FIREBASE_APP_DISTRIBUTION_CREDENTIALS" ]; then
+            ./gradlew :app:appDistributionUploadRelease
+          else
+            echo "SKIP: FIREBASE_SERVICE_ACCOUNT secret not configured"
+          fi
 
       # ── 8. Upload APK as workflow artifact ───────────────────────────────
       - name: Upload APK as artifact
