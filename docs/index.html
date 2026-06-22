@@ -4,284 +4,550 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CuentaMorosos — Divide gastos sin vueltas</title>
-  <meta name="description" content="CuentaMorosos: app Android para gestionar gastos compartidos en eventos. Open source, offline-first, sin cuentas pendientes." />
+  <meta name="description" content="App Android open source para gestionar gastos compartidos. 6 modos de reparto, liquidación inteligente, offline-first." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
   <style>
+    /* ── NeoFintech Design Tokens ───────────────────────────── */
     :root {
-      --bg: #0b0d11;
-      --surface: #14171e;
-      --surface-2: #1c2029;
-      --border: #262b36;
-      --text: #e4e6eb;
-      --text-secondary: #9498a5;
-      --accent: #00f5a0;
-      --accent-glow: rgba(0, 245, 160, 0.25);
-      --radius: 12px;
+      --bg:            #131313;
+      --surface:       #201F1F;
+      --surface-low:   #1C1B1B;
+      --surface-high:  #2A2A2A;
+      --surface-min:   #0E0E0E;
+      --text:          #E5E2E1;
+      --text-2:        #BACCB0;
+      --accent:        #00C853;
+      --accent-dim:    #00A651;
+      --accent-glow:   rgba(0, 200, 83, 0.35);
+      --accent-glow-soft: rgba(0, 200, 83, 0.12);
+      --teal:          #26A69A;
+      --teal-glow:     rgba(38, 166, 154, 0.25);
+      --amber:         #FFB74D;
+      --error:         #FFB4AB;
+      --border:        #3C4B35;
+      --radius-sm:     4px;
+      --radius-md:     8px;
+      --radius-lg:     12px;
+      --radius-xl:     16px;
+      --radius-pill:   24px;
+      --space-xs:      4px;
+      --space-sm:      8px;
+      --space-md:      16px;
+      --space-lg:      24px;
+      --space-xl:      40px;
+      --space-xxl:     64px;
+      --font-geist:    'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono:     'JetBrains Mono', 'Fira Code', monospace;
+      --anim-standard: 300ms ease;
+      --anim-short:    150ms ease;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      font-family: var(--font-geist);
       background: var(--bg);
       color: var(--text);
       line-height: 1.6;
-      min-height: 100vh;
+      overflow-x: hidden;
     }
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 2rem 1.5rem;
+    ::selection { background: var(--accent); color: var(--bg); }
+
+    /* ── Background ornament ───────────────────────────────── */
+    .bg-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.07;
+    }
+    .bg-orb--green {
+      width: 600px; height: 600px;
+      background: var(--accent);
+      top: -200px; right: -200px;
+    }
+    .bg-orb--teal {
+      width: 400px; height: 400px;
+      background: var(--teal);
+      bottom: 10%; left: -150px;
     }
 
-    /* ── Hero ────────────────────────────────────────────────── */
-    .hero {
-      text-align: center;
-      padding: 3rem 0 2rem;
+    /* ── Layout ────────────────────────────────────────────── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 var(--space-lg);
+      position: relative;
+      z-index: 1;
     }
-    .hero-logo {
-      width: 80px;
-      height: 80px;
-      margin-bottom: 1rem;
-      filter: drop-shadow(0 0 20px var(--accent-glow));
+    section { padding: var(--space-xxl) 0; }
+
+    /* ── Header ────────────────────────────────────────────── */
+    .header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(19, 19, 19, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(60, 75, 53, 0.25);
     }
+    .header .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: var(--space-sm);
+      padding-bottom: var(--space-sm);
+    }
+    .header-logo {
+      display: flex; align-items: center; gap: var(--space-sm);
+      text-decoration: none;
+    }
+    .header-logo img { width: 32px; height: 32px; }
+    .header-logo span {
+      font-size: 18px; font-weight: 700; color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .header-nav { display: flex; gap: var(--space-lg); list-style: none; }
+    .header-nav a {
+      color: var(--text-2); text-decoration: none;
+      font-size: 14px; font-weight: 500;
+      transition: color var(--anim-short);
+    }
+    .header-nav a:hover { color: var(--accent); }
+
+    /* ── Hero ──────────────────────────────────────────────── */
+    .hero { padding-top: 120px; text-align: center; }
+    .hero-logo { width: 90px; height: 90px; margin-bottom: var(--space-lg); }
     .hero h1 {
-      font-size: 2.5rem;
-      font-weight: 800;
-      letter-spacing: -0.025em;
-      background: linear-gradient(135deg, var(--accent) 0%, #00d4ff 100%);
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-weight: 700; letter-spacing: -0.03em; line-height: 1.1;
+      background: linear-gradient(135deg, var(--accent) 0%, #00D4AA 60%, var(--teal) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 30px var(--accent-glow-soft));
+    }
+    .hero p {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: var(--text-2); max-width: 640px;
+      margin: var(--space-md) auto 0;
+    }
+    .hero .tagline {
+      font-family: var(--font-mono); font-size: 13px;
+      color: var(--accent); margin-top: var(--space-sm);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .hero-cta { margin-top: var(--space-xl); }
+
+    /* ── Buttons ───────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--font-geist); font-weight: 600;
+      font-size: 16px; padding: 14px 32px;
+      border-radius: var(--radius-lg); border: none;
+      cursor: pointer; text-decoration: none;
+      transition: all var(--anim-standard);
+      position: relative; overflow: hidden;
+    }
+    .btn::after {
+      content: ''; position: absolute; inset: 0;
+      opacity: 0; transition: opacity var(--anim-standard);
+    }
+    .btn:hover::after { opacity: 1; }
+    .btn-primary {
+      background: var(--accent); color: #0B0D11;
+      box-shadow: 0 0 32px var(--accent-glow), 0 0 64px rgba(0, 200, 83, 0.08);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 48px var(--accent-glow), 0 0 96px rgba(0, 200, 83, 0.12);
+    }
+    .btn-secondary {
+      background: transparent; color: var(--text);
+      border: 1.5px solid var(--border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow-soft);
+    }
+    .btn svg { width: 20px; height: 20px; }
+    .btn-sub {
+      display: block; font-size: 13px; color: var(--text-2);
+      margin-top: var(--space-sm);
+    }
+
+    /* ── Stats bar ─────────────────────────────────────────── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--space-md);
+      margin-top: var(--space-xl);
+    }
+    .stat {
+      background: var(--surface-low);
+      border: 1px solid rgba(60, 75, 53, 0.3);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg) var(--space-md);
+      text-align: center;
+    }
+    .stat-num {
+      font-family: var(--font-mono); font-size: 24px; font-weight: 500;
+      color: var(--accent);
+    }
+    .stat-label { font-size: 13px; color: var(--text-2); margin-top: var(--space-xs); }
+
+    /* ── Section titles ────────────────────────────────────── */
+    .section-title {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700; letter-spacing: -0.02em;
+      text-align: center; margin-bottom: var(--space-xl);
+      color: var(--text);
+    }
+    .section-title span {
+      background: linear-gradient(135deg, var(--accent), var(--teal));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-    .hero p {
-      font-size: 1.15rem;
-      color: var(--text-secondary);
-      margin-top: 0.5rem;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .hero .tagline {
-      font-style: italic;
-      margin-top: 0.25rem;
-      font-size: 1rem;
-    }
 
-    /* ── Download button ─────────────────────────────────────── */
-    .download-area {
-      text-align: center;
-      margin: 2rem 0;
+    /* ── Features grid ─────────────────────────────────────── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: var(--space-lg);
     }
-    .btn-download {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      background: var(--accent);
-      color: #0b0d11;
-      font-size: 1.1rem;
-      font-weight: 700;
-      padding: 0.9rem 2.2rem;
-      border-radius: var(--radius);
-      text-decoration: none;
-      transition: all 0.2s;
-      box-shadow: 0 0 24px var(--accent-glow);
+    .feature-card {
+      background: var(--surface-low);
+      border: 1px solid rgba(60, 75, 53, 0.3);
+      border-radius: var(--radius-xl);
+      padding: var(--space-xl) var(--space-lg);
+      transition: all var(--anim-standard);
     }
-    .btn-download:hover {
+    .feature-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 24px var(--accent-glow-soft);
       transform: translateY(-2px);
-      box-shadow: 0 0 40px var(--accent-glow);
     }
-    .btn-download svg {
-      width: 22px;
-      height: 22px;
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: var(--radius-md);
+      background: rgba(0, 200, 83, 0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: var(--space-md);
     }
-    .download-note {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      margin-top: 0.5rem;
+    .feature-card h3 {
+      font-size: 18px; font-weight: 600; margin-bottom: var(--space-sm);
+      letter-spacing: -0.01em;
     }
-
-    /* ── Sections ────────────────────────────────────────────── */
-    section {
-      margin: 3rem 0;
-    }
-    section h2 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 1rem;
-      color: var(--accent);
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-    }
-    .card + .card {
-      margin-top: 1rem;
-    }
-    .card h3 {
-      font-size: 1.1rem;
-      margin-bottom: 0.5rem;
-    }
-    .card ul {
-      list-style: none;
-      padding: 0;
-    }
-    .card li {
-      padding: 0.3rem 0;
-      padding-left: 1.4rem;
-      position: relative;
-    }
-    .card li::before {
-      content: "▸";
-      position: absolute;
-      left: 0;
-      color: var(--accent);
-    }
-    .card p {
-      color: var(--text-secondary);
+    .feature-card p {
+      font-size: 14px; color: var(--text-2); line-height: 1.7;
     }
 
-    /* ── Screenshots ─────────────────────────────────────────── */
-    .screenshots {
+    /* ── Split modes ───────────────────────────────────────── */
+    .modes {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1rem;
+      gap: var(--space-md);
+    }
+    .mode-card {
+      background: var(--surface-low);
+      border: 1px solid rgba(60, 75, 53, 0.25);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+      text-align: center;
+      transition: all var(--anim-standard);
+    }
+    .mode-card:hover {
+      border-color: var(--teal);
+      box-shadow: 0 0 16px var(--teal-glow);
+    }
+    .mode-card .mode-icon { font-size: 28px; margin-bottom: var(--space-sm); }
+    .mode-card h4 { font-size: 14px; font-weight: 600; }
+    .mode-card p {
+      font-size: 12px; color: var(--text-2);
+      margin-top: var(--space-xs);
+    }
+
+    /* ── Screenshots ───────────────────────────────────────── */
+    .screenshots {
+      display: grid;
+      grid-template-columns: repeat(7, 160px);
+      gap: var(--space-md);
+      overflow-x: auto;
+      padding-bottom: var(--space-md);
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .screenshots::-webkit-scrollbar { height: 6px; }
+    .screenshots::-webkit-scrollbar-thumb {
+      background: var(--surface-high); border-radius: 3px;
     }
     .screenshots img {
-      width: 100%;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      transition: transform 0.2s;
+      width: 160px; height: auto;
+      border-radius: var(--radius-lg);
+      border: 1.5px solid rgba(60, 75, 53, 0.4);
+      scroll-snap-align: start;
+      transition: all var(--anim-standard);
     }
     .screenshots img:hover {
-      transform: scale(1.03);
+      border-color: var(--accent);
+      box-shadow: 0 0 24px var(--accent-glow);
+      transform: scale(1.04);
     }
 
-    /* ── Badges / Info ───────────────────────────────────────── */
-    .badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.6rem;
-      justify-content: center;
-      margin: 1.5rem 0;
-    }
-    .badge {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      padding: 0.35rem 0.9rem;
-      border-radius: 999px;
-      font-size: 0.82rem;
-      color: var(--text-secondary);
-    }
-
-    /* ── Footer ──────────────────────────────────────────────── */
-    footer {
+    /* ── CTA Section ───────────────────────────────────────── */
+    .cta-section {
+      background: radial-gradient(ellipse at center, rgba(0, 200, 83, 0.04) 0%, transparent 70%);
+      border: 1px solid rgba(60, 75, 53, 0.2);
+      border-radius: var(--radius-xl);
       text-align: center;
-      padding: 2rem 0;
-      border-top: 1px solid var(--border);
-      margin-top: 3rem;
-      font-size: 0.9rem;
-      color: var(--text-secondary);
+      padding: var(--space-xxl);
+      margin: 0 var(--space-lg);
     }
-    footer a {
-      color: var(--accent);
-      text-decoration: none;
+    .cta-section h2 {
+      font-size: clamp(1.3rem, 3vw, 1.8rem);
+      font-weight: 700; letter-spacing: -0.02em;
+      margin-bottom: var(--space-sm);
     }
-    footer a:hover {
-      text-decoration: underline;
-    }
+    .cta-section p { color: var(--text-2); max-width: 500px; margin: 0 auto var(--space-lg); }
+    .cta-section .btn-primary { font-size: 18px; padding: 16px 40px; }
 
-    @media (max-width: 600px) {
-      .hero h1 { font-size: 1.8rem; }
-      .hero p { font-size: 1rem; }
-      .btn-download { width: 100%; justify-content: center; padding: 0.9rem 1.5rem; }
+    /* ── Footer ────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid rgba(60, 75, 53, 0.2);
+      padding: var(--space-xl) 0;
+      text-align: center;
+      font-size: 14px; color: var(--text-2);
+    }
+    footer .footer-links {
+      display: flex; justify-content: center; gap: var(--space-lg);
+      list-style: none; margin-bottom: var(--space-md);
+    }
+    footer a { color: var(--text-2); text-decoration: none; transition: color var(--anim-short); }
+    footer a:hover { color: var(--accent); }
+
+    /* ── Reveal animations ─────────────────────────────────── */
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 500ms ease, transform 500ms ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── Responsive ────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .header-nav { gap: var(--space-md); }
+      .header-nav a { font-size: 12px; }
+      .header-logo span { font-size: 15px; }
+      .features { grid-template-columns: 1fr; }
+      .modes { grid-template-columns: repeat(3, 1fr); }
+      .screenshots { grid-template-columns: repeat(7, 140px); }
+      .screenshots img { width: 140px; }
+      .cta-section { padding: var(--space-xl) var(--space-lg); margin: 0; }
+    }
+    @media (max-width: 480px) {
+      .header-nav { display: none; }
+      .modes { grid-template-columns: repeat(2, 1fr); }
+      .stats { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
 <body>
-<div class="container">
+
+  <!-- Background orbs -->
+  <div class="bg-orb bg-orb--green"></div>
+  <div class="bg-orb bg-orb--teal"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <a href="#" class="header-logo">
+        <img src="logoCuentaMorosos.svg" alt="CuentaMorosos logo" />
+        <span>CuentaMorosos</span>
+      </a>
+      <ul class="header-nav">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#screenshots">Capturas</a></li>
+        <li><a href="#descargar">Descargar</a></li>
+      </ul>
+    </div>
+  </header>
 
   <!-- Hero -->
-  <div class="hero">
-    <img src="../logoCuentaMorosos.svg" alt="CuentaMorosos" class="hero-logo" />
-    <h1>CuentaMorosos</h1>
-    <p>Gestioná gastos compartidos en eventos del día a día: viajes, cenas, fiestas, pisos compartidos y más.</p>
-    <p class="tagline">Divide gastos. Sin vueltas. Sin cuentas pendientes.</p>
-
-    <div class="badges">
-      <span class="badge">📱 Android 7.0+</span>
-      <span class="badge">🔓 Open Source (MIT)</span>
-      <span class="badge">📡 Offline-first</span>
-      <span class="badge">v1.0.0</span>
+  <section class="hero">
+    <div class="container">
+      <img src="logoCuentaMorosos.svg" alt="CuentaMorosos" class="hero-logo" />
+      <h1>Divide gastos.<br />Sin vueltas.</h1>
+      <p>La app que calcula automáticamente las deudas con el <strong>mínimo de transferencias</strong>. Funciona sin conexión, sincroniza cuando vuelve la red.</p>
+      <p class="tagline">Open Source · Android 7.0+ · Offline-first</p>
+      <div class="hero-cta">
+        <a href="https://github.com/naigel89/CuentaMorosos/releases/latest/download/app-release.apk" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar APK v1.0.0
+        </a>
+        <span class="btn-sub">~12 MB · Firmada · Android 7.0+</span>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <!-- Download -->
-  <div class="download-area">
-    <a class="btn-download" href="https://github.com/naigel89/CuentaMorosos/releases/latest/download/app-release.apk" target="_blank">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Descargar APK v1.0.0
-    </a>
-    <p class="download-note">
-      Descargá el archivo .apk, abrílo en tu Android y permití instalación de orígenes desconocidos.
-    </p>
-  </div>
+  <!-- Stats -->
+  <section>
+    <div class="container">
+      <div class="stats reveal">
+        <div class="stat">
+          <div class="stat-num">6</div>
+          <div class="stat-label">Modos de reparto</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">11</div>
+          <div class="stat-label">Categorías</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">100%</div>
+          <div class="stat-label">Offline</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">MIT</div>
+          <div class="stat-label">Open Source</div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- Features -->
+  <section id="features">
+    <div class="container">
+      <h2 class="section-title reveal">⚡ <span>Por qué</span> CuentaMorosos</h2>
+      <div class="features">
+        <div class="feature-card reveal">
+          <div class="feature-icon">📅</div>
+          <h3>Eventos con ciclo de vida</h3>
+          <p>Creá eventos, invitá participantes por email o @username. Cada evento transita por tres estados: Abierto → Calculado → Cerrado. Roles de propietario, colaborador y lector.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">⚖️</div>
+          <h3>Liquidación inteligente</h3>
+          <p>Algoritmo greedy con round-robin que <strong>minimiza las transferencias</strong>. Aplicación atómica protegida por Mutex. Historial de cálculos versionado e inmutable.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">📡</div>
+          <h3>Offline-first</h3>
+          <p>Cache local con SQLDelight. Sincronización escalonada con Firestore al reconectar. Cola de operaciones pendientes con backoff exponencial. No perdés ningún dato.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">🔔</div>
+          <h3>Notificaciones push</h3>
+          <p>FCM para invitaciones y cálculos nuevos. Recordatorios diarios con WorkManager. Deep links: tocás la notificación y vas directo al evento.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">👤</div>
+          <h3>Perfiles fantasma</h3>
+          <p>Agregá participantes sin cuenta. Cuando se registran, sus deudas y gastos migran automáticamente al perfil real. Fotos personalizadas y nombres visibles por evento.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">🌙</div>
+          <h3>Modo oscuro NeoFintech</h3>
+          <p>Diseño premium con sistema de color WCAG AA. Animaciones staggered, glow neón, glassmorphism. Geist para UI + JetBrains Mono para montos y datos.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Split Modes -->
   <section>
-    <h2>⚡ Funcionalidades</h2>
-    <div class="card">
-      <ul>
-        <li><strong>Eventos</strong> — CRUD completo, ciclo de vida (abierto → calculado → cerrado), invitaciones por email y @username</li>
-        <li><strong>6 modos de reparto</strong> — consumo real, media simple, por categoría, % personalizado, importe exacto, por partes</li>
-        <li><strong>Liquidación inteligente</strong> — algoritmo greedy + round-robin que minimiza las transferencias</li>
-        <li><strong>Offline-first</strong> — caché local con SQLDelight + sincronización automática con Firestore</li>
-        <li><strong>11 categorías</strong> de gasto con iconos y colores</li>
-        <li><strong>Roles</strong> — propietario, colaborador, lector</li>
-        <li><strong>Notificaciones push</strong> (FCM) y recordatorios locales</li>
-        <li><strong>Panel de control</strong> con balances y resúmenes financieros</li>
-        <li><strong>Modo oscuro</strong> con diseño NeoFintech</li>
-        <li><strong>Multiplataforma</strong> — Kotlin Multiplatform (Android + iOS + JVM)</li>
-      </ul>
+    <div class="container">
+      <h2 class="section-title reveal"><span>6 modos</span> de reparto</h2>
+      <div class="modes reveal">
+        <div class="mode-card">
+          <div class="mode-icon">📊</div>
+          <h4>Consumo real</h4>
+          <p>Cada ítem se reparte solo entre los asignados</p>
+        </div>
+        <div class="mode-card">
+          <div class="mode-icon">➗</div>
+          <h4>Media simple</h4>
+          <p>División a partes iguales entre todos</p>
+        </div>
+        <div class="mode-card">
+          <div class="mode-icon">🏷️</div>
+          <h4>Por categoría</h4>
+          <p>Ítems compartidos entre todos, el resto individual</p>
+        </div>
+        <div class="mode-card">
+          <div class="mode-icon">💯</div>
+          <h4>% personalizado</h4>
+          <p>Cada perfil paga un porcentaje del total</p>
+        </div>
+        <div class="mode-card">
+          <div class="mode-icon">💶</div>
+          <h4>Importe exacto</h4>
+          <p>Cada perfil paga un monto fijo predefinido</p>
+        </div>
+        <div class="mode-card">
+          <div class="mode-icon">🧩</div>
+          <h4>Por partes</h4>
+          <p>Reparto proporcional según partes enteras</p>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- Screenshots -->
-  <section>
-    <h2>📸 Capturas</h2>
-    <div class="screenshots">
-      <img src="screenshots/pantalla-login.jpeg" alt="Pantalla de inicio de sesión" loading="lazy" />
-      <img src="screenshots/Eventos.jpeg" alt="Lista de eventos" loading="lazy" />
-      <img src="screenshots/Calendario.jpeg" alt="Calendario" loading="lazy" />
-      <img src="screenshots/detalles-evento.jpeg" alt="Detalle de evento" loading="lazy" />
-      <img src="screenshots/creacion-de-gastos.jpeg" alt="Creación de gastos" loading="lazy" />
-      <img src="screenshots/resumen-factura-transferencias.jpeg" alt="Resumen de liquidación" loading="lazy" />
-      <img src="screenshots/Panel.jpeg" alt="Panel de control" loading="lazy" />
+  <section id="screenshots">
+    <div class="container">
+      <h2 class="section-title reveal">📸 <span>Capturas</span></h2>
+      <div class="screenshots reveal">
+        <img src="screenshots/pantalla-login.jpeg" alt="Login" loading="lazy" />
+        <img src="screenshots/Eventos.jpeg" alt="Eventos" loading="lazy" />
+        <img src="screenshots/Calendario.jpeg" alt="Calendario" loading="lazy" />
+        <img src="screenshots/detalles-evento.jpeg" alt="Detalle" loading="lazy" />
+        <img src="screenshots/creacion-de-gastos.jpeg" alt="Gastos" loading="lazy" />
+        <img src="screenshots/resumen-factura-transferencias.jpeg" alt="Liquidación" loading="lazy" />
+        <img src="screenshots/Panel.jpeg" alt="Panel" loading="lazy" />
+      </div>
     </div>
   </section>
 
-  <!-- Install help -->
-  <section>
-    <h2>📲 Instalación</h2>
-    <div class="card">
-      <ol style="padding-left: 1.2rem; color: var(--text-secondary);">
-        <li style="padding: 0.3rem 0;">Descargá el APK desde el botón de arriba</li>
-        <li style="padding: 0.3rem 0;">En tu Android, abrí el archivo descargado</li>
-        <li style="padding: 0.3rem 0;">Si es la primera vez, permití <strong>Instalar apps desconocidas</strong> desde tu navegador / gestor de archivos</li>
-        <li style="padding: 0.3rem 0;">Seguí los pasos de configuración inicial (requiere conexión a Internet para Firebase Auth)</li>
-      </ol>
+  <!-- CTA -->
+  <section id="descargar">
+    <div class="container">
+      <div class="cta-section reveal">
+        <h2>¿Listo para dividir sin vueltas?</h2>
+        <p>Descargá la APK, instalala en tu Android y empezá a crear eventos. Sin registro previo para probar.</p>
+        <a href="https://github.com/naigel89/CuentaMorosos/releases/latest/download/app-release.apk" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar CuentaMorosos v1.0.0
+        </a>
+      </div>
     </div>
   </section>
 
   <!-- Footer -->
   <footer>
-    <p>
-      <a href="https://github.com/naigel89/CuentaMorosos">GitHub</a> &nbsp;·&nbsp;
-      <a href="https://github.com/naigel89/CuentaMorosos/releases">Releases</a> &nbsp;·&nbsp;
-      <a href="https://github.com/naigel89/CuentaMorosos/blob/main/LICENSE">MIT License</a>
-    </p>
-    <p style="margin-top: 0.5rem;">Hecho con ❤️ por el equipo de CuentaMorosos</p>
+    <div class="container">
+      <ul class="footer-links">
+        <li><a href="https://github.com/naigel89/CuentaMorosos">GitHub</a></li>
+        <li><a href="https://github.com/naigel89/CuentaMorosos/releases">Releases</a></li>
+        <li><a href="https://github.com/naigel89/CuentaMorosos/blob/main/LICENSE">MIT License</a></li>
+      </ul>
+      <p style="margin-top: var(--space-sm);">Hecho con ❤️ por el equipo de <strong>CuentaMorosos</strong></p>
+    </div>
   </footer>
 
-</div>
+  <!-- Scroll reveal -->
+  <script>
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+
 </body>
 </html>
