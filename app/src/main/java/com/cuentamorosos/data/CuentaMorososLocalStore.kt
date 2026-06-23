@@ -1,6 +1,7 @@
 package com.cuentamorosos.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
@@ -12,9 +13,16 @@ import com.cuentamorosos.model.UserPreferences
 import org.json.JSONArray
 import org.json.JSONObject
 
-class CuentaMorososLocalStore(context: Context) {
-
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+class CuentaMorososLocalStore(
+    private val prefs: SharedPreferences
+) {
+    /**
+     * Production constructor: creates [EncryptedSharedPreferences] with AES-256-GCM
+     * and performs a one-time migration from the old plain-text store.
+     */
+    constructor(context: Context) : this(
+        EncryptedPrefsFactory.createWithMigration(context)
+    )
 
     fun loadEvents(): List<EventItem> = readArray(KEY_EVENTS) { item ->
         val id = item.optString("id")
@@ -447,8 +455,11 @@ class CuentaMorososLocalStore(context: Context) {
         }
     }
 
-    private companion object {
-        const val PREFS_NAME = "cuenta_morosos_store"
+    companion object {
+        const val PREFS_NAME_OLD = "cuenta_morosos_store"
+        const val PREFS_NAME_ENCRYPTED = "cuenta_morosos_store_encrypted"
+        @Deprecated("Use PREFS_NAME_ENCRYPTED", ReplaceWith("PREFS_NAME_ENCRYPTED"))
+        const val PREFS_NAME = PREFS_NAME_ENCRYPTED
         const val KEY_EVENTS = "events"
         const val KEY_PROFILES = "profiles"
         const val KEY_DEBTS = "debts"
@@ -456,5 +467,39 @@ class CuentaMorososLocalStore(context: Context) {
         const val KEY_PREFERENCES = "preferences"
         const val KEY_SENT_FINGERPRINTS = "sent_fingerprints"
         const val KEY_ORPHAN_CLEANUP_DONE = "orphan_cleanup_done"
+
+        private val MIGRATION_KEYS_STRING = listOf(
+            KEY_EVENTS, KEY_PROFILES, KEY_DEBTS, KEY_EXPENSES, KEY_PREFERENCES
+        )
+
+        @androidx.annotation.VisibleForTesting
+        internal fun migrateFromOldStore(context: Context, targetPrefs: SharedPreferences) {
+            val oldStore = context.getSharedPreferences(PREFS_NAME_OLD, Context.MODE_PRIVATE)
+            val hasOldData = oldStore.all.isNotEmpty()
+            if (!hasOldData) return
+
+            // Migrate String keys: events, profiles, debts, expenses, preferences
+            for (key in MIGRATION_KEYS_STRING) {
+                val rawValue = oldStore.getString(key, null)
+                if (rawValue != null) {
+                    targetPrefs.edit().putString(key, rawValue).apply()
+                }
+            }
+
+            // Migrate StringSet key: sent_fingerprints
+            val sentFingerprints = oldStore.getStringSet(KEY_SENT_FINGERPRINTS, emptySet())
+            if (sentFingerprints != null && sentFingerprints.isNotEmpty()) {
+                targetPrefs.edit().putStringSet(KEY_SENT_FINGERPRINTS, sentFingerprints).apply()
+            }
+
+            // Migrate Boolean key: orphan_cleanup_done
+            if (oldStore.contains(KEY_ORPHAN_CLEANUP_DONE)) {
+                val orphanCleanup = oldStore.getBoolean(KEY_ORPHAN_CLEANUP_DONE, false)
+                targetPrefs.edit().putBoolean(KEY_ORPHAN_CLEANUP_DONE, orphanCleanup).apply()
+            }
+
+            // Discard old plain-text store
+            oldStore.edit().clear().apply()
+        }
     }
 }
