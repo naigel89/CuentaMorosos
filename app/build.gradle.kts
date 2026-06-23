@@ -1,8 +1,35 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
     id("com.google.firebase.appdistribution")
+}
+
+// Load local.properties for keystore credentials (gitignored)
+val localProperties = Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        load(localFile.inputStream())
+    }
+}
+
+val releaseTaskKeywords = setOf("Release", "release")
+
+fun getRequiredProperty(localKey: String, envKey: String): String {
+    return localProperties.getProperty(localKey)
+        ?: System.getenv(envKey)
+        ?: if (gradle.startParameter.taskNames.any { task ->
+                releaseTaskKeywords.any { task.contains(it) }
+            }) {
+            throw GradleException(
+                "Missing keystore credential: set '$localKey' in local.properties " +
+                "or '$envKey' in environment variables"
+            )
+        } else {
+            "" // Non-release builds (debug, test) do not require signing credentials
+        }
 }
 
 android {
@@ -25,9 +52,9 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file("../keystore/CuentaMorosos.jks")
-            storePassword = "llevalatararaunvestidoblancollenodecascabeles"
-            keyAlias = "CuentaMorosos"
-            keyPassword = "llevalatararaunvestidoblancollenodecascabeles"
+            storePassword = getRequiredProperty("RELEASE_KEYSTORE_PASSWORD", "CM_KEYSTORE_PASSWORD")
+            keyAlias = getRequiredProperty("RELEASE_KEY_ALIAS", "CM_KEY_ALIAS")
+            keyPassword = getRequiredProperty("RELEASE_KEY_PASSWORD", "CM_KEY_PASSWORD")
         }
     }
 
@@ -37,7 +64,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -85,6 +112,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.activity:activity-compose:1.9.1")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     implementation(platform("com.google.firebase:firebase-bom:33.6.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
