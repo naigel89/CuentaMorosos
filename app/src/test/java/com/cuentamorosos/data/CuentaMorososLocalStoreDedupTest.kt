@@ -23,7 +23,6 @@ class CuentaMorososLocalStoreDedupTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         store = CuentaMorososLocalStore(context)
-        // Clear any pre-existing fingerprints from SharedPreferences
         store.clearAll()
     }
 
@@ -122,8 +121,8 @@ class CuentaMorososLocalStoreDedupTest {
         val recentFingerprint = "CALCULATION_COMPLETED:evt-recent"
         store.recordNotificationSent(recentFingerprint)
 
-        // Directly insert an old entry into SharedPreferences StringSet
-        val prefs = context.getSharedPreferences("cuenta_morosos_store", Context.MODE_PRIVATE)
+        // Directly insert an old entry into the store's backing SharedPreferences
+        val prefs = context.getSharedPreferences("cuenta_morosos_store_encrypted", Context.MODE_PRIVATE)
         val oldEntry = "$oldEpoch|CALCULATION_COMPLETED:evt-old"
         val currentSet = prefs.getStringSet("sent_fingerprints", emptySet())?.toMutableSet() ?: mutableSetOf()
         currentSet.add(oldEntry)
