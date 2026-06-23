@@ -38,12 +38,12 @@ Chain strategy: pending
 
 ## Phase 3: Data Leak Prevention
 
-- [ ] 3.1 `shared/.../util/LogSanitizer.kt` (NEW): object with `log(tag, msg)` gated on `Platform.isDebug`, redacts emails (`s/^(.{3}).*(@.*)/$1***$2`), UIDs (last 6 chars only), names (first char + count). No-op on release (spec data-leak R001)
-- [ ] 3.2 `shared/.../Platform.kt`: add `expect val isDebug: Boolean`; `shared/.../Platform.android.kt`: add `actual val isDebug: Boolean` reading `BuildConfig.DEBUG`
-- [ ] 3.3 Replace `println()` → `LogSanitizer.log()` in: `AccountViewModel.kt`, `FirestoreProfileRepository.kt`, `FirestoreEventRepository.kt`, `FirestoreDebtRepository.kt`, `FirestoreExpenseRepository.kt`, `FirestoreInvitationRepository.kt`, `OfflineFirst*Repository.kt` (5 files), `PendingOperationQueue.kt`, `EventsViewModel.kt`, `MainActivity.kt`
-- [ ] 3.4 `shared/.../ui/auth/SplashAuthScreen.kt`: set `password = ""` before `onLoginSuccess()`; `shared/.../ui/auth/RegisterScreen.kt`: set `password = ""` and `confirmPassword = ""` before `onRegisterSuccess()` (spec data-leak R002)
-- [ ] 3.5 `shared/.../model/validation/EventValidator.kt`: add `sanitize()` call stripping Unicode control chars `[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\uFEFF]`, collapsing internal spaces, trimming before `validateName()`. Same in `ProfileValidator.kt` (name/email) and `ItemValidator.kt` (name/category) (spec data-leak R003)
-- [ ] 3.6 Write tests: `LogSanitizerTest` (redaction patterns, release no-op); `ValidatorSanitizeTest` (RTL override, ZWJ, whitespace); `PasswordClearingTest` (state empty after callbacks)
+- [x] 3.1 `shared/.../data/LogSanitizer.kt` (NEW): object with `log(tag, msg)` gated on `Platform.isDebug`, redacts emails (`s/^(.{3}).*(@.*)/$1***$2`), UIDs (last 6 chars only), names (first char + count). No-op on release (spec data-leak R001)
+- [x] 3.2 `shared/.../Platform.kt`: add `expect val isDebug: Boolean`; `shared/.../Platform.android.kt`: add `actual val isDebug: Boolean` reading `BuildConfig.DEBUG`; `shared/build.gradle.kts`: add `buildConfig = true`
+- [x] 3.3 Replace `println()` → `LogSanitizer.log()` in: `AccountViewModel.kt`, `FirestoreProfileRepository.kt`, `FirestoreEventRepository.kt`, `FirestoreDebtRepository.kt`, `FirestoreExpenseRepository.kt`, `FirestoreInvitationRepository.kt`, `OfflineFirst*Repository.kt` (5 files), `PendingOperationQueue.kt`, `EventsViewModel.kt`, `MainActivity.kt` (+ additionally found: `ProfilesViewModel.kt`, `ProfileAvatar.kt`, `CuentaMorososApp.kt`, `EventDetailViewModel.kt`, `SettlementEngine.kt`, `FirebaseUserSyncManager.kt`)
+- [x] 3.4 `shared/.../ui/auth/SplashAuthScreen.kt`: set `password = ""` before `onLoginSuccess()`; `shared/.../ui/auth/RegisterScreen.kt`: set `password = ""` and `confirmPassword = ""` before `onRegisterSuccess()` (spec data-leak R002)
+- [x] 3.5 `shared/.../model/validation/sanitize.kt` (NEW): shared `sanitize()` function stripping Unicode control chars, normalizing tabs/LF/CR to spaces, collapsing internal spaces, trimming. Used in `EventValidator.kt` (name), `ProfileValidator.kt` (name/email), `ItemValidator.kt` (name) (spec data-leak R003)
+- [x] 3.6 Write tests: `LogSanitizerTest` (20 tests: redaction patterns, release no-op); `ValidatorSanitizeTest` (21 tests: RTL override, ZWJ, whitespace); `PasswordClearingTest` (4 tests: state empty after callbacks)
 
 ## Phase 4: Firestore Authorization
 

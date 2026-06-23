@@ -249,7 +249,10 @@ fun SplashAuthScreen(
                     errorMessage = null
                     onLogin(email, password) { error ->
                         isLoading = false
-                        if (error == null) onLoginSuccess()
+                        if (error == null) {
+                            password = ""
+                            onLoginSuccess()
+                        }
                         else errorMessage = error
                     }
                 },

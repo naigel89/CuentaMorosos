@@ -80,7 +80,7 @@ object FirebaseUserSyncManager {
                 ?.takeIf { it.matches(Regex("^[a-zA-Z0-9_]{3,}$")) }
                 ?: user.uid.take(8)
 
-        println("[FirebaseUserSyncManager] ensureOwnProfile: uid=${user.uid} fbDisplayName='$fbDisplayName' existingName='$existingName' finalName='$finalName' username='$username'")
+        LogSanitizer.log("FirebaseUserSyncManager", "ensureOwnProfile: uid=${user.uid} fbDisplayName='$fbDisplayName' existingName='$existingName' finalName='$finalName' username='$username'")
 
         val payload = mapOf(
             "id" to user.uid,

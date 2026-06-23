@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import com.cuentamorosos.data.LogSanitizer
 
 class FirestoreEventRepository : EventRepository {
 
@@ -22,11 +23,11 @@ class FirestoreEventRepository : EventRepository {
 
     override fun observeEvents(): Flow<List<EventItem>> = flow {
         val uid = auth.currentUser?.uid ?: run {
-            println("[FirestoreEventRepo] observeEvents: no current user, emitting empty")
+            LogSanitizer.log("FirestoreEventRepo", "observeEvents: no current user, emitting empty")
             emit(emptyList())
             return@flow
         }
-        println("[FirestoreEventRepo] observeEvents: uid=$uid")
+        LogSanitizer.log("FirestoreEventRepo", "observeEvents: uid=$uid")
 
         val ownerFlow = collection.where { "ownerId" equalTo uid }.snapshots
         val memberFlow = collection.where { "memberIds" contains uid }.snapshots
@@ -36,7 +37,7 @@ class FirestoreEventRepository : EventRepository {
             val ownerEvents = ownerSnap.documents.mapNotNull { it.toEventItem() }
             val memberEvents = memberSnap.documents.mapNotNull { it.toEventItem() }
             val participantEvents = participantSnap.documents.mapNotNull { it.toEventItem() }
-            println("[FirestoreEventRepo] observeEvents snapshot: owner=${ownerEvents.size}, member=${memberEvents.size}, participant=${participantEvents.size}")
+            LogSanitizer.log("FirestoreEventRepo", "observeEvents snapshot: owner=${ownerEvents.size}, member=${memberEvents.size}, participant=${participantEvents.size}")
             (ownerEvents + memberEvents + participantEvents)
                 .associateBy { it.id }
                 .values
@@ -51,10 +52,10 @@ class FirestoreEventRepository : EventRepository {
 
     override suspend fun fetchEvents(): List<EventItem> {
         val uid = auth.currentUser?.uid ?: run {
-            println("[FirestoreEventRepo] fetchEvents: no current user, returning empty")
+            LogSanitizer.log("FirestoreEventRepo", "fetchEvents: no current user, returning empty")
             return emptyList()
         }
-        println("[FirestoreEventRepo] fetchEvents: starting for uid=$uid")
+        LogSanitizer.log("FirestoreEventRepo", "fetchEvents: starting for uid=$uid")
 
         var ownerEvents = emptyList<EventItem>()
         var memberEvents = emptyList<EventItem>()
@@ -64,9 +65,9 @@ class FirestoreEventRepository : EventRepository {
         try {
             val ownerSnap = collection.where { "ownerId" equalTo uid }.get()
             ownerEvents = ownerSnap.documents.mapNotNull { it.toEventItem() }
-            println("[FirestoreEventRepo] fetchEvents: ownerId query returned ${ownerSnap.documents.size} docs, ${ownerEvents.size} valid events")
+            LogSanitizer.log("FirestoreEventRepo", "fetchEvents: ownerId query returned ${ownerSnap.documents.size} docs, ${ownerEvents.size} valid events")
         } catch (e: Exception) {
-            println("[FirestoreEventRepo] fetchEvents: ownerId query FAILED: ${e.message}")
+            LogSanitizer.log("FirestoreEventRepo", "fetchEvents: ownerId query FAILED: ${e.message}")
             e.printStackTrace()
         }
 
@@ -74,9 +75,9 @@ class FirestoreEventRepository : EventRepository {
         try {
             val memberSnap = collection.where { "memberIds" contains uid }.get()
             memberEvents = memberSnap.documents.mapNotNull { it.toEventItem() }
-            println("[FirestoreEventRepo] fetchEvents: memberIds query returned ${memberSnap.documents.size} docs, ${memberEvents.size} valid events")
+            LogSanitizer.log("FirestoreEventRepo", "fetchEvents: memberIds query returned ${memberSnap.documents.size} docs, ${memberEvents.size} valid events")
         } catch (e: Exception) {
-            println("[FirestoreEventRepo] fetchEvents: memberIds query FAILED: ${e.message}")
+            LogSanitizer.log("FirestoreEventRepo", "fetchEvents: memberIds query FAILED: ${e.message}")
             e.printStackTrace()
         }
 
@@ -84,9 +85,9 @@ class FirestoreEventRepository : EventRepository {
         try {
             val participantSnap = collection.where { "participantIds" contains uid }.get()
             participantEvents = participantSnap.documents.mapNotNull { it.toEventItem() }
-            println("[FirestoreEventRepo] fetchEvents: participantIds query returned ${participantSnap.documents.size} docs, ${participantEvents.size} valid events")
+            LogSanitizer.log("FirestoreEventRepo", "fetchEvents: participantIds query returned ${participantSnap.documents.size} docs, ${participantEvents.size} valid events")
         } catch (e: Exception) {
-            println("[FirestoreEventRepo] fetchEvents: participantIds query FAILED: ${e.message}")
+            LogSanitizer.log("FirestoreEventRepo", "fetchEvents: participantIds query FAILED: ${e.message}")
             e.printStackTrace()
         }
 
@@ -94,7 +95,7 @@ class FirestoreEventRepository : EventRepository {
             .associateBy { it.id }
             .values
             .sortedByDescending { it.dateMillis }
-        println("[FirestoreEventRepo] fetchEvents: total unique events=${allEvents.size} (owner=${ownerEvents.size}, member=${memberEvents.size}, participant=${participantEvents.size})")
+        LogSanitizer.log("FirestoreEventRepo", "fetchEvents: total unique events=${allEvents.size} (owner=${ownerEvents.size}, member=${memberEvents.size}, participant=${participantEvents.size})")
         return allEvents
     }
 
@@ -213,7 +214,7 @@ class FirestoreEventRepository : EventRepository {
     private fun dev.gitlive.firebase.firestore.DocumentSnapshot.toEventItem(): EventItem? {
         return try {
             val data = this.getRawData() ?: run {
-                println("[FirestoreEventRepo] toEventItem: doc '${this.id}' has null data")
+                LogSanitizer.log("FirestoreEventRepo", "toEventItem: doc '${this.id}' has null data")
                 return null
             }
             val participants = loadParticipantsFromFirestore(data)
@@ -222,7 +223,7 @@ class FirestoreEventRepository : EventRepository {
             val dateMillis = (data["dateMillis"] as? Number)?.toLong()
             val ownerId = data["ownerId"] as? String
             if (id == null || name == null || dateMillis == null || ownerId == null) {
-                println("[FirestoreEventRepo] toEventItem: doc '${this.id}' missing required fields: id=$id, name=$name, dateMillis=$dateMillis, ownerId=$ownerId")
+                LogSanitizer.log("FirestoreEventRepo", "toEventItem: doc '${this.id}' missing required fields: id=$id, name=$name, dateMillis=$dateMillis, ownerId=$ownerId")
                 return null
             }
             migrateMemberIdsToParticipants(EventItem(
@@ -243,7 +244,7 @@ class FirestoreEventRepository : EventRepository {
                 state = computeStateFromFirestore(data, participants)
             ))
         } catch (e: Exception) {
-            println("[FirestoreEventRepo] toEventItem: failed to parse doc '${this.id}': ${e.message}")
+            LogSanitizer.log("FirestoreEventRepo", "toEventItem: failed to parse doc '${this.id}': ${e.message}")
             e.printStackTrace()
             null
         }
@@ -273,7 +274,7 @@ class FirestoreEventRepository : EventRepository {
         val participantIds = (data["participantIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
         val hasParticipantIds = participantIds.isNotEmpty()
 
-        println("[FirestoreEventRepo] State heuristic for '${data["name"]}': " +
+        LogSanitizer.log("FirestoreEventRepo", "State heuristic for '${data["name"]}': " +
             "hasCalculation=$hasCalculation, hasParticipants=$hasParticipants, " +
             "hasMembers=$hasMembers (count=${memberIds.size}), " +
             "hasParticipantIds=$hasParticipantIds (count=${participantIds.size})")

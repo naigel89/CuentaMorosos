@@ -126,6 +126,7 @@ import com.cuentamorosos.model.EventInvitation
 import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.TransitionContext
 import com.cuentamorosos.model.resolveEventCreditor
+import com.cuentamorosos.data.LogSanitizer
 
 /**
  * Consolidated dashboard aggregates computed in a single pass over allDebts/allExpenses.
@@ -345,7 +346,7 @@ fun CuentaMorososApp(
     val currentProfile by remember(profiles, currentUserUid) {
         derivedStateOf {
             val found = profiles.firstOrNull { it.id == currentUserUid }
-            println("[CuentaMorososApp] profiles=${profiles.size}, looking for uid=$currentUserUid, found=${found?.name}")
+            LogSanitizer.log("CuentaMorososApp", "profiles=${profiles.size}, looking for uid=$currentUserUid, found=${found?.name}")
             found
         }
     }

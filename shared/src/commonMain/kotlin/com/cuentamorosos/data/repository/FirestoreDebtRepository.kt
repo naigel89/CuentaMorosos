@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import com.cuentamorosos.data.LogSanitizer
 class FirestoreDebtRepository : DebtRepository {
 
     private val db = Firebase.firestore
@@ -172,7 +173,7 @@ class FirestoreDebtRepository : DebtRepository {
             db.collection("events").document(eventId).collection("debts").get()
                 .documents.mapNotNull { it.toDebtItem() }
         } catch (e: Exception) {
-            println("[FirestoreDebtRepo] fetchDebtsForEvent failed: ${e.message}")
+            LogSanitizer.log("FirestoreDebtRepo", "fetchDebtsForEvent failed: ${e.message}")
             emptyList()
         }
     }
@@ -196,12 +197,12 @@ class FirestoreDebtRepository : DebtRepository {
                 db.collection("events").document(eventId).collection("debts").get()
                     .documents.mapNotNull { it.toDebtItem() }
             } catch (e: Exception) {
-                println("[FirestoreDebtRepo] fetchAllDebts for event $eventId FAILED: ${e.message}")
+                LogSanitizer.log("FirestoreDebtRepo", "fetchAllDebts for event $eventId FAILED: ${e.message}")
                 emptyList()
             }
             allDebts.addAll(debts)
         }
-        println("[FirestoreDebtRepo] fetchAllDebts: ${eventIds.size} events → ${allDebts.size} debts")
+        LogSanitizer.log("FirestoreDebtRepo", "fetchAllDebts: ${eventIds.size} events → ${allDebts.size} debts")
         return allDebts
     }
 

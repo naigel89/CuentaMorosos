@@ -18,6 +18,9 @@ expect fun currentDateText(): String
 /** Valida si [email] tiene formato de dirección de correo electrónico válida. */
 expect fun isValidEmail(email: String): Boolean
 
+/** `true` cuando la app se ejecuta en modo debug; `false` en release. */
+expect val isDebug: Boolean
+
 /**
  * Devuelve los nombres abreviados de los días de la semana empezando en lunes (L, M, X, J, V, S, D).
  * El orden es: [0]=Lun, [1]=Mar, [2]=Mié, [3]=Jue, [4]=Vie, [5]=Sáb, [6]=Dom.

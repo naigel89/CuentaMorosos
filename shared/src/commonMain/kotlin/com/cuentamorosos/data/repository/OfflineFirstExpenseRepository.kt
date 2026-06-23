@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import com.cuentamorosos.data.LogSanitizer
 
 class OfflineFirstExpenseRepository(
     private val remoteRepository: ExpenseRepository,
@@ -41,7 +42,7 @@ class OfflineFirstExpenseRepository(
             if (local != null) {
                 remoteRepository.saveExpense(local)
             } else {
-                println("[OfflineFirstExpenseRepo] saveExpense pending: expense $entityId not in local cache, skipping")
+                LogSanitizer.log("OfflineFirstExpenseRepo", "saveExpense pending: expense $entityId not in local cache, skipping")
             }
         }
         override suspend fun deleteExpense(entityId: String) {
@@ -102,7 +103,7 @@ class OfflineFirstExpenseRepository(
                                 remoteRepository.deleteAllExpensesForEvent(eventId)
                                 pendingEventDeletes.remove(eventId)
                             } catch (e: Exception) {
-                                println("[OfflineFirstExpenseRepo] pending delete retry FAILED for $eventId")
+                                LogSanitizer.log("OfflineFirstExpenseRepo", "pending delete retry FAILED for $eventId")
                             }
                         }
                     }
@@ -116,9 +117,9 @@ class OfflineFirstExpenseRepository(
                     }
                     if (initialExpenses != null) {
                         upsertExpenses(initialExpenses)
-                        println("[OfflineFirstExpenseRepo] Initial fetch: ${initialExpenses.size} expenses")
+                        LogSanitizer.log("OfflineFirstExpenseRepo", "Initial fetch: ${initialExpenses.size} expenses")
                     } else {
-                        println("[OfflineFirstExpenseRepo] Initial fetch timed out after 15s")
+                        LogSanitizer.log("OfflineFirstExpenseRepo", "Initial fetch timed out after 15s")
                     }
 
                     // 3. Then subscribe to realtime changes
@@ -130,7 +131,7 @@ class OfflineFirstExpenseRepository(
 
                     backoffMs = 1000L
                 } catch (e: Exception) {
-                    println("[OfflineFirstExpenseRepo] SyncAll error: ${e.message}")
+                    LogSanitizer.log("OfflineFirstExpenseRepo", "SyncAll error: ${e.message}")
                     delay(backoffMs)
                     backoffMs = minOf(backoffMs * 2, maxBackoffMs)
                 }
@@ -192,7 +193,7 @@ class OfflineFirstExpenseRepository(
         try {
             remoteRepository.saveExpense(expense)
         } catch (e: Exception) {
-            println("[OfflineFirstExpenseRepo] saveExpense remote FAILED for ${expense.id}: ${e.message}")
+            LogSanitizer.log("OfflineFirstExpenseRepo", "saveExpense remote FAILED for ${expense.id}: ${e.message}")
             e.printStackTrace()
             pendingQueue.enqueue(
                 id = "expense_${expense.id}_${currentTimeMillis()}",
@@ -209,7 +210,7 @@ class OfflineFirstExpenseRepository(
         try {
             remoteRepository.deleteExpense(eventId, expenseId)
         } catch (e: Exception) {
-            println("[OfflineFirstExpenseRepo] deleteExpense remote FAILED for $expenseId: ${e.message}")
+            LogSanitizer.log("OfflineFirstExpenseRepo", "deleteExpense remote FAILED for $expenseId: ${e.message}")
             e.printStackTrace()
             pendingQueue.enqueue(
                 id = "expense_${expenseId}_${currentTimeMillis()}",
@@ -238,7 +239,7 @@ class OfflineFirstExpenseRepository(
         try {
             remoteRepository.deleteAllExpensesForEvent(eventId)
         } catch (e: Exception) {
-            println("[OfflineFirstExpenseRepo] deleteAllExpensesForEvent remote FAILED for $eventId: ${e.message}")
+            LogSanitizer.log("OfflineFirstExpenseRepo", "deleteAllExpensesForEvent remote FAILED for $eventId: ${e.message}")
             e.printStackTrace()
             pendingEventDeletes.add(eventId)
         }

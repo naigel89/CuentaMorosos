@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import com.cuentamorosos.data.LogSanitizer
 
 class FirestoreInvitationRepository(
     private val profileRepository: ProfileRepository? = null,
@@ -115,7 +116,7 @@ class FirestoreInvitationRepository(
                     ))
             }
         }.onFailure { e ->
-            println("[FirestoreInvitationRepo] acceptInvitation failed: ${e.message}")
+            LogSanitizer.log("FirestoreInvitationRepo", "acceptInvitation failed: ${e.message}")
         }
     }
 

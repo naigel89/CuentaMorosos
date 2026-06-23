@@ -18,19 +18,23 @@ object ProfileValidator {
     ): ValidationResult {
         val errors = mutableListOf<ValidationError>()
 
+        // Sanitize profile fields to strip Unicode control chars (data-leak R003)
+        val sanitizedName = sanitize(profile.name)
+        val sanitizedLinkedEmail = profile.linkedEmail?.let { sanitize(it) }
+
         // PV-01: Name required
-        if (profile.name.isBlank()) {
+        if (sanitizedName.isBlank()) {
             errors.add(
                 ValidationError("El nombre del perfil es obligatorio", "name"),
             )
         }
 
         // PV-02: Duplicate name check (case-insensitive, same owner, excluding self)
-        if (profile.name.isNotBlank()) {
+        if (sanitizedName.isNotBlank()) {
             val duplicate = existingProfiles
                 .filter { it.id != profile.id } // exclude self
                 .filter { it.ownerId == profile.ownerId } // same owner
-                .any { it.name.equals(profile.name, ignoreCase = true) }
+                .any { sanitize(it.name).equals(sanitizedName, ignoreCase = true) }
 
             if (duplicate) {
                 errors.add(
@@ -40,10 +44,10 @@ object ProfileValidator {
         }
 
         // PV-03 (ghost-sync): linkedEmail uniqueness (GPS-REQ-005)
-        if (profile.linkedEmail != null) {
+        if (sanitizedLinkedEmail != null) {
             val duplicate = existingProfiles
                 .filter { it.id != profile.id } // exclude self
-                .any { it.linkedEmail.equals(profile.linkedEmail, ignoreCase = true) }
+                .any { it.linkedEmail?.let { sanitize(it) }.equals(sanitizedLinkedEmail, ignoreCase = true) }
 
             if (duplicate) {
                 errors.add(

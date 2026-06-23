@@ -59,6 +59,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import com.cuentamorosos.data.LogSanitizer
 
 class MainActivity : ComponentActivity() {
 
@@ -92,8 +93,8 @@ class MainActivity : ComponentActivity() {
             if (throwable is com.google.firebase.firestore.FirebaseFirestoreException &&
                 throwable.message?.contains("PERMISSION_DENIED") == true
             ) {
-                println("[MainActivity] Firestore PERMISSION_DENIED caught: ${throwable.message}")
-                println("[MainActivity] Check Firestore Database rules in Firebase Console")
+                LogSanitizer.log("MainActivity", "Firestore PERMISSION_DENIED caught: ${throwable.message}")
+                LogSanitizer.log("MainActivity", "Check Firestore Database rules in Firebase Console")
                 // Don't crash — the Flow's catch operator will emit emptyList()
             } else {
                 defaultHandler?.uncaughtException(thread, throwable)
@@ -237,7 +238,7 @@ private fun MainAppContent(
                 profileRepository = repositoryProvider.remoteProfileRepository,
             )
         }.onFailure { e ->
-            println("[MainActivity] Profile sync failed: ${e.message}")
+            LogSanitizer.log("MainActivity", "Profile sync failed: ${e.message}")
         }
         repositoryProvider.startSyncStaggered(syncScope)
 
@@ -263,7 +264,7 @@ private fun MainAppContent(
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri: Uri? ->
-            println("[MainActivity] Photo picker onResult: uri=$uri, hasCallback=${pendingPhotoCallback != null}")
+            LogSanitizer.log("MainActivity", "Photo picker onResult: uri=$uri, hasCallback=${pendingPhotoCallback != null}")
             val callback = pendingPhotoCallback
             pendingPhotoCallback = null
             if (uri != null && callback != null) {
@@ -272,10 +273,10 @@ private fun MainAppContent(
                 // 1. Compress image to 256x256 JPEG 85%, read as bytes
                 val imageBytes = compressImageToBytes(context, uri)
                 if (imageBytes == null) {
-                    println("[MainActivity] Failed to compress image, aborting")
+                    LogSanitizer.log("MainActivity", "Failed to compress image, aborting")
                     return@rememberLauncherForActivityResult
                 }
-                println("[MainActivity] Image compressed: ${imageBytes.size} bytes")
+                LogSanitizer.log("MainActivity", "Image compressed: ${imageBytes.size} bytes")
 
                 // 2. Upload to Firebase Storage
                 val storageRef = FirebaseStorage.getInstance().reference
@@ -287,7 +288,7 @@ private fun MainAppContent(
                 storageRef.putBytes(imageBytes, metadata)
                     .addOnSuccessListener {
                         storageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
-                            println("[MainActivity] Photo uploaded successfully: $downloadUrl")
+                            LogSanitizer.log("MainActivity", "Photo uploaded successfully: $downloadUrl")
 
                             // 3. Update FirebaseAuth profile photo
                             FirebaseAuth.getInstance().currentUser?.updateProfile(
@@ -295,19 +296,19 @@ private fun MainAppContent(
                                     .setPhotoUri(downloadUrl)
                                     .build()
                             )?.addOnSuccessListener {
-                                println("[MainActivity] FirebaseAuth profile photo updated")
+                                LogSanitizer.log("MainActivity", "FirebaseAuth profile photo updated")
                             }?.addOnFailureListener { e ->
-                                println("[MainActivity] FirebaseAuth profile photo update failed: ${e.message}")
+                                LogSanitizer.log("MainActivity", "FirebaseAuth profile photo update failed: ${e.message}")
                             }
 
                             // 4. Pass download URL to ViewModel
                             callback(downloadUrl.toString())
                         }.addOnFailureListener { e ->
-                            println("[MainActivity] Failed to get download URL: ${e.message}")
+                            LogSanitizer.log("MainActivity", "Failed to get download URL: ${e.message}")
                         }
                     }
                     .addOnFailureListener { e ->
-                        println("[MainActivity] Failed to upload photo to Storage: ${e.message}")
+                        LogSanitizer.log("MainActivity", "Failed to upload photo to Storage: ${e.message}")
                     }
             }
         }
@@ -346,7 +347,7 @@ private fun MainAppContent(
             FirebaseAuth.getInstance().signOut()
         },
         onPickPhoto = { onPhotoReady ->
-            println("[MainActivity] Photo picker requested, launching image/* picker")
+            LogSanitizer.log("MainActivity", "Photo picker requested, launching image/* picker")
             pendingPhotoCallback = onPhotoReady
             photoPickerLauncher.launch("image/*")
         },
@@ -478,7 +479,7 @@ private fun compressImageToBytes(context: android.content.Context, uri: Uri): By
 
         output.toByteArray()
     } catch (e: Exception) {
-        println("[MainActivity] Image compression failed: ${e.message}")
+        LogSanitizer.log("MainActivity", "Image compression failed: ${e.message}")
         null
     }
 }

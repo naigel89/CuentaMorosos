@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.cuentamorosos.data.LogSanitizer
 
 class ProfilesViewModel(
     private val profileRepository: ProfileRepository,
@@ -26,7 +27,7 @@ class ProfilesViewModel(
         viewModelScope.launch {
             profileRepository.observeProfiles()
                 .collect { updatedProfiles ->
-                    println("[ProfilesViewModel] Emitted ${updatedProfiles.size} profiles: ${updatedProfiles.map { "${it.id}:${it.name}" }}")
+                    LogSanitizer.log("ProfilesViewModel", "Emitted ${updatedProfiles.size} profiles: ${updatedProfiles.map { "${it.id}:${it.name}" }}")
                     _profiles.value = updatedProfiles
                 }
         }

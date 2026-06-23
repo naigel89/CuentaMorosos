@@ -132,7 +132,11 @@ fun RegisterScreen(
                 errorMessage = null
                 onRegister(email, password) { error ->
                     isLoading = false
-                    if (error == null) onRegisterSuccess()
+                    if (error == null) {
+                        password = ""
+                        confirmPassword = ""
+                        onRegisterSuccess()
+                    }
                     else errorMessage = error
                 }
             },

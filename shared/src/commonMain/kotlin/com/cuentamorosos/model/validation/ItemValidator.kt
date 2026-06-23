@@ -25,6 +25,11 @@ object ItemValidator {
         val errors = mutableListOf<ValidationError>()
         val warnings = mutableListOf<ValidationError>()
 
+        // Sanitize text fields to strip Unicode control chars (data-leak R003)
+        val sanitizedName = sanitize(item.name)
+        @Suppress("UNUSED_VARIABLE")
+        val sanitizedCategory = sanitize(item.category)
+
         // IV-01: Amount must be positive
         if (item.amountEuros <= 0) {
             errors.add(
@@ -93,7 +98,7 @@ object ItemValidator {
         }
 
         // IV-08: Item name warning
-        if (item.name.isBlank()) {
+        if (sanitizedName.isBlank()) {
             warnings.add(
                 ValidationError("El gasto no tiene nombre descriptivo", "name"),
             )

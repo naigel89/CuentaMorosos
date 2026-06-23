@@ -79,3 +79,5 @@ actual fun currentYearMonth(): CalendarFields {
     val cal = Calendar.getInstance()
     return calendarFieldsForYearMonth(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
 }
+
+actual val isDebug: Boolean get() = com.cuentamorosos.shared.BuildConfig.DEBUG

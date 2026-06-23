@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import com.cuentamorosos.data.LogSanitizer
 
 /**
  * ViewModel for the Account Settings screen and its sub-screens.
@@ -166,19 +167,19 @@ class AccountViewModel(
         viewModelScope.launch {
             _state.value = AccountUiState.Loading
             val name = _displayNameText.value.trim()
-            println("[AccountViewModel] saveDisplayName called: newName='$name'")
+            LogSanitizer.log("AccountViewModel", "saveDisplayName called: newName='$name'")
             if (name.isBlank()) {
-                println("[AccountViewModel] saveDisplayName REJECTED: blank name")
+                LogSanitizer.log("AccountViewModel", "saveDisplayName REJECTED: blank name")
                 _state.value = AccountUiState.Error("El nombre no puede estar vacío")
                 return@launch
             }
             profileRepository.updateDisplayName(name)
                 .onSuccess {
-                    println("[AccountViewModel] saveDisplayName SUCCESS: name='$name'")
+                    LogSanitizer.log("AccountViewModel", "saveDisplayName SUCCESS: name='$name'")
                     _state.value = AccountUiState.Success("Nombre actualizado")
                 }
                 .onFailure {
-                    println("[AccountViewModel] saveDisplayName FAILED: ${it.message}")
+                    LogSanitizer.log("AccountViewModel", "saveDisplayName FAILED: ${it.message}")
                     _state.value = AccountUiState.Error(it.message ?: "Error al guardar")
                 }
         }
@@ -188,9 +189,9 @@ class AccountViewModel(
         viewModelScope.launch {
             _state.value = AccountUiState.Loading
             val username = _usernameText.value.trim()
-            println("[AccountViewModel] saveUsername called: newUsername='$username'")
+            LogSanitizer.log("AccountViewModel", "saveUsername called: newUsername='$username'")
             if (!isValidUsernameFormat(username)) {
-                println("[AccountViewModel] saveUsername REJECTED: invalid format")
+                LogSanitizer.log("AccountViewModel", "saveUsername REJECTED: invalid format")
                 _state.value = AccountUiState.Error(
                     "Solo letras, números y guiones bajos (3-20 caracteres)"
                 )
@@ -198,11 +199,11 @@ class AccountViewModel(
             }
             profileRepository.updateUsername(username)
                 .onSuccess {
-                    println("[AccountViewModel] saveUsername SUCCESS: username='$username' saved")
+                    LogSanitizer.log("AccountViewModel", "saveUsername SUCCESS: username='$username' saved")
                     _state.value = AccountUiState.Success("Nombre de usuario actualizado")
                 }
                 .onFailure {
-                    println("[AccountViewModel] saveUsername FAILED: ${it.message}")
+                    LogSanitizer.log("AccountViewModel", "saveUsername FAILED: ${it.message}")
                     _state.value = AccountUiState.Error(it.message ?: "Error al guardar")
                 }
         }

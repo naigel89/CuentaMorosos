@@ -21,6 +21,7 @@ import coil3.compose.AsyncImagePainter
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.draw.clip
 import kotlin.math.abs
+import com.cuentamorosos.data.LogSanitizer
 
 /**
  * Circular avatar component displaying the profile photo (via Coil AsyncImage),
@@ -55,7 +56,7 @@ fun ProfileAvatar(
             ),
     ) {
         if (photoUrl != null) {
-            println("[ProfileAvatar] Loading photo from url=$photoUrl")
+            LogSanitizer.log("ProfileAvatar", "Loading photo from url=$photoUrl")
             AsyncImage(
                 model = photoUrl,
                 contentDescription = "Foto de perfil",
@@ -65,10 +66,10 @@ fun ProfileAvatar(
                 contentScale = ContentScale.Crop,
                 onState = { state ->
                     when (state) {
-                        is AsyncImagePainter.State.Loading -> println("[ProfileAvatar] Coil: loading...")
-                        is AsyncImagePainter.State.Success -> println("[ProfileAvatar] Coil: success")
-                        is AsyncImagePainter.State.Error -> println("[ProfileAvatar] Coil: ERROR ${state.result.throwable.message}")
-                        is AsyncImagePainter.State.Empty -> println("[ProfileAvatar] Coil: empty")
+                        is AsyncImagePainter.State.Loading -> LogSanitizer.log("ProfileAvatar", "Coil: loading...")
+                        is AsyncImagePainter.State.Success -> LogSanitizer.log("ProfileAvatar", "Coil: success")
+                        is AsyncImagePainter.State.Error -> LogSanitizer.log("ProfileAvatar", "Coil: ERROR ${state.result.throwable.message}")
+                        is AsyncImagePainter.State.Empty -> LogSanitizer.log("ProfileAvatar", "Coil: empty")
                     }
                 },
             )

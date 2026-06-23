@@ -16,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.cuentamorosos.data.LogSanitizer
 
 class OfflineFirstProfileRepository(
     private val remoteRepository: ProfileRepository,
@@ -80,7 +81,7 @@ class OfflineFirstProfileRepository(
                 val items = cachedProfiles.map { it.toProfileItem() }
                 items.forEach { p ->
                     if (p.id == p.ownerId) {
-                        println("[OfflineFirstProfileRepo] observeProfiles → OWN: id=${p.id} name='${p.name}' username='${p.username}'")
+                        LogSanitizer.log("OfflineFirstProfileRepo", "observeProfiles → OWN: id=${p.id} name='${p.name}' username='${p.username}'")
                     }
                 }
                 items
@@ -105,14 +106,14 @@ class OfflineFirstProfileRepository(
                     // 2. Single subscription to remote
                     remoteRepository.observeProfiles()
                         .onEach { remoteProfiles ->
-                            println("[OfflineFirstProfileRepo] Sync update: ${remoteProfiles.size} profiles")
+                            LogSanitizer.log("OfflineFirstProfileRepo", "Sync update: ${remoteProfiles.size} profiles")
                             upsertProfiles(remoteProfiles)
                         }
                         .collect()
 
                     backoffMs = 1000L
                 } catch (e: Exception) {
-                    println("[OfflineFirstProfileRepo] Sync error: ${e.message}")
+                    LogSanitizer.log("OfflineFirstProfileRepo", "Sync error: ${e.message}")
                     delay(backoffMs)
                     backoffMs = minOf(backoffMs * 2, maxBackoffMs)
                 }
@@ -130,7 +131,7 @@ class OfflineFirstProfileRepository(
             profiles.forEach { profile ->
                 val pending = pendingLocalChanges[profile.id]
                 val finalUsername = pending?.get("username") ?: (profile.username ?: "")
-                println("[OfflineFirstProfileRepo] upsertProfiles: id=${profile.id} name='${profile.name}' username='$finalUsername' (pending=${pending != null})")
+                LogSanitizer.log("OfflineFirstProfileRepo", "upsertProfiles: id=${profile.id} name='${profile.name}' username='$finalUsername' (pending=${pending != null})")
                 queries.upsert(
                     id = profile.id,
                     name = profile.name,
@@ -165,7 +166,7 @@ class OfflineFirstProfileRepository(
         try {
             remoteRepository.saveProfile(profile)
         } catch (e: Exception) {
-            println("[OfflineFirstProfileRepo] saveProfile remote FAILED for ${profile.id}: ${e.message}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "saveProfile remote FAILED for ${profile.id}: ${e.message}")
             e.printStackTrace()
             pendingQueue.enqueue(
                 id = "profile_${profile.id}_${currentTimeMillis()}",
@@ -182,7 +183,7 @@ class OfflineFirstProfileRepository(
         try {
             remoteRepository.deleteProfile(profileId)
         } catch (e: Exception) {
-            println("[OfflineFirstProfileRepo] deleteProfile remote FAILED for $profileId: ${e.message}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "deleteProfile remote FAILED for $profileId: ${e.message}")
             e.printStackTrace()
             pendingQueue.enqueue(
                 id = "profile_${profileId}_${currentTimeMillis()}",
@@ -198,7 +199,7 @@ class OfflineFirstProfileRepository(
         try {
             remoteRepository.linkGhostProfile(userEmail, userUid)
         } catch (e: Exception) {
-            println("[OfflineFirstProfileRepo] linkGhostProfile remote FAILED for $userUid: ${e.message}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "linkGhostProfile remote FAILED for $userUid: ${e.message}")
             e.printStackTrace()
             pendingQueue.enqueue(
                 id = "linkghost_${userUid}_${currentTimeMillis()}",
@@ -214,13 +215,13 @@ class OfflineFirstProfileRepository(
 
     override suspend fun updateProfilePhoto(photoUrl: String): Result<String> {
         return try {
-            println("[OfflineFirstProfileRepo] updateProfilePhoto called url='$photoUrl'")
+            LogSanitizer.log("OfflineFirstProfileRepo", "updateProfilePhoto called url='$photoUrl'")
             val ownProfile = findOwnProfile()
             if (ownProfile != null) {
                 val pending = pendingLocalChanges[ownProfile.id]?.toMutableMap() ?: mutableMapOf()
                 pending["photo_url"] = photoUrl
                 pendingLocalChanges[ownProfile.id] = pending
-                println("[OfflineFirstProfileRepo] updateProfilePhoto pending set for ${ownProfile.id}")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateProfilePhoto pending set for ${ownProfile.id}")
 
                 queries.upsert(
                     id = ownProfile.id,
@@ -235,15 +236,15 @@ class OfflineFirstProfileRepository(
                     display_name = "",
                     custom_names = ownProfile.custom_names,
                 )
-                println("[OfflineFirstProfileRepo] updateProfilePhoto local cache updated")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateProfilePhoto local cache updated")
             } else {
-                println("[OfflineFirstProfileRepo] updateProfilePhoto: own profile not found!")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateProfilePhoto: own profile not found!")
             }
             val result = remoteRepository.updateProfilePhoto(photoUrl)
-            println("[OfflineFirstProfileRepo] updateProfilePhoto remote: success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "updateProfilePhoto remote: success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
             if (result.isSuccess) {
                 pendingLocalChanges.remove(ownProfile?.id)
-                println("[OfflineFirstProfileRepo] updateProfilePhoto pending cleared")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateProfilePhoto pending cleared")
             } else {
                 pendingQueue.enqueue(
                     id = "photo_${currentTimeMillis()}",
@@ -252,24 +253,24 @@ class OfflineFirstProfileRepository(
                     operation = "updatePhoto",
                     payload = photoUrl
                 )
-                println("[OfflineFirstProfileRepo] updateProfilePhoto enqueued to pending")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateProfilePhoto enqueued to pending")
             }
             result.map { photoUrl }
         } catch (e: Exception) {
-            println("[OfflineFirstProfileRepo] updateProfilePhoto exception: ${e.message}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "updateProfilePhoto exception: ${e.message}")
             Result.failure(e)
         }
     }
 
     override suspend fun updateUsername(username: String): Result<Unit> {
         return try {
-            println("[OfflineFirstProfileRepo] updateUsername called '$username'")
+            LogSanitizer.log("OfflineFirstProfileRepo", "updateUsername called '$username'")
             val ownProfile = findOwnProfile()
             if (ownProfile != null) {
                 val pending = pendingLocalChanges[ownProfile.id]?.toMutableMap() ?: mutableMapOf()
                 pending["username"] = username
                 pendingLocalChanges[ownProfile.id] = pending
-                println("[OfflineFirstProfileRepo] updateUsername pending set for ${ownProfile.id}")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateUsername pending set for ${ownProfile.id}")
 
                 queries.upsert(
                     id = ownProfile.id,
@@ -284,15 +285,15 @@ class OfflineFirstProfileRepository(
                     display_name = "",
                     custom_names = ownProfile.custom_names,
                 )
-                println("[OfflineFirstProfileRepo] updateUsername local cache updated")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateUsername local cache updated")
             } else {
-                println("[OfflineFirstProfileRepo] updateUsername: own profile not found!")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateUsername: own profile not found!")
             }
             val result = remoteRepository.updateUsername(username)
-            println("[OfflineFirstProfileRepo] updateUsername remote: success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "updateUsername remote: success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
             if (result.isSuccess) {
                 pendingLocalChanges.remove(ownProfile?.id)
-                println("[OfflineFirstProfileRepo] updateUsername pending cleared")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateUsername pending cleared")
             } else {
                 pendingQueue.enqueue(
                     id = "username_${currentTimeMillis()}",
@@ -301,18 +302,18 @@ class OfflineFirstProfileRepository(
                     operation = "updateUsername",
                     payload = username
                 )
-                println("[OfflineFirstProfileRepo] updateUsername enqueued to pending")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateUsername enqueued to pending")
             }
             result
         } catch (e: Exception) {
-            println("[OfflineFirstProfileRepo] updateUsername exception: ${e.message}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "updateUsername exception: ${e.message}")
             Result.failure(e)
         }
     }
 
     override suspend fun updateDisplayName(displayName: String): Result<Unit> {
         return try {
-            println("[OfflineFirstProfileRepo] updateDisplayName called '$displayName'")
+            LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName called '$displayName'")
             val ownProfile = findOwnProfile()
             if (ownProfile != null) {
                 queries.upsert(
@@ -328,15 +329,15 @@ class OfflineFirstProfileRepository(
                     display_name = "",
                     custom_names = ownProfile.custom_names,
                 )
-                println("[OfflineFirstProfileRepo] updateDisplayName: oldName='${ownProfile.name}' → newName='$displayName' (local cache updated)")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName: oldName='${ownProfile.name}' → newName='$displayName' (local cache updated)")
             } else {
-                println("[OfflineFirstProfileRepo] updateDisplayName: own profile not found!")
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName: own profile not found!")
             }
             val result = remoteRepository.updateDisplayName(displayName)
-            println("[OfflineFirstProfileRepo] updateDisplayName remote: success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName remote: success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
             result
         } catch (e: Exception) {
-            println("[OfflineFirstProfileRepo] updateDisplayName exception: ${e.message}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName exception: ${e.message}")
             Result.failure(e)
         }
     }
@@ -359,7 +360,7 @@ class OfflineFirstProfileRepository(
 
     override suspend fun deleteProfilePhoto(): Result<Unit> {
         return try {
-            println("[OfflineFirstProfileRepo] deleteProfilePhoto called")
+            LogSanitizer.log("OfflineFirstProfileRepo", "deleteProfilePhoto called")
             val ownProfile = findOwnProfile()
             if (ownProfile != null) {
                 val pending = pendingLocalChanges[ownProfile.id]?.toMutableMap() ?: mutableMapOf()
@@ -379,10 +380,10 @@ class OfflineFirstProfileRepository(
                     display_name = "",
                     custom_names = ownProfile.custom_names,
                 )
-                println("[OfflineFirstProfileRepo] deleteProfilePhoto local cache updated")
+                LogSanitizer.log("OfflineFirstProfileRepo", "deleteProfilePhoto local cache updated")
             }
             val result = remoteRepository.deleteProfilePhoto()
-            println("[OfflineFirstProfileRepo] deleteProfilePhoto remote: success=${result.isSuccess}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "deleteProfilePhoto remote: success=${result.isSuccess}")
             if (result.isSuccess) {
                 pendingLocalChanges.remove(ownProfile?.id)
             } else {
@@ -396,7 +397,7 @@ class OfflineFirstProfileRepository(
             }
             result
         } catch (e: Exception) {
-            println("[OfflineFirstProfileRepo] deleteProfilePhoto exception: ${e.message}")
+            LogSanitizer.log("OfflineFirstProfileRepo", "deleteProfilePhoto exception: ${e.message}")
             Result.failure(e)
         }
     }

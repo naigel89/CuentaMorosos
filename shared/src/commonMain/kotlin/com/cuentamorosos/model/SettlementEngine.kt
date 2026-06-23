@@ -9,6 +9,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.cuentamorosos.data.LogSanitizer
 
 /**
  * 8-step settlement calculation algorithm.
@@ -176,15 +177,15 @@ object SettlementEngine {
         val totalExpenseCents = expenses.sumOf { (it.amountEuros * 100).roundToInt() }
         val balancesAsDoubles = balances.mapValues { it.value / 100.0 }
 
-        println("🔍 [SettlementEngine] === CALCULATION RESULT ===")
-        println("🔍   transfers: ${transfers.size}")
+        LogSanitizer.log("SettlementEngine", "=== CALCULATION RESULT ===")
+        LogSanitizer.log("SettlementEngine", "🔍   transfers: ${transfers.size}")
         transfers.forEach { t ->
-            println("🔍   transfer: ${t.fromProfileId} -> ${t.toProfileId} ${t.amount}€")
+            LogSanitizer.log("SettlementEngine", "🔍   transfer: ${t.fromProfileId} -> ${t.toProfileId} ${t.amount}€")
         }
-        println("🔍   totalExpenseCents=$totalExpenseCents -> euros=${totalExpenseCents / 100.0}")
-        println("🔍   balances=$balancesAsDoubles")
+        LogSanitizer.log("SettlementEngine", "🔍   totalExpenseCents=$totalExpenseCents -> euros=${totalExpenseCents / 100.0}")
+        LogSanitizer.log("SettlementEngine", "🔍   balances=$balancesAsDoubles")
         val totalTransferAmount = transfers.sumOf { it.amount }
-        println("🔍   sum(transfers.amount)=$totalTransferAmount")
+        LogSanitizer.log("SettlementEngine", "🔍   sum(transfers.amount)=$totalTransferAmount")
 
         val snapshot = CalculationSnapshot(
             transfers = transfers,
@@ -384,7 +385,7 @@ object SettlementEngine {
                     val weightSum = expense.profileWeights.values.sum()
                     val diff = kotlin.math.abs(weightSum - expense.amountEuros)
                     if (diff > 0.02) {
-                        println("[SettlementEngine] REAL_CONSUMPTION weight sum (${weightSum}) differs from item total (${expense.amountEuros}) by ${diff}")
+                        LogSanitizer.log("SettlementEngine", "REAL_CONSUMPTION weight sum (${weightSum}) differs from item total (${expense.amountEuros}) by ${diff}")
                     }
                     expense.profileWeights
                 } else {

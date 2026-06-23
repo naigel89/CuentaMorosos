@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import com.cuentamorosos.data.LogSanitizer
 
 class FirestoreProfileRepository : ProfileRepository {
 
@@ -20,7 +21,7 @@ class FirestoreProfileRepository : ProfileRepository {
 
     override fun observeProfiles(): Flow<List<ProfileItem>> {
         val uid = auth.currentUser?.uid ?: return flowOf(emptyList())
-        println("[FirestoreProfileRepo] observeProfiles called, uid=$uid")
+        LogSanitizer.log("FirestoreProfileRepo", "observeProfiles called, uid=$uid")
         // NOTE: intentionally no ownerId filter — users need to see other participants'
         // profiles in shared events. The UI (ProfilesScreen) already separates own vs others
         // by matching currentUid, and Firestore rules allow any authenticated read.
@@ -29,18 +30,18 @@ class FirestoreProfileRepository : ProfileRepository {
                 val items = snapshot.documents
                     .mapNotNull { doc ->
                         val item = doc.toProfileItem()
-                        if (item == null) println("[FirestoreProfileRepo] Failed to parse doc ${doc.id}")
+                        if (item == null) LogSanitizer.log("FirestoreProfileRepo", "Failed to parse doc ${doc.id}")
                         item
                     }
                     .sortedBy { it.name }
-                println("[FirestoreProfileRepo] Snapshot emitted: ${items.size} profiles")
+                LogSanitizer.log("FirestoreProfileRepo", "Snapshot emitted: ${items.size} profiles")
                 items.forEach { p ->
-                    println("[FirestoreProfileRepo]   id=${p.id} name='${p.name}' username='${p.username}' isGhost=${p.isGhost} linkedEmail=${p.linkedEmail}")
+                    LogSanitizer.log("FirestoreProfileRepo", "id=${p.id} name='${p.name}' username='${p.username}' isGhost=${p.isGhost} linkedEmail=${p.linkedEmail}")
                 }
                 items
             }
             .catch { e ->
-                println("[FirestoreProfileRepo] Error in snapshot: ${e.message}")
+                LogSanitizer.log("FirestoreProfileRepo", "Error in snapshot: ${e.message}")
                 emit(emptyList())
             }
     }
@@ -55,7 +56,7 @@ class FirestoreProfileRepository : ProfileRepository {
     }
 
     override suspend fun linkGhostProfile(userEmail: String, userUid: String) {
-        println("[FirestoreProfileRepo] linkGhostProfile: email=$userEmail, uid=$userUid")
+        LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile: email=$userEmail, uid=$userUid")
 
         // 1. Query ghosts by linkedEmail (isGhost filter done client-side
         //    because KMP Firebase where-chaining may not support two conditions)
@@ -67,11 +68,11 @@ class FirestoreProfileRepository : ProfileRepository {
             .filter { it.isGhost }
 
         if (ghosts.isEmpty()) {
-            println("[FirestoreProfileRepo] linkGhostProfile: no ghosts found for $userEmail — no-op")
+            LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile: no ghosts found for $userEmail — no-op")
             return
         }
 
-        println("[FirestoreProfileRepo] linkGhostProfile: found ${ghosts.size} ghost(s): ${ghosts.map { it.id }}")
+        LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile: found ${ghosts.size} ghost(s): ${ghosts.map { it.id }}")
 
         // 2. Resolve all event IDs the current user can access
         val uid = auth.currentUser?.uid ?: return
@@ -85,7 +86,7 @@ class FirestoreProfileRepository : ProfileRepository {
             .map { it.id }
             .distinct()
 
-        println("[FirestoreProfileRepo] linkGhostProfile: accessible events=${eventIds.size}")
+        LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile: accessible events=${eventIds.size}")
 
         // 3. Collect all debts/expenses/event documents that reference ghost IDs
         data class DocOp(
@@ -134,7 +135,7 @@ class FirestoreProfileRepository : ProfileRepository {
                                     updates["creditorId"] = userUid
                                 }
                                 if (updates.isNotEmpty()) {
-                                    println("[FirestoreProfileRepo] linkGhostProfile: updating debt ${debtDoc.id} (event=$eventId)")
+                                    LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile: updating debt ${debtDoc.id} (event=$eventId)")
                                     update(ref, updates)
                                 }
                             }
@@ -208,7 +209,7 @@ class FirestoreProfileRepository : ProfileRepository {
 
                                 if (needsUpdate) {
                                     val ref = expensesCollection.document(expDoc.id)
-                                    println("[FirestoreProfileRepo] linkGhostProfile: updating expense ${expDoc.id} (event=$eventId)")
+                                    LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile: updating expense ${expDoc.id} (event=$eventId)")
                                     update(ref, updates)
                                 }
                             }
@@ -261,24 +262,24 @@ class FirestoreProfileRepository : ProfileRepository {
                             }
 
                             if (updates.isNotEmpty()) {
-                                println("[FirestoreProfileRepo] linkGhostProfile: updating event $eventId")
+                                LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile: updating event $eventId")
                                 update(eventRef, updates)
                             }
                         }
 
                         // ── Delete ghost profile ─────────────────────────────────
                         val ghostRef = collection.document(ghostId)
-                        println("[FirestoreProfileRepo] linkGhostProfile: deleting ghost $ghostId")
+                        LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile: deleting ghost $ghostId")
                         delete(ghostRef)
                     }
                 }
                 // If we get here, transaction succeeded
-                println("[FirestoreProfileRepo] linkGhostProfile: merge completed successfully")
+                LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile: merge completed successfully")
                 return
             } catch (e: Exception) {
-                println("[FirestoreProfileRepo] linkGhostProfile attempt ${attempt + 1}/3 FAILED: ${e.message}")
+                LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile attempt ${attempt + 1}/3 FAILED: ${e.message}")
                 if (attempt == 2) {
-                    println("[FirestoreProfileRepo] linkGhostProfile: all retries exhausted")
+                    LogSanitizer.log("FirestoreProfileRepo", "linkGhostProfile: all retries exhausted")
                     throw e
                 }
                 // Exponential backoff: 1s, 2s, 4s
@@ -302,12 +303,12 @@ class FirestoreProfileRepository : ProfileRepository {
     override suspend fun updateUsername(username: String): Result<Unit> {
         return try {
             val uid = auth.currentUser?.uid ?: return Result.failure(Exception("User not authenticated"))
-            println("[FirestoreProfileRepo] updateUsername: uid=$uid, newUsername='$username' → updating Firestore document profiles/$uid")
+            LogSanitizer.log("FirestoreProfileRepo", "updateUsername: uid=$uid, newUsername='$username' → updating Firestore document profiles/$uid")
             collection.document(uid).update("username" to username, "updatedAt" to currentTimeMillis())
-            println("[FirestoreProfileRepo] updateUsername: Firestore update SUCCESS for uid=$uid")
+            LogSanitizer.log("FirestoreProfileRepo", "updateUsername: Firestore update SUCCESS for uid=$uid")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("[FirestoreProfileRepo] updateUsername: Firestore update FAILED — ${e.message}")
+            LogSanitizer.log("FirestoreProfileRepo", "updateUsername: Firestore update FAILED — ${e.message}")
             Result.failure(e)
         }
     }
@@ -315,12 +316,12 @@ class FirestoreProfileRepository : ProfileRepository {
     override suspend fun updateDisplayName(displayName: String): Result<Unit> {
         return try {
             val uid = auth.currentUser?.uid ?: return Result.failure(Exception("User not authenticated"))
-            println("[FirestoreProfileRepo] updateDisplayName: uid=$uid, newName='$displayName' → updating Firestore document profiles/$uid")
+            LogSanitizer.log("FirestoreProfileRepo", "updateDisplayName: uid=$uid, newName='$displayName' → updating Firestore document profiles/$uid")
             collection.document(uid).update("name" to displayName, "updatedAt" to currentTimeMillis())
-            println("[FirestoreProfileRepo] updateDisplayName: Firestore update SUCCESS for uid=$uid")
+            LogSanitizer.log("FirestoreProfileRepo", "updateDisplayName: Firestore update SUCCESS for uid=$uid")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("[FirestoreProfileRepo] updateDisplayName: Firestore update FAILED — ${e.message}")
+            LogSanitizer.log("FirestoreProfileRepo", "updateDisplayName: Firestore update FAILED — ${e.message}")
             Result.failure(e)
         }
     }
@@ -369,17 +370,17 @@ class FirestoreProfileRepository : ProfileRepository {
      * CuentaMorososLocalStore.isOrphanCleanupDone() / markOrphanCleanupDone().
      */
     override suspend fun cleanupOrphans() {
-        println("[FirestoreProfileRepo] cleanupOrphans: starting...")
+        LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: starting...")
 
         // 1. Fetch all known profile IDs
         val allProfiles = try {
             collection.get().documents.mapNotNull { it.get<String>("id") }
         } catch (e: Exception) {
-            println("[FirestoreProfileRepo] cleanupOrphans: failed to fetch profiles: ${e.message}")
+            LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: failed to fetch profiles: ${e.message}")
             return
         }
         val knownIds = allProfiles.toSet()
-        println("[FirestoreProfileRepo] cleanupOrphans: ${knownIds.size} known profiles")
+        LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: ${knownIds.size} known profiles")
 
         // 2. Resolve all event IDs the current user can access
         val uid = auth.currentUser?.uid ?: return
@@ -393,7 +394,7 @@ class FirestoreProfileRepository : ProfileRepository {
             .map { it.id }
             .distinct()
 
-        println("[FirestoreProfileRepo] cleanupOrphans: scanning ${eventIds.size} events")
+        LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: scanning ${eventIds.size} events")
 
         for (eventId in eventIds) {
             try {
@@ -402,7 +403,7 @@ class FirestoreProfileRepository : ProfileRepository {
                 val debts = try {
                     debtsCollection.get().documents
                 } catch (e: Exception) {
-                    println("[FirestoreProfileRepo] cleanupOrphans: failed to query debts for $eventId: ${e.message}")
+                    LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: failed to query debts for $eventId: ${e.message}")
                     emptyList()
                 }
 
@@ -415,7 +416,7 @@ class FirestoreProfileRepository : ProfileRepository {
                     val isOrphanCreditor = creditorId != null && creditorId.isNotBlank() && creditorId !in knownIds
 
                     if (isOrphanProfile || isOrphanCreditor) {
-                        println("[FirestoreProfileRepo] cleanupOrphans: deleting orphan debt ${debtDoc.id} (event=$eventId, profile=$profileId, creditor=$creditorId)")
+                        LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: deleting orphan debt ${debtDoc.id} (event=$eventId, profile=$profileId, creditor=$creditorId)")
                         debtsCollection.document(debtDoc.id).delete()
                     }
                 }
@@ -425,7 +426,7 @@ class FirestoreProfileRepository : ProfileRepository {
                 val expenses = try {
                     expensesCollection.get().documents
                 } catch (e: Exception) {
-                    println("[FirestoreProfileRepo] cleanupOrphans: failed to query expenses for $eventId: ${e.message}")
+                    LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: failed to query expenses for $eventId: ${e.message}")
                     emptyList()
                 }
 
@@ -441,7 +442,7 @@ class FirestoreProfileRepository : ProfileRepository {
                     if (orphansInAssigned.isNotEmpty()) {
                         updates["assignedProfileIds"] = assignedIds - orphansInAssigned.toSet()
                         needsUpdate = true
-                        println("[FirestoreProfileRepo] cleanupOrphans: removing orphan ids ${orphansInAssigned} from expense ${expDoc.id} (assigned)")
+                        LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: removing orphan ids ${orphansInAssigned} from expense ${expDoc.id} (assigned)")
                     }
 
                     // profileWeights
@@ -453,7 +454,7 @@ class FirestoreProfileRepository : ProfileRepository {
                         orphanWeightKeys.forEach { weights.remove(it) }
                         updates["profileWeights"] = weights
                         needsUpdate = true
-                        println("[FirestoreProfileRepo] cleanupOrphans: removing orphan weights $orphanWeightKeys from expense ${expDoc.id}")
+                        LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: removing orphan weights $orphanWeightKeys from expense ${expDoc.id}")
                     }
 
                     // paidByProfileId
@@ -461,7 +462,7 @@ class FirestoreProfileRepository : ProfileRepository {
                     if (paidBy != null && paidBy.isNotBlank() && paidBy !in knownIds) {
                         updates["paidByProfileId"] = ""
                         needsUpdate = true
-                        println("[FirestoreProfileRepo] cleanupOrphans: clearing orphan paidBy=$paidBy from expense ${expDoc.id}")
+                        LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: clearing orphan paidBy=$paidBy from expense ${expDoc.id}")
                     }
 
                     // debtorIds
@@ -471,7 +472,7 @@ class FirestoreProfileRepository : ProfileRepository {
                     if (orphanDebtors.isNotEmpty()) {
                         updates["debtorIds"] = debtorIds - orphanDebtors.toSet()
                         needsUpdate = true
-                        println("[FirestoreProfileRepo] cleanupOrphans: removing orphan debtors $orphanDebtors from expense ${expDoc.id}")
+                        LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: removing orphan debtors $orphanDebtors from expense ${expDoc.id}")
                     }
 
                     // payerContributions
@@ -483,7 +484,7 @@ class FirestoreProfileRepository : ProfileRepository {
                         orphanPayerKeys.forEach { payerContribs.remove(it) }
                         updates["payerContributions"] = payerContribs
                         needsUpdate = true
-                        println("[FirestoreProfileRepo] cleanupOrphans: removing orphan payer contributions $orphanPayerKeys from expense ${expDoc.id}")
+                        LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: removing orphan payer contributions $orphanPayerKeys from expense ${expDoc.id}")
                     }
 
                     if (needsUpdate) {
@@ -503,7 +504,7 @@ class FirestoreProfileRepository : ProfileRepository {
                 val orphanParticipantIds = participantIds.filter { it !in knownIds }
                 if (orphanParticipantIds.isNotEmpty()) {
                     eventUpdates["participantIds"] = participantIds - orphanParticipantIds.toSet()
-                    println("[FirestoreProfileRepo] cleanupOrphans: removing orphan participantIds $orphanParticipantIds from event $eventId")
+                    LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: removing orphan participantIds $orphanParticipantIds from event $eventId")
                 }
 
                 // participants array
@@ -523,18 +524,18 @@ class FirestoreProfileRepository : ProfileRepository {
                 val orphanMemberIds = memberIds.filter { it !in knownIds }
                 if (orphanMemberIds.isNotEmpty()) {
                     eventUpdates["memberIds"] = memberIds - orphanMemberIds.toSet()
-                    println("[FirestoreProfileRepo] cleanupOrphans: removing orphan memberIds $orphanMemberIds from event $eventId")
+                    LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: removing orphan memberIds $orphanMemberIds from event $eventId")
                 }
 
                 if (eventUpdates.isNotEmpty()) {
                     eventRef.update(eventUpdates)
                 }
             } catch (e: Exception) {
-                println("[FirestoreProfileRepo] cleanupOrphans: error processing event $eventId: ${e.message}")
+                LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: error processing event $eventId: ${e.message}")
             }
         }
 
-        println("[FirestoreProfileRepo] cleanupOrphans: complete")
+        LogSanitizer.log("FirestoreProfileRepo", "cleanupOrphans: complete")
     }
 
     // ── Phase 3: Username Search ────────────────────────────────────────────
@@ -627,7 +628,7 @@ class FirestoreProfileRepository : ProfileRepository {
                 customNames = emptyMap(), // loaded separately via customNames subcollection
             )
         } catch (e: Exception) {
-            println("[FirestoreProfileRepo] FATAL: toProfileItem exception for doc ${this.id}: ${e::class.simpleName}: ${e.message}")
+            LogSanitizer.log("FirestoreProfileRepo", "FATAL: toProfileItem exception for doc ${this.id}: ${e::class.simpleName}: ${e.message}")
             null
         }
     }

@@ -15,6 +15,7 @@ import com.cuentamorosos.model.TransitionContext
 import com.cuentamorosos.model.canTransitionTo
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.cuentamorosos.data.LogSanitizer
 
 class EventsViewModel(
     private val eventRepository: EventRepository,
@@ -85,7 +86,7 @@ class EventsViewModel(
                 // Then remove from event participants
                 eventRepository.removeMember(eventId, memberUid)
             }.onFailure { e ->
-                println("[EventsViewModel] Failed to remove member: ${e.message}")
+                LogSanitizer.log("EventsViewModel", "Failed to remove member: ${e.message}")
             }
         }
     }

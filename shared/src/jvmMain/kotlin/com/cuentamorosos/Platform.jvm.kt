@@ -62,3 +62,6 @@ actual fun currentYearMonth(): CalendarFields {
     val now = LocalDate.now()
     return calendarFieldsForYearMonth(now.year, now.monthValue)
 }
+
+actual val isDebug: Boolean get() = java.lang.management.ManagementFactory.getRuntimeMXBean()
+    .inputArguments.any { it.contains("-agentlib:jdwp") || it.contains("-Xrunjdwp") }

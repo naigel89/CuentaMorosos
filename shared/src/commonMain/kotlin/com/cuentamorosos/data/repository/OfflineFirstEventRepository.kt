@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import com.cuentamorosos.data.LogSanitizer
 
 class OfflineFirstEventRepository(
     private val remoteRepository: EventRepository,
@@ -44,7 +45,7 @@ class OfflineFirstEventRepository(
             if (local != null) {
                 remoteRepository.saveEvent(local)
             } else {
-                println("[OfflineFirstEventRepo] saveEvent pending: event $entityId not in local cache, skipping")
+                LogSanitizer.log("OfflineFirstEventRepo", "saveEvent pending: event $entityId not in local cache, skipping")
             }
         }
         override suspend fun deleteEvent(entityId: String) = remoteRepository.deleteEvent(entityId)
@@ -80,7 +81,7 @@ class OfflineFirstEventRepository(
             .mapToList(Dispatchers.Default)
             .map { cachedEvents ->
                 val items = cachedEvents.map { it.toEventItem() }
-                println("[OfflineFirstEventRepo] observeEvents: SQLDelight emitted ${items.size} events")
+                LogSanitizer.log("OfflineFirstEventRepo", "observeEvents: SQLDelight emitted ${items.size} events")
                 items
             }
     }
@@ -106,9 +107,9 @@ class OfflineFirstEventRepository(
                     }
                     if (initialEvents != null) {
                         upsertEvents(initialEvents)
-                        println("[OfflineFirstEventRepo] Initial fetch: ${initialEvents.size} events")
+                        LogSanitizer.log("OfflineFirstEventRepo", "Initial fetch: ${initialEvents.size} events")
                     } else {
-                        println("[OfflineFirstEventRepo] Initial fetch timed out after 15s")
+                        LogSanitizer.log("OfflineFirstEventRepo", "Initial fetch timed out after 15s")
                     }
                     // 2. Then watch for realtime changes via snapshot listeners
                     remoteRepository.observeEvents().collect { remoteEvents ->
@@ -116,7 +117,7 @@ class OfflineFirstEventRepository(
                     }
                     backoffMs = 1000L
                 } catch (e: Exception) {
-                    println("[OfflineFirstEventRepo] Sync error: ${e.message}")
+                    LogSanitizer.log("OfflineFirstEventRepo", "Sync error: ${e.message}")
                     delay(backoffMs)
                     backoffMs = minOf(backoffMs * 2, maxBackoffMs)
                 }
@@ -130,7 +131,7 @@ class OfflineFirstEventRepository(
     }
 
     private fun upsertEvents(events: List<com.cuentamorosos.model.EventItem>) {
-        println("[OfflineFirstEventRepo] upsertEvents: writing ${events.size} events to SQLDelight")
+        LogSanitizer.log("OfflineFirstEventRepo", "upsertEvents: writing ${events.size} events to SQLDelight")
         queries.transaction {
             // Purge stale local records: delete events absent from remote
             val remoteIds = events.map { it.id }.filter { it !in pendingEventDeletes }.toSet()
@@ -160,7 +161,7 @@ class OfflineFirstEventRepository(
                 )
             }
         }
-        println("[OfflineFirstEventRepo] upsertEvents: transaction complete, ${events.size} events written")
+        LogSanitizer.log("OfflineFirstEventRepo", "upsertEvents: transaction complete, ${events.size} events written")
     }
 
     override suspend fun fetchEvents(): List<EventItem> =
@@ -189,7 +190,7 @@ class OfflineFirstEventRepository(
         try {
             remoteRepository.saveEvent(event)
         } catch (e: Exception) {
-            println("[OfflineFirstEventRepo] saveEvent remote FAILED for ${event.id}: ${e.message}")
+            LogSanitizer.log("OfflineFirstEventRepo", "saveEvent remote FAILED for ${event.id}: ${e.message}")
             e.printStackTrace()
             pendingQueue.enqueue(
                 id = "event_${event.id}_${currentTimeMillis()}",
@@ -207,7 +208,7 @@ class OfflineFirstEventRepository(
         try {
             remoteRepository.deleteEvent(eventId)
         } catch (e: Exception) {
-            println("[OfflineFirstEventRepo] deleteEvent remote FAILED for $eventId: ${e.message}")
+            LogSanitizer.log("OfflineFirstEventRepo", "deleteEvent remote FAILED for $eventId: ${e.message}")
             e.printStackTrace()
             pendingQueue.enqueue(
                 id = "event_${eventId}_${currentTimeMillis()}",
@@ -250,7 +251,7 @@ class OfflineFirstEventRepository(
         runCatching {
             remoteRepository.removeMember(eventId, memberUid)
         }.onFailure { e ->
-            println("[OfflineFirstEventRepo] removeMember remote failed: ${e.message}")
+            LogSanitizer.log("OfflineFirstEventRepo", "removeMember remote failed: ${e.message}")
         }
     }
 

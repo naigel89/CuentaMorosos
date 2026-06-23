@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import com.cuentamorosos.data.LogSanitizer
 class FirestoreExpenseRepository : ExpenseRepository {
 
     private val db = Firebase.firestore
@@ -121,7 +122,7 @@ class FirestoreExpenseRepository : ExpenseRepository {
             db.collection("events").document(eventId).collection("expenses").get()
                 .documents.mapNotNull { it.toExpenseItem() }
         } catch (e: Exception) {
-            println("[FirestoreExpenseRepo] fetchExpensesForEvent failed: ${e.message}")
+            LogSanitizer.log("FirestoreExpenseRepo", "fetchExpensesForEvent failed: ${e.message}")
             emptyList()
         }
     }
@@ -140,7 +141,7 @@ class FirestoreExpenseRepository : ExpenseRepository {
                     .delete()
             }
         } catch (e: Exception) {
-            println("[FirestoreExpenseRepo] deleteAllExpensesForEvent failed: ${e.message}")
+            LogSanitizer.log("FirestoreExpenseRepo", "deleteAllExpensesForEvent failed: ${e.message}")
         }
     }
 
@@ -163,12 +164,12 @@ class FirestoreExpenseRepository : ExpenseRepository {
                 db.collection("events").document(eventId).collection("expenses").get()
                     .documents.mapNotNull { it.toExpenseItem() }
             } catch (e: Exception) {
-                println("[FirestoreExpenseRepo] fetchAllExpenses for event $eventId FAILED: ${e.message}")
+                LogSanitizer.log("FirestoreExpenseRepo", "fetchAllExpenses for event $eventId FAILED: ${e.message}")
                 emptyList()
             }
             allExpenses.addAll(expenses)
         }
-        println("[FirestoreExpenseRepo] fetchAllExpenses: ${eventIds.size} events → ${allExpenses.size} expenses")
+        LogSanitizer.log("FirestoreExpenseRepo", "fetchAllExpenses: ${eventIds.size} events → ${allExpenses.size} expenses")
         return allExpenses
     }
 

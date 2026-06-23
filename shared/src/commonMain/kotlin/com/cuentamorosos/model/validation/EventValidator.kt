@@ -22,8 +22,9 @@ object EventValidator {
         val errors = mutableListOf<ValidationError>()
         val warnings = mutableListOf<ValidationError>()
 
-        // EV-01: Name validation
-        validateName(event.name, errors)
+        // EV-01: Name validation (sanitized to strip Unicode control chars)
+        val sanitizedName = sanitize(event.name)
+        validateName(sanitizedName, errors)
 
         // EV-02: Date order
         if (event.startDateMillis > event.endDateMillis) {

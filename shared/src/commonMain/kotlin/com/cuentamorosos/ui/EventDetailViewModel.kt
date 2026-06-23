@@ -26,6 +26,7 @@ import com.cuentamorosos.model.canTransitionTo
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import com.cuentamorosos.data.LogSanitizer
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class EventDetailViewModel(
@@ -112,7 +113,7 @@ class EventDetailViewModel(
                     val eventExpenses = expenseRepository.fetchExpensesForEvent(id)
                     eventExpenses.forEach { expenseRepository.saveExpense(it) }
                 } catch (e: Exception) {
-                    println("[EventDetailVM] Pre-load failed: ${e.message}")
+                    LogSanitizer.log("EventDetailVM", "Pre-load failed: ${e.message}")
                 }
             }
         }
@@ -386,7 +387,7 @@ class EventDetailViewModel(
                     val weightSum = expense.profileWeights.values.sum()
                     val diff = kotlin.math.abs(weightSum - expense.amountEuros)
                     if (diff > 0.02) {
-                        println("[EventDetailVM] REAL_CONSUMPTION weight sum (${weightSum}) differs from item total (${expense.amountEuros}) by ${diff}")
+                        LogSanitizer.log("EventDetailVM", "REAL_CONSUMPTION weight sum (${weightSum}) differs from item total (${expense.amountEuros}) by ${diff}")
                     }
                     expense.profileWeights
                 } else {

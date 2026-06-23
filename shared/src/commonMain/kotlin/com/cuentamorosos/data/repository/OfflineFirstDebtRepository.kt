@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import com.cuentamorosos.data.LogSanitizer
 
 class OfflineFirstDebtRepository(
     private val remoteRepository: DebtRepository,
@@ -44,7 +45,7 @@ class OfflineFirstDebtRepository(
             if (local != null) {
                 remoteRepository.saveDebt(local)
             } else {
-                println("[OfflineFirstDebtRepo] saveDebt pending: debt $entityId not in local cache, skipping")
+                LogSanitizer.log("OfflineFirstDebtRepo", "saveDebt pending: debt $entityId not in local cache, skipping")
             }
         }
         override suspend fun deleteDebt(entityId: String) {
@@ -70,7 +71,7 @@ class OfflineFirstDebtRepository(
         networkMonitor.isOnline
             .drop(1) // Skip initial emission (already handled above)
             .onEach { isOnline ->
-                println("[OfflineFirstDebtRepo] network state: $isOnline")
+                LogSanitizer.log("OfflineFirstDebtRepo", "network state: $isOnline")
                 if (isOnline) startSyncAll() else stopSyncAll()
             }
             .launchIn(syncScope)
@@ -95,7 +96,7 @@ class OfflineFirstDebtRepository(
     }
 
     private fun startSyncAll() {
-        println("[OfflineFirstDebtRepo] startSyncAll called")
+        LogSanitizer.log("OfflineFirstDebtRepo", "startSyncAll called")
         syncAllJob?.cancel()
         syncAllJob = syncScope.launch(Dispatchers.Default) {
             var backoffMs = 1000L
@@ -110,7 +111,7 @@ class OfflineFirstDebtRepository(
                                 remoteRepository.deleteAllDebtsForEvent(eventId)
                                 pendingEventDeletes.remove(eventId)
                             } catch (e: Exception) {
-                                println("[OfflineFirstDebtRepo] pending delete retry FAILED for $eventId")
+                                LogSanitizer.log("OfflineFirstDebtRepo", "pending delete retry FAILED for $eventId")
                             }
                         }
                     }
@@ -125,12 +126,12 @@ class OfflineFirstDebtRepository(
                     if (initialDebts != null) {
                         val filtered = initialDebts.filter { it.eventId !in applyingEvents }
                         if (filtered.size != initialDebts.size) {
-                            println("[OfflineFirstDebtRepo] initial fetch filtered ${initialDebts.size - filtered.size} debts from applying events")
+                            LogSanitizer.log("OfflineFirstDebtRepo", "initial fetch filtered ${initialDebts.size - filtered.size} debts from applying events")
                         }
                         upsertDebts(filtered)
-                        println("[OfflineFirstDebtRepo] Initial fetch: ${filtered.size} debts (from ${initialDebts.size} total)")
+                        LogSanitizer.log("OfflineFirstDebtRepo", "Initial fetch: ${filtered.size} debts (from ${initialDebts.size} total)")
                     } else {
-                        println("[OfflineFirstDebtRepo] Initial fetch timed out after 15s")
+                        LogSanitizer.log("OfflineFirstDebtRepo", "Initial fetch timed out after 15s")
                     }
 
                     // 3. Then subscribe to realtime changes
@@ -138,16 +139,16 @@ class OfflineFirstDebtRepository(
                         .onEach { remoteDebts ->
                             val filtered = remoteDebts.filter { it.eventId !in applyingEvents }
                             if (filtered.size != remoteDebts.size) {
-                                println("[OfflineFirstDebtRepo] filtered ${remoteDebts.size - filtered.size} debts from applying events")
+                                LogSanitizer.log("OfflineFirstDebtRepo", "filtered ${remoteDebts.size - filtered.size} debts from applying events")
                             }
-                            println("[OfflineFirstDebtRepo] received ${remoteDebts.size} debts from Firestore, upserting ${filtered.size}")
+                            LogSanitizer.log("OfflineFirstDebtRepo", "received ${remoteDebts.size} debts from Firestore, upserting ${filtered.size}")
                             upsertDebts(filtered)
                         }
                         .collect()
 
                     backoffMs = 1000L
                 } catch (e: Exception) {
-                    println("[OfflineFirstDebtRepo] SyncAll error: ${e.message}")
+                    LogSanitizer.log("OfflineFirstDebtRepo", "SyncAll error: ${e.message}")
                     delay(backoffMs)
                     backoffMs = minOf(backoffMs * 2, maxBackoffMs)
                 }
@@ -199,7 +200,7 @@ class OfflineFirstDebtRepository(
         try {
             remoteRepository.saveDebt(debt)
         } catch (e: Exception) {
-            println("[OfflineFirstDebtRepo] saveDebt remote FAILED for ${debt.id}: ${e.message}")
+            LogSanitizer.log("OfflineFirstDebtRepo", "saveDebt remote FAILED for ${debt.id}: ${e.message}")
             e.printStackTrace()
             pendingQueue.enqueue(
                 id = "debt_${debt.id}_${currentTimeMillis()}",
@@ -216,7 +217,7 @@ class OfflineFirstDebtRepository(
         try {
             remoteRepository.deleteDebt(eventId, debtId)
         } catch (e: Exception) {
-            println("[OfflineFirstDebtRepo] deleteDebt remote FAILED for $debtId: ${e.message}")
+            LogSanitizer.log("OfflineFirstDebtRepo", "deleteDebt remote FAILED for $debtId: ${e.message}")
             e.printStackTrace()
             pendingQueue.enqueue(
                 id = "debt_${debtId}_${currentTimeMillis()}",
@@ -233,7 +234,7 @@ class OfflineFirstDebtRepository(
         try {
             remoteRepository.deleteAllDebtsForEvent(eventId)
         } catch (e: Exception) {
-            println("[OfflineFirstDebtRepo] deleteAllDebtsForEvent remote FAILED for $eventId: ${e.message}")
+            LogSanitizer.log("OfflineFirstDebtRepo", "deleteAllDebtsForEvent remote FAILED for $eventId: ${e.message}")
             e.printStackTrace()
             pendingEventDeletes.add(eventId)
         }
@@ -245,21 +246,21 @@ class OfflineFirstDebtRepository(
         transfers: List<SettlementTransfer>,
         paidTransferIndices: List<Int>,
     ) {
-        println("🔍 [applyCalculation] eventId=$eventId transfers=${transfers.size}")
+        LogSanitizer.log("OfflineFirstDebtRepo", "🔍 [applyCalculation] eventId=$eventId transfers=${transfers.size}")
         transfers.forEachIndexed { i, t ->
-            println("🔍   transfer[$i]: from=${t.fromProfileId} to=${t.toProfileId} amount=${t.amount}")
+            LogSanitizer.log("OfflineFirstDebtRepo", "🔍   transfer[$i]: from=${t.fromProfileId} to=${t.toProfileId} amount=${t.amount}")
         }
-        println("🔍 [applyCalculation] paidTransferIndices=$paidTransferIndices")
+        LogSanitizer.log("OfflineFirstDebtRepo", "🔍 [applyCalculation] paidTransferIndices=$paidTransferIndices")
 
         var totalBefore = 0.0
         var totalAfter = 0.0
         val before = queries.selectByEvent(eventId).executeAsList()
-        println("🔍 [applyCalculation] debts BEFORE delete: ${before.size}")
+        LogSanitizer.log("OfflineFirstDebtRepo", "🔍 [applyCalculation] debts BEFORE delete: ${before.size}")
         before.forEach { d ->
-            println("🔍   debt: ${d.profileId} -> ${d.creditorId} amount=${d.amountEuros} paid=${d.paid}")
+            LogSanitizer.log("OfflineFirstDebtRepo", "🔍   debt: ${d.profileId} -> ${d.creditorId} amount=${d.amountEuros} paid=${d.paid}")
             totalBefore += d.amountEuros
         }
-        println("🔍 [applyCalculation] totalBefore=$totalBefore")
+        LogSanitizer.log("OfflineFirstDebtRepo", "🔍 [applyCalculation] totalBefore=$totalBefore")
 
         withTimeoutOrNull(30_000L) {
             applyMutex.withLock {
@@ -276,17 +277,17 @@ class OfflineFirstDebtRepository(
                             calculationMode = modeId,
                             paid = index in paidTransferIndices,
                         )
-                        println("🔍   saving debt: profile=${debt.profileId} creditor=${debt.creditorId} amount=${debt.amountEuros} paid=${debt.paid}")
+                        LogSanitizer.log("OfflineFirstDebtRepo", "🔍   saving debt: profile=${debt.profileId} creditor=${debt.creditorId} amount=${debt.amountEuros} paid=${debt.paid}")
                         saveDebt(debt)
                     }
 
                     val after = queries.selectByEvent(eventId).executeAsList()
-                    println("🔍 [applyCalculation] debts AFTER apply: ${after.size}")
+                    LogSanitizer.log("OfflineFirstDebtRepo", "🔍 [applyCalculation] debts AFTER apply: ${after.size}")
                     after.forEach { d ->
-                        println("🔍   debt: ${d.profileId} -> ${d.creditorId} amount=${d.amountEuros} paid=${d.paid}")
+                        LogSanitizer.log("OfflineFirstDebtRepo", "🔍   debt: ${d.profileId} -> ${d.creditorId} amount=${d.amountEuros} paid=${d.paid}")
                         totalAfter += d.amountEuros
                     }
-                    println("🔍 [applyCalculation] totalAfter=$totalAfter")
+                    LogSanitizer.log("OfflineFirstDebtRepo", "🔍 [applyCalculation] totalAfter=$totalAfter")
                 } finally {
                     applyingEvents.remove(eventId)
                 }
@@ -299,7 +300,7 @@ class OfflineFirstDebtRepository(
         try {
             remoteRepository.deleteDebtsForProfile(profileId)
         } catch (e: Exception) {
-            println("[OfflineFirstDebtRepo] deleteDebtsForProfile remote FAILED for $profileId: ${e.message}")
+            LogSanitizer.log("OfflineFirstDebtRepo", "deleteDebtsForProfile remote FAILED for $profileId: ${e.message}")
             e.printStackTrace()
             pendingQueue.enqueue(
                 id = "debt_${profileId}_${currentTimeMillis()}",

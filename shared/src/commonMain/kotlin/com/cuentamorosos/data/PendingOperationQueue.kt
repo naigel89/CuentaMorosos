@@ -91,7 +91,7 @@ class PendingOperationQueue(
                 }
                 markComplete(op.id)
             } catch (e: Exception) {
-                println("[PendingOperationQueue] Drain failed for ${op.id}: ${e.message}")
+                LogSanitizer.log("PendingOperationQueue", "Drain failed for ${op.id}: ${e.message}")
                 markFailed(op.id)
             }
         }
