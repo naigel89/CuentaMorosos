@@ -2,6 +2,7 @@ package com.cuentamorosos
 
 import app.cash.sqldelight.db.SqlDriver
 import com.cuentamorosos.data.NetworkMonitor
+import com.cuentamorosos.data.LogSanitizer
 import com.cuentamorosos.data.PendingOperationQueue
 import com.cuentamorosos.data.RemoteOperations
 import com.cuentamorosos.data.repository.DebtRepository
@@ -98,24 +99,24 @@ class RepositoryProvider(
     fun startSyncStaggered(scope: CoroutineScope) {
         scope.launch(Dispatchers.Default) {
             try {
-                println("[RepositoryProvider] Starting event sync...")
+                LogSanitizer.log("RepositoryProvider", "Starting event sync...")
                 (eventRepository as OfflineFirstEventRepository).startSync()
-                println("[RepositoryProvider] Event sync started, waiting 500ms...")
+                LogSanitizer.log("RepositoryProvider", "Event sync started, waiting 500ms...")
                 delay(500)
-                println("[RepositoryProvider] Starting debt sync...")
+                LogSanitizer.log("RepositoryProvider", "Starting debt sync...")
                 (debtRepository as OfflineFirstDebtRepository).startSync()
-                println("[RepositoryProvider] Debt sync started, waiting 500ms...")
+                LogSanitizer.log("RepositoryProvider", "Debt sync started, waiting 500ms...")
                 delay(500)
-                println("[RepositoryProvider] Starting expense sync...")
+                LogSanitizer.log("RepositoryProvider", "Starting expense sync...")
                 (expenseRepository as OfflineFirstExpenseRepository).startSync()
-                println("[RepositoryProvider] Expense sync started, waiting 500ms...")
+                LogSanitizer.log("RepositoryProvider", "Expense sync started, waiting 500ms...")
                 delay(500)
-                println("[RepositoryProvider] Starting profile sync...")
+                LogSanitizer.log("RepositoryProvider", "Starting profile sync...")
                 (profileRepository as OfflineFirstProfileRepository).startSync()
-                println("[RepositoryProvider] All offline-first syncs started")
+                LogSanitizer.log("RepositoryProvider", "All offline-first syncs started")
             } catch (e: Exception) {
-                println("[RepositoryProvider] Sync start error: ${e.message}")
-                e.printStackTrace()
+                LogSanitizer.log("RepositoryProvider", "Sync start error: ${e.message}")
+                if (LogSanitizer.isDebug) e.printStackTrace()
             }
         }
     }
@@ -125,7 +126,7 @@ class RepositoryProvider(
      * This is a last-chance sync on sign-out. If any operation fails, the data will be lost.
      */
     suspend fun drainAllBeforeLogout() {
-        println("[RepositoryProvider] Draining pending operations before logout...")
+        LogSanitizer.log("RepositoryProvider", "Draining pending operations before logout...")
         pendingQueue.drainAll(object : RemoteOperations {
             override suspend fun saveEvent(entityId: String) {
                 val local = database.cachedEventQueries.selectById(entityId)
@@ -202,7 +203,7 @@ class RepositoryProvider(
             override suspend fun deleteProfilePhoto(profileId: String) { remoteProfileRepository.deleteProfilePhoto() }
             override suspend fun linkGhostProfile(email: String, realUid: String) { remoteProfileRepository.linkGhostProfile(email, realUid) }
         })
-        println("[RepositoryProvider] Pending operations drain complete")
+        LogSanitizer.log("RepositoryProvider", "Pending operations drain complete")
     }
 
     /**

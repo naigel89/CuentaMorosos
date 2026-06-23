@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+import com.cuentamorosos.data.LogSanitizer
 
 actual class DriverFactory(private val context: Context) {
     actual fun createDriver(): SqlDriver {
@@ -38,7 +39,7 @@ actual class DriverFactory(private val context: Context) {
                 for (columnDef in allColumns) {
                     val columnName = columnDef.substringBefore(' ')
                     if (columnName !in profileColumns) {
-                        println("[DB] Adding missing column: $columnName")
+                        LogSanitizer.log("DB", "Adding missing column: $columnName")
                         db.execSQL("ALTER TABLE CachedProfile ADD COLUMN $columnDef")
                     }
                 }
@@ -48,13 +49,13 @@ actual class DriverFactory(private val context: Context) {
                 // tables that still have 12 columns (icon included), causing
                 // profiles to never load after re-login.
                 if ("icon" in profileColumns) {
-                    println("[DB] Removing deprecated column: icon")
+                    LogSanitizer.log("DB", "Removing deprecated column: icon")
                     try {
                         db.execSQL("ALTER TABLE CachedProfile DROP COLUMN icon")
                     } catch (e: Exception) {
                         // Fallback for SQLite < 3.35.0 (API < 30):
                         // recreate the table without the icon column.
-                        println("[DB] DROP COLUMN not supported, recreating table...")
+                        LogSanitizer.log("DB", "DROP COLUMN not supported, recreating table...")
                         db.execSQL("""
                             CREATE TABLE CachedProfile_new (
                                 id TEXT NOT NULL PRIMARY KEY,
@@ -88,7 +89,7 @@ actual class DriverFactory(private val context: Context) {
                         val colIndex = cursor.getInt(0)  // cid = column index (0-based)
                         val colName = cursor.getString(1)
                         debtColumns.add(colName)
-                        println("[DB] CachedDebt column[$colIndex]: $colName")
+                        LogSanitizer.log("DB", "CachedDebt column[$colIndex]: $colName")
                     }
                 }
 
@@ -96,9 +97,9 @@ actual class DriverFactory(private val context: Context) {
                 val needsRecreate = debtColumns != expectedDebtOrder
 
                 if (needsRecreate) {
-                    println("[DB] CachedDebt column order is WRONG. Recreating table...")
-                    println("[DB]   Current: $debtColumns")
-                    println("[DB]   Expected: $expectedDebtOrder")
+                    LogSanitizer.log("DB", "CachedDebt column order is WRONG. Recreating table...")
+                    LogSanitizer.log("DB", "  Current: $debtColumns")
+                    LogSanitizer.log("DB", "  Expected: $expectedDebtOrder")
 
                     // 1. Rename old table
                     db.execSQL("ALTER TABLE CachedDebt RENAME TO CachedDebt_old")
@@ -133,13 +134,13 @@ actual class DriverFactory(private val context: Context) {
 
                     // 4. Drop old table
                     db.execSQL("DROP TABLE CachedDebt_old")
-                    println("[DB] CachedDebt table recreated successfully")
+                    LogSanitizer.log("DB", "CachedDebt table recreated successfully")
                 } else {
-                    println("[DB] CachedDebt column order is correct")
+                    LogSanitizer.log("DB", "CachedDebt column order is correct")
                 }
             }
         } catch (e: Exception) {
-            println("[DB] Failed to ensure columns: ${e.message}. Deleting database.")
+            LogSanitizer.log("DB", "Failed to ensure columns: ${e.message}. Deleting database.")
             context.deleteDatabase("cuentamorosos.db")
         }
     }
@@ -152,10 +153,10 @@ actual class DriverFactory(private val context: Context) {
             ).use { db ->
                 val expectedVersion = 1L
                 db.execSQL("PRAGMA user_version = $expectedVersion")
-                println("[DB] SQLDelight version set to $expectedVersion")
+                LogSanitizer.log("DB", "SQLDelight version set to $expectedVersion")
             }
         } catch (e: Exception) {
-            println("[DB] Failed to set version: ${e.message}")
+            LogSanitizer.log("DB", "Failed to set version: ${e.message}")
         }
     }
 }
