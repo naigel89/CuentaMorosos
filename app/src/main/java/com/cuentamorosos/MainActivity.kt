@@ -41,6 +41,7 @@ import com.cuentamorosos.notifications.NotificationDispatcher
 import com.cuentamorosos.ui.CuentaMorososApp
 import com.cuentamorosos.ui.CuentaMorososTheme
 import com.cuentamorosos.ui.OnPhotoReady
+import com.cuentamorosos.ui.auth.EmailVerificationScreen
 import com.cuentamorosos.ui.auth.ForgotPasswordScreen
 import com.cuentamorosos.ui.auth.RegisterScreen
 import com.cuentamorosos.ui.auth.SplashAuthScreen
@@ -147,18 +148,56 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (currentUser != null) {
-                        MainAppContent(
-                            user = currentUser!!,
-                            repositoryProvider = repositoryProvider,
-                            localStore = localStore,
-                            networkMonitor = networkMonitor,
-                            application = application,
-                            notificationDispatcher = notificationDispatcher,
-                            deepLinkEvent = deepLinkEvent,
-                            onTestNotification = { notificationEvent ->
-                                notificationDispatcher.dispatch(notificationEvent)
-                            },
-                        )
+                        val user = currentUser!!
+                        if (!user.isEmailVerified) {
+                            // Email verification gate — block main app until verified
+                            var isResending by remember { mutableStateOf(false) }
+                            var verificationError by remember { mutableStateOf<String?>(null) }
+
+                            EmailVerificationScreen(
+                                email = user.email ?: "",
+                                isResending = isResending,
+                                errorMessage = verificationError,
+                                onResendVerification = {
+                                    isResending = true
+                                    verificationError = null
+                                    user.sendEmailVerification()
+                                        .addOnSuccessListener {
+                                            isResending = false
+                                        }
+                                        .addOnFailureListener { e ->
+                                            isResending = false
+                                            verificationError = e.localizedMessage
+                                                ?: "Error al reenviar correo"
+                                        }
+                                },
+                                onCheckAgain = {
+                                    user.reload().addOnSuccessListener {
+                                        // AuthStateListener will pick up the change
+                                        currentUser = auth.currentUser
+                                    }.addOnFailureListener { e ->
+                                        verificationError = e.localizedMessage
+                                            ?: "Error al verificar estado"
+                                    }
+                                },
+                                onSignOut = {
+                                    auth.signOut()
+                                },
+                            )
+                        } else {
+                            MainAppContent(
+                                user = user,
+                                repositoryProvider = repositoryProvider,
+                                localStore = localStore,
+                                networkMonitor = networkMonitor,
+                                application = application,
+                                notificationDispatcher = notificationDispatcher,
+                                deepLinkEvent = deepLinkEvent,
+                                onTestNotification = { notificationEvent ->
+                                    notificationDispatcher.dispatch(notificationEvent)
+                                },
+                            )
+                        }
                     } else {
                         AuthFlow(
                             auth = auth,
@@ -428,6 +467,14 @@ private fun AuthFlow(
             onRegister = { email, password, onResult ->
                 auth.createUserWithEmailAndPassword(email, password)
                     .addOnSuccessListener { result ->
+                        // Send email verification immediately after registration
+                        result.user?.sendEmailVerification()
+                            ?.addOnFailureListener { e ->
+                                LogSanitizer.log(
+                                    "MainActivity",
+                                    "sendEmailVerification failed: ${e.message}"
+                                )
+                            }
                         // Set display name
                         val displayName = email.substringBefore("@")
                         result.user?.updateProfile(

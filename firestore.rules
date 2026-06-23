@@ -1,0 +1,173 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper: user is authenticated ──────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // ── Helper: user is event participant ──────────────────────────────
+    // Checks ownerId, participantIds (modern), and memberIds (legacy).
+    function isEventParticipant(eventDoc) {
+      return request.auth.uid == eventDoc.data.ownerId
+        || (eventDoc.data.participantIds is list
+            && request.auth.uid in eventDoc.data.participantIds)
+        || (eventDoc.data.memberIds is list
+            && request.auth.uid in eventDoc.data.memberIds);
+    }
+
+    // ── Users: self-access only ────────────────────────────────────────
+    // Protects FCM tokens and private fields from cross-user access.
+    match /users/{userId} {
+      allow read, write: if isAuthenticated()
+        && request.auth.uid == userId;
+    }
+
+    // ── Profiles ───────────────────────────────────────────────────────
+    match /profiles/{profileId} {
+      // Any authenticated user can read profiles (needed for
+      // participant name resolution across shared events).
+      allow read: if isAuthenticated();
+
+      // Only the profile owner can write their own profile.
+      allow write: if isAuthenticated()
+        && request.auth.uid == profileId;
+
+      // Custom names subcollection: per-viewer custom display names.
+      match /customNames/{viewerId} {
+        allow read, write: if isAuthenticated()
+          && request.auth.uid == viewerId;
+      }
+    }
+
+    // ── Events ─────────────────────────────────────────────────────────
+    match /events/{eventId} {
+      // Read: only participants can read event details.
+      allow read: if isAuthenticated()
+        && isEventParticipant(resource);
+
+      // Create: only the owner specified in the new document.
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.ownerId;
+
+      // Update: owner only. Prevents participants from modifying
+      // event metadata, participants list, or lifecycle state.
+      allow update: if isAuthenticated()
+        && request.auth.uid == resource.data.ownerId;
+
+      // Delete: owner only.
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.ownerId;
+
+      // ── Expenses subcollection ────────────────────────────────────
+      match /expenses/{expenseId} {
+        // Phase 1 baseline: authenticated users with event access.
+        // Full PermissionEngine mirroring (CONTRIBUTOR write scoping,
+        // expense ownership checks) deferred per design.
+        allow read: if isAuthenticated()
+          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+
+        allow create: if isAuthenticated()
+          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+
+        allow update, delete: if isAuthenticated()
+          && resource.data.createdByProfileId == request.auth.uid;
+
+        // Audit subcollection: append-only expense mutation records.
+        match /audit/{auditId} {
+          allow read: if isAuthenticated()
+            && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+          allow create: if isAuthenticated()
+            && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+          allow update, delete: if false;
+        }
+      }
+
+      // ── Debts subcollection ───────────────────────────────────────
+      match /debts/{debtId} {
+        // Phase 1 baseline: authenticated users with event access.
+        // Full role-based write restrictions deferred.
+        allow read: if isAuthenticated()
+          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+
+        allow write: if isAuthenticated()
+          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+      }
+
+      // ── Calculations subcollection ─────────────────────────────────
+      match /calculations/{calcId} {
+        // Calculation snapshots: read-only for event participants.
+        // Created by server-side calculation (admin SDK) or owner.
+        allow read: if isAuthenticated()
+          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+
+        allow create: if isAuthenticated()
+          && request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId;
+
+        allow update, delete: if false;
+      }
+
+      // ── Adjustments subcollection ──────────────────────────────────
+      match /adjustments/{adjustmentId} {
+        allow read: if isAuthenticated()
+          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+
+        allow create: if isAuthenticated()
+          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+
+        allow update, delete: if false;
+      }
+    }
+
+    // ── Invitations ────────────────────────────────────────────────────
+    match /invitations/{invitationId} {
+      // Only the sender or the invited person can read an invitation.
+      allow read: if isAuthenticated()
+        && (request.auth.uid == resource.data.invitedByUid
+            || request.auth.token.email != null
+            && request.auth.token.email == resource.data.invitedEmail);
+
+      // Create: authenticated users can create invitations.
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.invitedByUid;
+
+      // Update: only the invited person can accept/reject.
+      allow update: if isAuthenticated()
+        && (request.auth.uid == resource.data.invitedByUid
+            || request.auth.token.email != null
+            && request.auth.token.email == resource.data.invitedEmail);
+
+      // Delete: sender only.
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.invitedByUid;
+    }
+
+    // ── Notifications ──────────────────────────────────────────────────
+    match /notifications/{uid} {
+      // Notifications are organized per-user. Only the target user
+      // can read or delete their own notifications.
+      allow read, delete: if isAuthenticated()
+        && request.auth.uid == uid;
+
+      // Create: server-side (admin SDK) or the event owner for
+      // invitation-accepted / calculation-completed notifications.
+      allow create: if isAuthenticated();
+
+      match /invitation-accepted/{notificationId} {
+        allow read, write: if isAuthenticated()
+          && request.auth.uid == uid;
+      }
+
+      match /calculation-completed/{notificationId} {
+        allow read, write: if isAuthenticated()
+          && request.auth.uid == uid;
+      }
+    }
+
+    // ── Catch-all: deny everything else ────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

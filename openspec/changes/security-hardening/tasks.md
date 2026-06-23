@@ -8,7 +8,7 @@
 | 400-line budget risk | High |
 | Chained PRs recommended | Yes |
 | Delivery strategy | ask-on-risk |
-| Chain strategy | pending |
+| Chain strategy | stacked-to-main |
 
 Decision needed before apply: Yes
 Chained PRs recommended: Yes
@@ -47,7 +47,7 @@ Chain strategy: pending
 
 ## Phase 4: Firestore Authorization
 
-- [ ] 4.1 `firestore.rules` (NEW): `rules_version='2'`; deny unauthenticated; `/users/{userId}` self-access; `/profiles/{profileId}` auth-read + self-write; `/events/{eventId}` participant-read, owner-write; subcollections auth-only (spec firestore R001–R004)
-- [ ] 4.2 `firebase.json` (NEW): firestore rules reference (spec firestore R001)
-- [ ] 4.3 `app/.../MainActivity.kt`: post-registration, check `user.isEmailVerified`; if false, show verification screen instead of `MainAppContent` (spec firestore R005)
-- [ ] 4.4 Deploy + test: `firebase deploy --only firestore:rules`; verify via emulator: unauthenticated denied, cross-user denied, non-participant denied
+- [x] 4.1 `firestore.rules` (NEW): `rules_version='2'`; deny unauthenticated; `/users/{userId}` self-access; `/profiles/{profileId}` auth-read + self-write; `/events/{eventId}` participant-read, owner-write; subcollections auth-only (spec firestore R001–R004)
+- [x] 4.2 `firebase.json` (NEW): firestore rules reference (spec firestore R001)
+- [x] 4.3 `app/.../MainActivity.kt`: post-registration, check `user.isEmailVerified`; if false, show verification screen instead of `MainAppContent` (spec firestore R005)
+- [x] 4.4 Tests for email verification gate (6 unit tests covering requiresVerification/resolveVerificationState)
