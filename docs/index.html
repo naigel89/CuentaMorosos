@@ -34,6 +34,7 @@
       --font-mono:     'JetBrains Mono', 'Fira Code', monospace;
       --anim:          300ms ease; --anim-fast: 150ms ease;
       --anim-slow:    600ms cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -43,11 +44,11 @@
 
     /* ── Particles ──────────────────────────────────────────── */
     .particles{position:fixed;inset:0;pointer-events:none;z-index:0}
-    .particle{position:absolute;border-radius:50%;background:var(--accent);opacity:0;filter:blur(1px);animation:floatUp linear infinite}
+    .particle{position:absolute;border-radius:50%;background:var(--accent);opacity:0;animation:floatUp linear infinite;will-change:transform,opacity}
     @keyframes floatUp{0%{transform:translateY(110vh) scale(0);opacity:0}10%{opacity:.3}90%{opacity:.05}100%{transform:translateY(-10vh) scale(1.2);opacity:0}}
 
     /* ── Orbs ───────────────────────────────────────────────── */
-    .bg-orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0;animation:orbPulse 8s ease-in-out infinite alternate}
+    .bg-orb{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;will-change:opacity;animation:orbPulse 12s ease-in-out infinite alternate}
     @keyframes orbPulse{0%{transform:scale(1);opacity:.05}100%{transform:scale(1.15);opacity:.1}}
     .bg-orb--green{width:600px;height:600px;background:var(--accent);top:-200px;right:-200px}
     .bg-orb--teal{width:450px;height:450px;background:var(--teal);bottom:15%;left:-180px;animation-delay:3s}
@@ -55,10 +56,11 @@
 
     /* ── Layout ─────────────────────────────────────────────── */
     .container{max-width:1100px;margin:0 auto;padding:0 var(--space-lg);position:relative;z-index:1}
-    section{padding:var(--space-xxl) 0}
+    section{padding:var(--space-xxl) 0;content-visibility:auto;contain-intrinsic-size:auto 500px}
+    #capturas{content-visibility:visible;contain-intrinsic-size:none}
 
     /* ── Header ─────────────────────────────────────────────── */
-    .header{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(19,19,19,.72);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid rgba(60,75,53,.2);animation:headerSlideIn .6s var(--anim-slow)}
+    .header{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(19,19,19,.8);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(60,75,53,.2);will-change:transform}
     @keyframes headerSlideIn{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
     .header .container{display:flex;align-items:center;justify-content:space-between;padding-top:var(--space-sm);padding-bottom:var(--space-sm)}
     .header-logo{display:flex;align-items:center;gap:var(--space-sm);text-decoration:none}
@@ -70,10 +72,10 @@
 
     /* ── Hero ───────────────────────────────────────────────── */
     .hero{padding-top:140px;text-align:center}
-    .hero-logo-wrapper{display:inline-block;margin-bottom:var(--space-lg);animation:logoFloat 5s ease-in-out infinite}
+    .hero-logo-wrapper{display:inline-block;margin-bottom:var(--space-lg);animation:logoFloat 8s ease-in-out infinite;will-change:transform}
     @keyframes logoFloat{0%,100%{transform:translateY(0) rotate(0deg)}25%{transform:translateY(-6px) rotate(-1deg)}75%{transform:translateY(-2px) rotate(1deg)}}
     .hero-logo{width:96px;height:96px;filter:drop-shadow(0 0 32px var(--accent-glow))}
-    .hero h1{font-size:clamp(2rem,6vw,3.6rem);font-weight:700;letter-spacing:-0.035em;line-height:1.08;background:linear-gradient(135deg,var(--accent) 0%,#00D4AA 45%,var(--teal) 70%,var(--accent) 100%);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:gradientShift 4s ease-in-out infinite}
+    .hero h1{font-size:clamp(2rem,6vw,3.6rem);font-weight:700;letter-spacing:-0.035em;line-height:1.08;background:linear-gradient(135deg,var(--accent) 0%,#00D4AA 45%,var(--teal) 70%,var(--accent) 100%);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:gradientShift 8s ease-in-out infinite}
     @keyframes gradientShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
     .hero p{font-size:clamp(1rem,2.5vw,1.25rem);color:var(--text-2);max-width:640px;margin:var(--space-md) auto 0}
     .hero .tagline{font-family:var(--font-mono);font-size:13px;color:var(--accent);margin-top:var(--space-sm);letter-spacing:.03em;text-transform:uppercase}
@@ -86,7 +88,7 @@
 
     /* ── Buttons ────────────────────────────────────────────── */
     .btn{display:inline-flex;align-items:center;gap:10px;font-family:var(--font-geist);font-weight:600;font-size:16px;padding:14px 32px;border-radius:var(--radius-lg);border:none;cursor:pointer;text-decoration:none;transition:all var(--anim)}
-    .btn-primary{background:var(--accent);color:#0B0D11;box-shadow:0 0 32px var(--accent-glow),0 0 64px rgba(0,200,83,.06);animation:btnPulse 3s ease-in-out infinite}
+    .btn-primary{background:var(--accent);color:#0B0D11;box-shadow:0 0 32px var(--accent-glow),0 0 64px rgba(0,200,83,.06);animation:btnPulse 5s ease-in-out infinite}
     @keyframes btnPulse{0%,100%{box-shadow:0 0 32px var(--accent-glow),0 0 64px rgba(0,200,83,.06)}50%{box-shadow:0 0 52px var(--accent-glow),0 0 96px rgba(0,200,83,.12)}}
     .btn-primary:hover{transform:translateY(-3px);box-shadow:0 0 52px var(--accent-glow),0 0 100px rgba(0,200,83,.15);animation:none}
     .btn svg{width:20px;height:20px}
@@ -142,7 +144,7 @@
     .feature-card p{font-size:14px;color:var(--text-2);line-height:1.7}
 
     /* ── Split modes ────────────────────────────────────────── */
-    .modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:var(--space-md)}
+    .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-md)}
     .mode-card{background:var(--surface-low);border:1px solid rgba(60,75,53,.25);border-radius:var(--radius-lg);padding:var(--space-lg) var(--space-md);text-align:center;transition:all var(--anim);cursor:default}
     .mode-card:hover{border-color:var(--teal);box-shadow:0 0 24px var(--teal-glow);transform:translateY(-2px)}
     .mode-icon{margin-bottom:var(--space-sm);display:flex;justify-content:center}
@@ -160,9 +162,10 @@
     .faq-q:hover{color:var(--accent)}
     .faq-q::after{content:'+';font-family:var(--font-mono);font-size:20px;color:var(--accent);transition:transform var(--anim)}
     .faq-item.open .faq-q::after{transform:rotate(45deg)}
-    .faq-a{max-height:0;overflow:hidden;transition:max-height .4s var(--anim-slow)}
-    .faq-item.open .faq-a{max-height:300px}
-    .faq-a-inner{padding:0 var(--space-lg) var(--space-lg);font-size:14px;color:var(--text-2);line-height:1.7}
+    .faq-a{max-height:0;overflow:hidden;transition:max-height .35s var(--ease-out)}
+    .faq-item.open .faq-a{max-height:400px}
+    .faq-a-inner{padding:0 var(--space-lg) var(--space-lg);font-size:14px;color:var(--text-2);line-height:1.7;opacity:0;transform:translateY(-8px);transition:opacity .3s var(--ease-out) .08s,transform .3s var(--ease-out) .08s}
+    .faq-item.open .faq-a-inner{opacity:1;transform:translateY(0)}
 
     /* ── CTA ────────────────────────────────────────────────── */
     .cta-section{background:radial-gradient(ellipse at center,rgba(0,200,83,.05) 0%,transparent 70%);border:1px solid rgba(60,75,53,.2);border-radius:var(--radius-xl);text-align:center;padding:var(--space-xxl);margin:0 var(--space-lg);transition:all var(--anim-slow)}
@@ -178,7 +181,7 @@
     footer a:hover{color:var(--accent)}
 
     /* ── Reveal ─────────────────────────────────────────────── */
-    .reveal{opacity:0;transform:translateY(30px);transition:opacity .6s var(--anim-slow),transform .6s var(--anim-slow)}
+    .reveal{opacity:0;transform:translateY(30px);transition:opacity .6s var(--ease-out),transform .6s var(--ease-out)}
     .reveal.visible{opacity:1;transform:translateY(0)}
     .reveal-delay-1{transition-delay:0ms}.reveal-delay-2{transition-delay:80ms}.reveal-delay-3{transition-delay:160ms}
     .reveal-delay-4{transition-delay:240ms}.reveal-delay-5{transition-delay:320ms}.reveal-delay-6{transition-delay:400ms}
@@ -270,10 +273,11 @@
   .insight p { font-size: 13px; color: var(--color-text-success); margin: 0; line-height: 1.5; }
   .insight svg { width: 18px; height: 18px; color: var(--color-text-success); flex-shrink: 0; margin-top: 1px; }
 
-  .nav { display: flex; align-items: center; justify-content: space-between; margin-top: 1.25rem; }
-  .nav button { font-size: 13px; }
-  .nav button:disabled { opacity: 0.3; cursor: default; }
-  .auto-btn { font-size: 12px; color: var(--color-text-tertiary); background: none; border: none; cursor: pointer; padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px; }
+  .alg-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 1.25rem; }
+  .alg-nav .btn-step { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-geist); font-size: 13px; font-weight: 500; padding: 8px 18px; border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--border); color: var(--text); cursor: pointer; transition: all var(--anim); }
+  .alg-nav .btn-step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 16px var(--accent-glow-soft); }
+  .alg-nav .btn-step:disabled { opacity: 0.25; cursor: default; }
+  .auto-btn { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-geist); font-size: 12px; color: var(--color-text-tertiary); background: none; border: none; cursor: pointer; padding: 4px 8px; transition: color var(--anim); }
   .auto-btn:hover { color: var(--color-text-secondary); }
 
   @keyframes fadein { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: none; } }
@@ -281,11 +285,11 @@
 
   /* ── Sticky scroll capturas ────────────────────────────── */
   .ss-root { font-family: var(--font-sans); color: var(--color-text-primary); padding: 0 0 1rem; }
-  .ss-layout { display: grid; grid-template-columns: 220px 1fr; gap: 48px; align-items: start; }
-  .ss-phone-col { position: sticky; top: 80px; }
-  .ss-phone-frame { width: 190px; margin: 0 auto; background: #0d1117; border-radius: 36px; border: 2px solid #2a3548; padding: 12px 8px; box-shadow: 0 0 0 1px #1a2030; }
+  .ss-layout { display: grid; grid-template-columns: 360px 1fr; gap: 48px; align-items: start; }
+  .ss-phone-col { position: sticky; top: 76px; will-change: transform; }
+  .ss-phone-frame { width: 320px; margin: 0 auto; background: #0d1117; border-radius: 40px; border: 2.5px solid #2a3548; padding: 16px 12px; box-shadow: 0 0 0 1px #1a2030; }
   .ss-phone-screen { border-radius: 26px; overflow: hidden; aspect-ratio: 9/19; background: #0d1117; position: relative; }
-  .ss-phone-screen img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; transition: opacity 0.4s ease; position: absolute; top: 0; left: 0; }
+  .ss-phone-screen img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; transition: opacity 0.4s ease; position: absolute; top: 0; left: 0; }
   .ss-phone-screen img.hidden { opacity: 0; }
   .ss-phone-screen img.visible { opacity: 1; }
   .ss-notch { width: 60px; height: 8px; background: #1a2030; border-radius: 4px; margin: 0 auto 10px; }
@@ -293,7 +297,7 @@
   .ss-dot { width: 6px; height: 6px; border-radius: 50%; background: #2a3548; transition: background 0.3s; cursor: pointer; }
   .ss-dot.active { background: var(--accent); }
   .ss-steps { display: flex; flex-direction: column; gap: 0; }
-  .ss-step { padding: 2.5rem 0; border-bottom: 0.5px solid var(--color-border-tertiary); opacity: 0.35; transition: opacity 0.4s ease; cursor: pointer; }
+  .ss-step { padding: 4rem 0; min-height: 320px; border-bottom: 0.5px solid var(--color-border-tertiary); opacity: 0.35; transition: opacity 0.4s ease; cursor: pointer; }
   .ss-step:first-child { padding-top: 0; }
   .ss-step:last-child { border-bottom: none; }
   .ss-step.active { opacity: 1; }
@@ -309,8 +313,15 @@
   @media(max-width:768px){
     .ss-layout{grid-template-columns:1fr;gap:var(--space-lg)}
     .ss-phone-col{position:static}
-    .ss-phone-frame{width:160px}
-    .ss-step{padding:1.5rem 0}
+    .ss-phone-frame{width:220px}
+    .ss-step{padding:2rem 0;min-height:200px}
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    .particle,.bg-orb,.hero-logo-wrapper,.hero h1,.btn-primary,.algo-arrow-divider svg{animation:none!important}
+    .reveal{opacity:1;transform:none;transition:none}
+    .fade{animation:none}
+    html{scroll-behavior:auto}
   }
 </style>
 </head>
@@ -353,7 +364,7 @@
       <div class="hero-cta">
         <a href="https://github.com/naigel89/CuentaMorosos/releases/latest/download/app-release.apk" class="btn btn-primary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Descargar APK v1.0.0
+          Descargar APK v1.1.0
         </a>
         <span class="btn-sub">~12 MB · Firmada · Android 7.0+</span>
       </div>
@@ -416,14 +427,12 @@
             <span class="step-counter" id="counter">Paso 1 de 4</span>
           </div>
           <div class="stage" id="stage"></div>
-          <div class="nav">
-            <button id="btn-prev" onclick="move(-1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Anterior</button>
+          <div class="alg-nav">
+            <button class="btn-step" id="btn-prev" onclick="move(-1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Anterior</button>
             <button class="auto-btn" id="btn-auto" onclick="toggleAuto()"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Auto</button>
-            <button id="btn-next" onclick="move(1)">Siguiente <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
-          </div>
+            <button class="btn-step" id="btn-next" onclick="move(1)">Siguiente <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
         </div>
-      </div>
-      <p style="text-align:center;color:var(--text-2);font-size:14px;max-width:600px;margin:var(--space-lg) auto 0">Sin CuentaMorosos: <strong>hasta 12 transferencias</strong> cruzadas para saldar 4 personas. Con el algoritmo greedy + round-robin: <strong>3 transferencias limpias</strong>. Cuantas más personas, más diferencia.</p>
+    </div>
     </div>
   </section>
 
@@ -431,7 +440,6 @@
   <section id="capturas">
     <div class="container">
       <h2 class="section-title reveal"><span>Capturas</span> de la app</h2>
-      <div class="reveal">
         <div class="ss-root">
           <div class="ss-layout">
             <div class="ss-phone-col">
@@ -484,7 +492,6 @@
             </div>
           </div>
         </div>
-      </div>
     </div>
   </section>
 
@@ -552,7 +559,7 @@
         <div class="faq-item open"><button class="faq-q">¿Necesito crear una cuenta?</button><div class="faq-a"><div class="faq-a-inner">Sí. Usas email y contraseña con Firebase Auth. Tus eventos, gastos y deudas quedan vinculados a tu cuenta para que los veas en cualquier dispositivo.</div></div></div>
         <div class="faq-item"><button class="faq-q">¿Dónde se guardan mis datos?</button><div class="faq-a"><div class="faq-a-inner">En dos sitios: tu dispositivo (SQLDelight, cifrado por Android) como caché primaria, y Firebase Firestore como copia en la nube. Si te quedas sin conexión, la app sigue funcionando y sincroniza al reconectar.</div></div></div>
         <div class="faq-item"><button class="faq-q">¿Es gratis? ¿Tiene compras dentro de la app?</button><div class="faq-a"><div class="faq-a-inner"><strong>Totalmente gratis.</strong> Open source bajo licencia MIT. Sin suscripciones, sin compras in-app, sin anuncios. El código está público en GitHub para que cualquiera lo audite.</div></div></div>
-        <div class="faq-item"><button class="faq-q">¿Por qué APK y no Google Play Store?</button><div class="faq-a"><div class="faq-a-inner">Estamos en versión 1.0.0. La distribución por APK nos permite iterar rápido sin esperar revisiones de Google. Play Store llegará en cuanto la app tenga suficiente tracción y pulido.</div></div></div>
+        <div class="faq-item"><button class="faq-q">¿Por qué APK y no Google Play Store?</button><div class="faq-a"><div class="faq-a-inner">Estamos en versión 1.1.0. La distribución por APK nos permite iterar rápido sin esperar revisiones de Google. Play Store llegará en cuanto la app tenga suficiente tracción y pulido.</div></div></div>
         <div class="faq-item"><button class="faq-q">¿Puedo invitar a alguien que no tenga la app?</button><div class="faq-a"><div class="faq-a-inner">Sí, con <strong>perfiles fantasma</strong>. Agregas un nombre y email, y esa persona aparece como participante. Cuando se registre en la app, sus deudas y gastos migran automáticamente a su perfil real.</div></div></div>
       </div>
     </div>
@@ -566,7 +573,7 @@
         <p>Descarga la APK, instálala en tu Android y empieza a crear eventos. 0 comisiones. 100% open source.</p>
         <a href="https://github.com/naigel89/CuentaMorosos/releases/latest/download/app-release.apk" class="btn btn-primary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Descargar CuentaMorosos v1.0.0
+          Descargar CuentaMorosos v1.1.0
         </a>
       </div>
     </div>
@@ -580,13 +587,13 @@
         <li><a href="https://github.com/naigel89/CuentaMorosos/releases">Releases</a></li>
         <li><a href="https://github.com/naigel89/CuentaMorosos/blob/main/LICENSE">MIT License</a></li>
       </ul>
-      <p>Hecho con ❤️ por el equipo de <strong>CuentaMorosos</strong></p>
+      <p>Hecho por <strong>Nicolás Lamas</strong> — <a href="https://github.com/naigel89">naigel89</a></p>
     </div>
   </footer>
 
   <script>
     /* ── Particles ──────────────────────────────────────────── */
-    (function(){const c=document.getElementById('particles');for(let i=0;i<18;i++){const p=document.createElement('div');p.classList.add('particle');const s=Math.random()*3+2;p.style.width=s+'px';p.style.height=s+'px';p.style.left=Math.random()*100+'%';p.style.animationDuration=(Math.random()*10+12)+'s';p.style.animationDelay=Math.random()*10+'s';c.appendChild(p)}})();
+    (function(){const c=document.getElementById('particles');for(let i=0;i<10;i++){const p=document.createElement('div');p.classList.add('particle');const s=Math.random()*3+2;p.style.width=s+'px';p.style.height=s+'px';p.style.left=Math.random()*100+'%';p.style.animationDuration=(Math.random()*14+14)+'s';p.style.animationDelay=Math.random()*12+'s';c.appendChild(p)}})();
 
     /* ── Stats Counter ──────────────────────────────────────── */
     (function(){const done=new Set();const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(!e.isIntersecting||done.has(e.target))return;done.add(e.target);const el=e.target,t=parseInt(el.dataset.target),d=1200,s=performance.now(),suf=t===0?'€':'%';function tick(n){const p=Math.min((n-s)/d,1),v=1-Math.pow(1-p,3),c=Math.round(v*t);el.textContent=c+(t===0&&p<1?'':(p<1&&t===100?suf:''));if(p<1)requestAnimationFrame(tick);else el.textContent=t+(t===0?'€':(t===100?'%':''))}requestAnimationFrame(tick)})},{threshold:.4});document.querySelectorAll('.stat-num[data-target]').forEach(e=>obs.observe(e))})();
@@ -596,7 +603,7 @@
       { label:'Paso 1 — Entrada', title:'Cada persona registra lo que pagó', desc:'Cuatro amigos. Gastos dispares. El algoritmo empieza calculando cuánto pagó cada uno versus cuánto debería haber pagado.', type:'balances', balances:[{name:'A',raw:104.25},{name:'B',raw:-36.75},{name:'C',raw:-33.75},{name:'D',raw:-33.75}] },
       { label:'Paso 2 — Clasificación', title:'Greedy: ordena deudores y acreedores', desc:'El algoritmo separa a quienes deben cobrar (acreedores) de quienes deben pagar (deudores), y los ordena de mayor a menor importe.', type:'classify', creditors:[{name:'A',amount:104.25}], debtors:[{name:'B',amount:-36.75},{name:'C',amount:-33.75},{name:'D',amount:-33.75}] },
       { label:'Paso 3 — Emparejamiento', title:'Round-robin: asigna pagos uno a uno', desc:'El deudor mayor paga al acreedor mayor. Si el deudor queda a cero, pasa al siguiente. Se repite hasta saldar todos los saldos.', type:'transfers', transfers:[{from:'B',to:'A',amount:'36,75 €',active:true},{from:'C',to:'A',amount:'33,75 €',active:false},{from:'D',to:'A',amount:'33,75 €',active:false}] },
-      { label:'Paso 4 — Resultado', title:'Cuentas saldadas. Mínimas transferencias.', desc:'4 personas, 141 € en gastos, resuelto en exactamente 3 transferencias. Sin cruces innecesarios.', type:'result', transfers:[{from:'B',to:'A',amount:'36,75 €'},{from:'C',to:'A',amount:'33,75 €'},{from:'D',to:'A',amount:'33,75 €'}], insight:'El algoritmo greedy garantiza el mínimo teórico de transferencias para cualquier número de participantes.' },
+      { label:'Paso 4 — Resultado', title:'Solo 3 transferencias para saldar 141 €', desc:'De hasta 12 pagos cruzados entre 4 personas, el algoritmo greedy + round-robin lo reduce al mínimo teórico. Cuantos más participantes, más diferencia.', type:'result', transfers:[{from:'B',to:'A',amount:'36,75 €'},{from:'C',to:'A',amount:'33,75 €'},{from:'D',to:'A',amount:'33,75 €'}] },
     ];
     const PEOPLE=['A','B','C','D'], AVATARS=['av-a','av-b','av-c','av-d'];
     let algoCur=0, algoTimer=null;
@@ -611,7 +618,7 @@
       if(s.type==='balances'){const m=Math.max(...s.balances.map(b=>Math.abs(b.raw)));h+=`<div class="balances">`;s.balances.forEach(b=>{const c=b.raw>0?'amount-pos':b.raw<0?'amount-neg':'amount-zero',sg=b.raw>0?'+':'';h+=`<div class="balance-row">${avatar(b.name)}<span class="bal-name">${b.name}</span>${balBar(b.raw,m)}<span class="bal-amount ${c}">${sg}${b.raw.toFixed(2).replace('.',',')} €</span></div>`});h+=`</div>`}
       if(s.type==='classify'){h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;"><div><p style="font-size:12px;color:var(--color-text-success);font-weight:500;margin:0 0 8px;">Acreedores</p>`;s.creditors.forEach(c=>{h+=`<div class="transfer-row highlight" style="margin-bottom:6px;">${avatar(c.name)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${c.name}</span><span class="transfer-amount green">+${c.amount.toFixed(2).replace('.',',')} €</span></div>`});h+=`</div><div><p style="font-size:12px;color:var(--color-text-danger);font-weight:500;margin:0 0 8px;">Deudores</p>`;s.debtors.forEach(d=>{h+=`<div class="transfer-row" style="margin-bottom:6px;">${avatar(d.name)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${d.name}</span><span class="transfer-amount" style="color:var(--color-text-danger)">${d.amount.toFixed(2).replace('.',',')} €</span></div>`});h+=`</div></div>`}
       if(s.type==='transfers'){h+=`<div class="transfers">`;s.transfers.forEach((t,i)=>{const c=t.active?'highlight':'';h+=`<div class="transfer-row ${c}">${avatar(t.from)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${t.from}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-tertiary);flex-shrink:0"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>${avatar(t.to)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${t.to}</span><span class="transfer-amount ${t.active?'green':''}">${t.amount}</span></div>`});h+=`</div>`}
-      if(s.type==='result'){h+=`<div class="transfers">`;s.transfers.forEach(t=>{h+=`<div class="transfer-row done">${avatar(t.from)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${t.from}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-tertiary);flex-shrink:0"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>${avatar(t.to)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${t.to}</span><span class="transfer-amount">${t.amount}</span></div>`});h+=`</div>`;h+=`<div class="insight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><p>${s.insight}</p></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:4px;"><div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:12px;text-align:center;"><p style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px;text-transform:uppercase;letter-spacing:.8px;">Participantes</p><p style="font-size:22px;font-weight:500;color:var(--color-text-primary);margin:0;">4</p></div><div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:12px;text-align:center;"><p style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px;text-transform:uppercase;letter-spacing:.8px;">Sin optimizar</p><p style="font-size:22px;font-weight:500;color:var(--color-text-danger);margin:0;">hasta 12</p></div><div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-success);border-radius:var(--border-radius-md);padding:12px;text-align:center;"><p style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px;text-transform:uppercase;letter-spacing:.8px;">Con la app</p><p style="font-size:22px;font-weight:500;color:var(--color-text-success);margin:0;">3</p></div></div>`}
+      if(s.type==='result'){h+=`<div class="transfers">`;s.transfers.forEach(t=>{h+=`<div class="transfer-row done">${avatar(t.from)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${t.from}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-tertiary);flex-shrink:0"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>${avatar(t.to)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${t.to}</span><span class="transfer-amount">${t.amount}</span></div>`});h+=`</div>`;h+=`<div style="display:flex;align-items:center;gap:12px;margin-top:8px;"><div style="flex:1;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:14px;text-align:center;"><p style="font-size:10px;color:var(--color-text-tertiary);margin:0 0 6px;text-transform:uppercase;letter-spacing:.8px;">Sin la app</p><p style="font-size:24px;font-weight:500;color:var(--color-text-danger);margin:0;">hasta 12</p><p style="font-size:11px;color:var(--color-text-secondary);margin:2px 0 0;">transferencias</p></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg><div style="flex:1;background:var(--color-background-primary);border:0.5px solid var(--color-border-success);border-radius:var(--border-radius-md);padding:14px;text-align:center;"><p style="font-size:10px;color:var(--color-text-tertiary);margin:0 0 6px;text-transform:uppercase;letter-spacing:.8px;">Con la app</p><p style="font-size:24px;font-weight:500;color:var(--color-text-success);margin:0;">solo 3</p><p style="font-size:11px;color:var(--color-text-secondary);margin:2px 0 0;">transferencias</p></div></div>`}
       h+=`</div>`;stage.innerHTML=h;
     }
     function move(d){algoCur=Math.max(0,Math.min(STEPS.length-1,algoCur+d));renderAlgo()}
@@ -620,9 +627,7 @@
     renderAlgo();
 
     /* ── Sticky scroll capturas ────────────────────────────── */
-    let ssCur=0;const ssTotal=4;
-    function ssGoTo(i){const p=ssCur;ssCur=i;document.querySelectorAll('.ss-step').forEach((e,idx)=>e.classList.toggle('active',idx===i));document.querySelectorAll('.ss-dot').forEach((e,idx)=>e.classList.toggle('active',idx===i));for(let k=0;k<ssTotal;k++){const img=document.getElementById('ss-img-'+k);if(img){img.classList.toggle('visible',k===i);img.classList.toggle('hidden',k!==i)}}const pct=ssTotal<=1?100:Math.round((i/(ssTotal-1))*100);document.getElementById('progress-fill').style.height=pct+'%'}
-    const ssObs=new IntersectionObserver((entries)=>{entries.forEach(entry=>{if(entry.isIntersecting){const idx=parseInt(entry.target.dataset.idx);if(!isNaN(idx))ssGoTo(idx)}})},{threshold:0.6});document.querySelectorAll('.ss-step').forEach((el,idx)=>{el.dataset.idx=idx;ssObs.observe(el)});ssGoTo(0);
+    const ssTotal=4;let ssCur=-1;function ssGoTo(i){ssCur=i;document.querySelectorAll('.ss-step').forEach((e,idx)=>e.classList.toggle('active',idx===i));document.querySelectorAll('.ss-dot').forEach((e,idx)=>e.classList.toggle('active',idx===i));for(let k=0;k<ssTotal;k++){const img=document.getElementById('ss-img-'+k);if(img)img.classList.toggle('visible',k===i),img.classList.toggle('hidden',k!==i)}document.getElementById('progress-fill').style.height=ssTotal<=1?'100%':Math.round(i/(ssTotal-1)*100)+'%'}    (function(){const steps=document.querySelectorAll('.ss-step');const obs=new IntersectionObserver((entries)=>{entries.forEach(entry=>{if(entry.isIntersecting){const idx=parseInt(entry.target.dataset.ssIdx,10);if(!isNaN(idx))ssGoTo(idx)}})},{rootMargin:'-30% 0px -30% 0px',threshold:0});steps.forEach((el,i)=>{el.dataset.ssIdx=i;obs.observe(el)});ssGoTo(0)})();
 
     /* ── FAQ Accordion ──────────────────────────────────────── */
     (function(){document.querySelectorAll('.faq-q').forEach(btn=>{btn.addEventListener('click',()=>{const item=btn.parentElement;item.classList.toggle('open')})})})();
