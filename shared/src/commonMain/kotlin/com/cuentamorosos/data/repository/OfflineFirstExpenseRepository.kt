@@ -28,6 +28,7 @@ class OfflineFirstExpenseRepository(
 
     private val queries = database.cachedExpenseQueries
     private var syncAllJob: Job? = null
+    private val pendingEventDeletes = mutableSetOf<String>()
 
     private val expenseRemoteOps = object : RemoteOperations {
         override suspend fun saveEvent(entityId: String) = throw UnsupportedOperationException()
@@ -93,6 +94,19 @@ class OfflineFirstExpenseRepository(
             val maxBackoffMs = 30000L
             while (isActive) {
                 try {
+                    // 0. Drain pending event deletes FIRST
+                    if (pendingEventDeletes.isNotEmpty()) {
+                        val toRetry = pendingEventDeletes.toSet()
+                        for (eventId in toRetry) {
+                            try {
+                                remoteRepository.deleteAllExpensesForEvent(eventId)
+                                pendingEventDeletes.remove(eventId)
+                            } catch (e: Exception) {
+                                println("[OfflineFirstExpenseRepo] pending delete retry FAILED for $eventId")
+                            }
+                        }
+                    }
+
                     // 1. Drain pending operations FIRST
                     pendingQueue.drainAll(expenseRemoteOps)
 
@@ -131,7 +145,15 @@ class OfflineFirstExpenseRepository(
 
     private fun upsertExpenses(expenses: List<EventExpenseItem>) {
         queries.transaction {
-            expenses.forEach { expense ->
+            // Purge stale local records: delete expenses absent from remote
+            val remoteIds = expenses.map { it.id }.filter { it !in pendingEventDeletes }.toSet()
+            val localIds = queries.selectAll().executeAsList().map { it.id }.toSet()
+            val staleIds = localIds - remoteIds
+            staleIds.forEach { queries.deleteById(it) }
+            // Clear pending deletes confirmed missing remotely
+            pendingEventDeletes.removeAll(localIds - remoteIds)
+
+            expenses.filter { it.id !in pendingEventDeletes }.forEach { expense ->
                 queries.upsert(
                     id = expense.id,
                     eventId = expense.eventId,
@@ -209,6 +231,17 @@ class OfflineFirstExpenseRepository(
 
     override suspend fun fetchAllExpenses(): List<EventExpenseItem> {
         return remoteRepository.fetchAllExpenses()
+    }
+
+    override suspend fun deleteAllExpensesForEvent(eventId: String) {
+        queries.deleteByEvent(eventId)
+        try {
+            remoteRepository.deleteAllExpensesForEvent(eventId)
+        } catch (e: Exception) {
+            println("[OfflineFirstExpenseRepo] deleteAllExpensesForEvent remote FAILED for $eventId: ${e.message}")
+            e.printStackTrace()
+            pendingEventDeletes.add(eventId)
+        }
     }
 
     private fun List<String>.toJsonArray(): String =

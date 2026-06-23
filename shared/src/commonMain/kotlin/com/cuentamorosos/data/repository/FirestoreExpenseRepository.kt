@@ -126,6 +126,24 @@ class FirestoreExpenseRepository : ExpenseRepository {
         }
     }
 
+    override suspend fun deleteAllExpensesForEvent(eventId: String) {
+        try {
+            val expenses = db.collection("events")
+                .document(eventId)
+                .collection("expenses")
+                .get()
+            expenses.documents.forEach { doc ->
+                db.collection("events")
+                    .document(eventId)
+                    .collection("expenses")
+                    .document(doc.id)
+                    .delete()
+            }
+        } catch (e: Exception) {
+            println("[FirestoreExpenseRepo] deleteAllExpensesForEvent failed: ${e.message}")
+        }
+    }
+
     override suspend fun fetchAllExpenses(): List<EventExpenseItem> {
         val uid = auth.currentUser?.uid ?: return emptyList()
 

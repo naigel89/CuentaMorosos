@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cuentamorosos.data.repository.DebtRepository
 import com.cuentamorosos.data.repository.EventRepository
+import com.cuentamorosos.data.repository.ExpenseRepository
 import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventItem
@@ -18,6 +19,7 @@ import kotlinx.coroutines.launch
 class EventsViewModel(
     private val eventRepository: EventRepository,
     private val debtRepository: DebtRepository,
+    private val expenseRepository: ExpenseRepository,
     private val currentProfileId: String = "",
 ) : ViewModel() {
 
@@ -65,6 +67,8 @@ class EventsViewModel(
 
     fun deleteEvent(eventId: String) {
         viewModelScope.launch {
+            debtRepository.deleteAllDebtsForEvent(eventId)
+            expenseRepository.deleteAllExpensesForEvent(eventId)
             eventRepository.deleteEvent(eventId)
         }
     }

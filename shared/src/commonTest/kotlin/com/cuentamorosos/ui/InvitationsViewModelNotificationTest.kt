@@ -51,7 +51,7 @@ class InvitationsViewModelNotificationTest {
     )
 
     @Test
-    fun `onNewInvitation fires per emission, dispatcher handles dedup`() = runTest {
+    fun `dedup prevents repeated invitation notification from snapshot re-emission`() = runTest {
         val invitations = listOf(invitation("inv-1"))
         val flow = MutableStateFlow<List<EventInvitation>>(invitations)
         val receivedEvents = mutableListOf<NotificationEvent.InvitationReceived>()
@@ -61,18 +61,19 @@ class InvitationsViewModelNotificationTest {
             onNewInvitation = { receivedEvents.add(it) },
         )
 
-        // Collect the flow to trigger side effects
         val collectJob = backgroundScope.launch {
             viewModel.pendingInvitations.collect {}
         }
         advanceUntilIdle()
         assertEquals(1, receivedEvents.size)
 
-        // Emit a new list with an additional invitation — both fire
-        // (no in-memory dedup means inv-1 fires again; dispatcher handles dedup downstream)
+        // Emit the same invitation again — in-memory dedup should suppress it
         flow.value = listOf(invitation("inv-1"), invitation("inv-2"))
         advanceUntilIdle()
-        assertEquals(3, receivedEvents.size) // inv-1 again + inv-2
+        // Only inv-2 should fire; inv-1 was already notified
+        assertEquals(2, receivedEvents.size)
+        assertEquals("inv-1", receivedEvents[0].invitationId)
+        assertEquals("inv-2", receivedEvents[1].invitationId)
         collectJob.cancel()
     }
 
@@ -174,10 +175,20 @@ class InvitationsViewModelNotificationTest {
  */
 private class FakeInvitationRepository(
     private val flow: MutableStateFlow<List<EventInvitation>>,
+    val calculationCompletedFlow: MutableStateFlow<NotificationEvent.CalculationCompleted> = MutableStateFlow(
+        NotificationEvent.CalculationCompleted("", "", 0.0)
+    ),
+    private val _sentNotifications: MutableList<Triple<String, String, Double>> = mutableListOf(),
 ) : InvitationRepository {
+    val sentNotifications: List<Triple<String, String, Double>> get() = _sentNotifications
+
     override fun observePendingInvitations(): Flow<List<EventInvitation>> = flow
     override suspend fun sendInvitation(invitation: EventInvitation) {}
     override suspend fun acceptInvitation(invitation: EventInvitation, inviteeName: String) {}
     override suspend fun rejectInvitation(invitationId: String) {}
     override fun observeInvitationAccepted(): Flow<NotificationEvent.InvitationAccepted> = emptyFlow()
+    override suspend fun sendCalculationNotification(eventId: String, eventName: String, participantUid: String, amountOwed: Double) {
+        _sentNotifications.add(Triple(eventId, eventName, amountOwed))
+    }
+    override fun observeCalculationCompleted(): Flow<NotificationEvent.CalculationCompleted> = calculationCompletedFlow
 }

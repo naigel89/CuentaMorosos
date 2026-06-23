@@ -12,4 +12,6 @@ interface ExpenseRepository {
     suspend fun fetchExpensesForEvent(eventId: String): List<EventExpenseItem>
     /** One-shot fetch of ALL expenses for the current user across all events. */
     suspend fun fetchAllExpenses(): List<EventExpenseItem>
+    /** Elimina todos los gastos de un evento de forma atómica. */
+    suspend fun deleteAllExpensesForEvent(eventId: String)
 }

@@ -35,6 +35,7 @@ class OfflineFirstEventRepository(
 
     private val queries = database.cachedEventQueries
     private var syncJob: Job? = null
+    private val pendingEventDeletes = mutableSetOf<String>()
 
     private val eventRemoteOps = object : RemoteOperations {
         override suspend fun saveEvent(entityId: String) {
@@ -129,13 +130,17 @@ class OfflineFirstEventRepository(
     }
 
     private fun upsertEvents(events: List<com.cuentamorosos.model.EventItem>) {
-        if (events.isEmpty()) {
-            println("[OfflineFirstEventRepo] upsertEvents: called with 0 events, skipping")
-            return
-        }
         println("[OfflineFirstEventRepo] upsertEvents: writing ${events.size} events to SQLDelight")
         queries.transaction {
-            events.forEach { event ->
+            // Purge stale local records: delete events absent from remote
+            val remoteIds = events.map { it.id }.filter { it !in pendingEventDeletes }.toSet()
+            val localIds = queries.selectAll().executeAsList().map { it.id }.toSet()
+            val staleIds = localIds - remoteIds
+            staleIds.forEach { queries.deleteById(it) }
+            // Clear pending deletes confirmed missing remotely
+            pendingEventDeletes.removeAll(localIds - remoteIds)
+
+            events.filter { it.id !in pendingEventDeletes }.forEach { event ->
                 queries.upsert(
                     id = event.id,
                     name = event.name,
@@ -198,6 +203,7 @@ class OfflineFirstEventRepository(
 
     override suspend fun deleteEvent(eventId: String) {
         queries.deleteById(eventId)
+        pendingEventDeletes.add(eventId)
         try {
             remoteRepository.deleteEvent(eventId)
         } catch (e: Exception) {

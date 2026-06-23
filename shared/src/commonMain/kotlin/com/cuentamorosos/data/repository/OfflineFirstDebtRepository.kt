@@ -162,6 +162,12 @@ class OfflineFirstDebtRepository(
 
     private fun upsertDebts(debts: List<EventDebtItem>) {
         queries.transaction {
+            // Purge stale local records: delete debts absent from remote
+            val remoteIds = debts.map { it.id }.toSet()
+            val localIds = queries.selectAll().executeAsList().map { it.id }.toSet()
+            val staleIds = localIds - remoteIds
+            staleIds.forEach { queries.deleteById(it) }
+
             debts.forEach { debt ->
                 queries.upsert(
                     id = debt.id,

@@ -104,6 +104,7 @@ fun ProfilesScreen(
                     onClick = {
                         editableProfile = ProfileItem(
                             name = "",
+                            isGhost = true,
                         )
                     },
                     modifier = Modifier.weight(1f),
@@ -162,8 +163,9 @@ fun ProfilesScreen(
         val direction = if (netBalance >= 0) DebtDirection.OWED_TO_YOU else DebtDirection.YOU_OWE
         // Solo los perfiles ghost (locales) pueden editarse o eliminarse.
         // Los perfiles reales (Firebase Auth) se gestionan desde la cuenta del usuario.
-        val canEdit = profile.isGhost
-        val canDelete = profile.isGhost
+        val uid = currentUid ?: ""
+        val canEdit = profile.isGhost && (profile.ownerId.isBlank() || profile.ownerId == uid)
+        val canDelete = profile.isGhost && (profile.ownerId.isBlank() || profile.ownerId == uid)
         EventBreakdownDialog(
             item = UnifiedDebtItem(
                 profileId = profile.id,
@@ -192,6 +194,7 @@ fun ProfilesScreen(
         ProfileEditorDialog(
             initialProfile = profile,
             existingProfiles = profiles,
+            currentUid = currentUid ?: "",
             onDismiss = { editableProfile = null },
             onSave = { savedProfile ->
                 editableProfile = null
@@ -273,6 +276,7 @@ private fun NeoAlertDialog(
 private fun ProfileEditorDialog(
     initialProfile: ProfileItem,
     existingProfiles: List<ProfileItem>,
+    currentUid: String = "",
     onDismiss: () -> Unit,
     onSave: (ProfileItem) -> Unit,
 ) {
@@ -311,48 +315,57 @@ private fun ProfileEditorDialog(
                     singleLine = true,
                     shape = NeoFintechShapes.md,
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            isGhost = !isGhost
-                            if (!isGhost) {
-                                linkedEmail = ""
-                            }
-                            validationErrors = emptyList()
-                        },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(
-                        checked = isGhost,
-                        onCheckedChange = { checked ->
-                            isGhost = checked
-                            if (!checked) {
-                                linkedEmail = ""
-                            }
-                            validationErrors = emptyList()
-                        },
-                    )
+                // Solo mostrar opciones ghost en edición (nuevo perfil siempre es ghost)
+                if (!isNewProfile) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                isGhost = !isGhost
+                                if (!isGhost) {
+                                    linkedEmail = ""
+                                }
+                                validationErrors = emptyList()
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = isGhost,
+                            onCheckedChange = { checked ->
+                                isGhost = checked
+                                if (!checked) {
+                                    linkedEmail = ""
+                                }
+                                validationErrors = emptyList()
+                            },
+                        )
+                        Text(
+                            text = "Perfil local (sin cuenta Firebase)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.onSurface,
+                        )
+                    }
+                    if (isGhost) {
+                        OutlinedTextField(
+                            value = linkedEmail,
+                            onValueChange = {
+                                linkedEmail = it.trim()
+                                validationErrors = emptyList()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Email para vincular (opcional)", color = colors.onSurfaceVariant) },
+                            singleLine = true,
+                            shape = NeoFintechShapes.md,
+                        )
+                        Text(
+                            text = "Si este email se registra después, el perfil local se vinculará automáticamente.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                        )
+                    }
+                } else {
                     Text(
-                        text = "Perfil local (sin cuenta Firebase)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.onSurface,
-                    )
-                }
-                if (isGhost) {
-                    OutlinedTextField(
-                        value = linkedEmail,
-                        onValueChange = {
-                            linkedEmail = it.trim()
-                            validationErrors = emptyList()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Email para vincular (opcional)", color = colors.onSurfaceVariant) },
-                        singleLine = true,
-                        shape = NeoFintechShapes.md,
-                    )
-                    Text(
-                        text = "Si este email se registra después, el perfil local se vinculará automáticamente.",
+                        text = "Perfil local · Se crea sin cuenta Firebase",
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.onSurfaceVariant,
                     )
@@ -384,6 +397,7 @@ private fun ProfileEditorDialog(
                         name = name.trim(),
                         isGhost = isGhost,
                         linkedEmail = normalizedLinkedEmail.takeIf { isGhost && it.isNotBlank() },
+                        ownerId = if (isGhost) currentUid else initialProfile.ownerId,
                     )
 
                     val result = ProfileValidator.validate(draftProfile, existingProfiles)

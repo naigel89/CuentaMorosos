@@ -972,24 +972,21 @@ private fun ExpenseEditorSheet(
             parsedAmount == null -> "Introduce un importe válido."
             parsedAmount < 0.0 -> "El importe no puede ser negativo."
             selectedPaidByProfileId.isBlank() -> "Seleccioná quién pagó el gasto."
-            selectedCategory != ExpenseCategory.SHARED && selectedProfileIds.isEmpty() -> "Selecciona al menos un perfil para esta categoría."
-            selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
+            selectedProfileIds.isEmpty() -> "Selecciona al menos un perfil para esta categoría."
+            showCustomSplit &&
                 selectedProfileIds.any { parseDecimalValue(selectedWeights[it] ?: "") == null } ->
                     "Revisa los porcentajes del reparto personalizado."
-            selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
+            showCustomSplit &&
                 selectedProfileIds.any { (parseDecimalValue(selectedWeights[it] ?: "") ?: 0.0) < 0.0 } ->
                     "Los porcentajes no pueden ser negativos."
-            selectedCategory != ExpenseCategory.SHARED && showCustomSplit &&
+            showCustomSplit &&
                 kotlin.math.abs(customWeightTotal - 100.0) >= 0.01 ->
                     "El reparto personalizado debe sumar 100%."
             else -> null
         }
 
         if (validationMessage == null && parsedAmount != null) {
-            val normalizedWeights = if (
-                selectedCategory != ExpenseCategory.SHARED &&
-                showCustomSplit
-            ) {
+            val normalizedWeights = if (showCustomSplit) {
                 selectedProfileIds.associateWith { profileId ->
                     parseDecimalValue(selectedWeights[profileId] ?: "") ?: 0.0
                 }
@@ -1001,20 +998,11 @@ private fun ExpenseEditorSheet(
                 name = name.trim(),
                 amountEuros = parsedAmount,
                 category = selectedCategory.id,
-                splitMode = if (selectedCategory != ExpenseCategory.SHARED && showCustomSplit)
-                    "CUSTOM_PERCENTAGE" else "SIMPLE_AVG",
-                assignedProfileIds = if (selectedCategory == ExpenseCategory.SHARED) {
-                    emptyList()
-                } else {
-                    selectedProfileIds
-                },
+                splitMode = if (showCustomSplit) "CUSTOM_PERCENTAGE" else "SIMPLE_AVG",
+                assignedProfileIds = selectedProfileIds,
                 profileWeights = normalizedWeights,
                 paidByProfileId = selectedPaidByProfileId,
-                debtorIds = if (selectedCategory == ExpenseCategory.SHARED) {
-                    effectiveMemberIds
-                } else {
-                    selectedProfileIds
-                },
+                debtorIds = selectedProfileIds,
                 payerContributions = if (selectedPaidByProfileId.isNotBlank()) {
                     mapOf(selectedPaidByProfileId to parsedAmount)
                 } else {
@@ -1195,6 +1183,9 @@ private fun ExpenseEditorSheet(
                         Surface(
                             onClick = {
                                 selectedCategoryId = category.id
+                                if (category == ExpenseCategory.SHARED && selectedProfileIds.isEmpty()) {
+                                    selectedProfileIds = currentParticipants.map { it.id }
+                                }
                                 if (category != ExpenseCategory.SHARED) {
                                     showCustomSplit = false
                                 }
@@ -1241,8 +1232,7 @@ private fun ExpenseEditorSheet(
             }
 
             // ── Participants ───────────────────────────────────────────────
-            val selectedCategory = ExpenseCategory.fromId(selectedCategoryId)
-            if (selectedCategory != ExpenseCategory.SHARED && allProfiles.isNotEmpty()) {
+            if (allProfiles.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm)) {
                     Text(
                         text = "¿Quiénes participan?",
@@ -1282,10 +1272,7 @@ private fun ExpenseEditorSheet(
             }
 
             // ── Custom split ───────────────────────────────────────────────
-            if (
-                selectedCategory != ExpenseCategory.SHARED &&
-                selectedProfileIds.isNotEmpty()
-            ) {
+            if (selectedProfileIds.isNotEmpty()) {
                 OutlinedButton(
                     onClick = {
                         showCustomSplit = !showCustomSplit
@@ -1303,11 +1290,7 @@ private fun ExpenseEditorSheet(
                 }
             }
 
-            if (
-                selectedCategory != ExpenseCategory.SHARED &&
-                selectedProfileIds.isNotEmpty() &&
-                showCustomSplit
-            ) {
+            if (selectedProfileIds.isNotEmpty() && showCustomSplit) {
                 Column(verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm)) {
                     Text(
                         text = "Reparto personalizado (%)",
@@ -1386,7 +1369,7 @@ private fun ExpenseEditorSheet(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.sm),
+                horizontalArrangement = Arrangement.End,
             ) {
                 // Remove button (only for existing expenses)
                 if (!isNew) {
@@ -1401,8 +1384,6 @@ private fun ExpenseEditorSheet(
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-
                 OutlinedButton(
                     onClick = { dismissSheet() },
                     shape = shapes.md,
@@ -1411,9 +1392,10 @@ private fun ExpenseEditorSheet(
                     Text("Cancelar", color = colors.onSurfaceVariant)
                 }
 
+                Spacer(Modifier.width(NeoFintechSpacing.sm))
+
                 Button(
                     onClick = { saveAndDismiss() },
-                    modifier = Modifier.weight(1f),
                     shape = shapes.md,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = themeColors.primary,

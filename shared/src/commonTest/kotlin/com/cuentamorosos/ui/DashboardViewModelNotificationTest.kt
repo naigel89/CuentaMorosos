@@ -3,9 +3,11 @@ package com.cuentamorosos.ui
 import com.cuentamorosos.data.repository.DebtRepository
 import com.cuentamorosos.data.repository.EventRepository
 import com.cuentamorosos.data.repository.ExpenseRepository
+import com.cuentamorosos.data.repository.InvitationRepository
 import com.cuentamorosos.data.repository.ProfileRepository
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
+import com.cuentamorosos.model.EventInvitation
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
@@ -14,6 +16,8 @@ import com.cuentamorosos.notifications.NotificationEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -72,6 +76,7 @@ class DashboardViewModelNotificationTest {
             debtRepository = FakeDebtRepository(MutableStateFlow(debts)),
             expenseRepository = FakeExpenseRepository(MutableStateFlow(emptyList())),
             profileRepository = FakeProfileRepository(MutableStateFlow(emptyList())),
+            invitationRepository = FakeDashboardInvitationRepository(observeCalculationCompletedFlow = emptyFlow()),
             currentUserUid = "user-1",
             onCalculationCompleted = { receivedEvents.add(it) },
         )
@@ -94,6 +99,7 @@ class DashboardViewModelNotificationTest {
             debtRepository = FakeDebtRepository(MutableStateFlow(debts)),
             expenseRepository = FakeExpenseRepository(MutableStateFlow(emptyList())),
             profileRepository = FakeProfileRepository(MutableStateFlow(emptyList())),
+            invitationRepository = FakeDashboardInvitationRepository(observeCalculationCompletedFlow = emptyFlow()),
             currentUserUid = "user-1",
             onCalculationCompleted = { receivedEvents.add(it) },
         )
@@ -103,7 +109,7 @@ class DashboardViewModelNotificationTest {
     }
 
     @Test
-    fun `onCalculationCompleted fires per emission, no in-memory dedup`() = runTest {
+    fun `dedup suppresses duplicate calculation notification on combine re-emission`() = runTest {
         val eventsFlow = MutableStateFlow(listOf(event("evt-1")))
         val debtsFlow = MutableStateFlow(listOf(debt("evt-1", "user-1", 10.0)))
 
@@ -113,6 +119,7 @@ class DashboardViewModelNotificationTest {
             debtRepository = FakeDebtRepository(debtsFlow),
             expenseRepository = FakeExpenseRepository(MutableStateFlow(emptyList())),
             profileRepository = FakeProfileRepository(MutableStateFlow(emptyList())),
+            invitationRepository = FakeDashboardInvitationRepository(observeCalculationCompletedFlow = emptyFlow()),
             currentUserUid = "user-1",
             onCalculationCompleted = { receivedEvents.add(it) },
         )
@@ -121,13 +128,13 @@ class DashboardViewModelNotificationTest {
         assertEquals(1, receivedEvents.size)
         assertEquals("evt-1", receivedEvents[0].eventId)
 
-        // Emit a new list with an additional calculated event — both fire
-        // (no in-memory dedup means evt-1 fires again; dispatcher handles dedup downstream)
+        // Emit a new list with an additional calculated event — evt-1 should NOT fire again
         eventsFlow.value = listOf(event("evt-1"), event("evt-2"))
         debtsFlow.value = listOf(debt("evt-1", "user-1", 10.0), debt("evt-2", "user-1", 5.0))
         advanceUntilIdle()
-        // 4 = 1 (initial) + 1 (intermediate combine after eventsFlow change: evt-1) + 2 (final: evt-1 + evt-2)
-        assertEquals(4, receivedEvents.size)
+        // Only evt-2 fires; evt-1 was already notified (in-memory dedup)
+        assertEquals(2, receivedEvents.size)
+        assertEquals("evt-2", receivedEvents[1].eventId)
     }
 
     @Test
@@ -141,6 +148,7 @@ class DashboardViewModelNotificationTest {
             debtRepository = FakeDebtRepository(MutableStateFlow(debts)),
             expenseRepository = FakeExpenseRepository(MutableStateFlow(emptyList())),
             profileRepository = FakeProfileRepository(MutableStateFlow(emptyList())),
+            invitationRepository = FakeDashboardInvitationRepository(observeCalculationCompletedFlow = emptyFlow()),
             currentUserUid = "user-1",
             onCalculationCompleted = { receivedEvents.add(it) },
         )
@@ -159,6 +167,7 @@ class DashboardViewModelNotificationTest {
             debtRepository = FakeDebtRepository(MutableStateFlow(debts)),
             expenseRepository = FakeExpenseRepository(MutableStateFlow(emptyList())),
             profileRepository = FakeProfileRepository(MutableStateFlow(emptyList())),
+            invitationRepository = FakeDashboardInvitationRepository(observeCalculationCompletedFlow = emptyFlow()),
             currentUserUid = "user-1",
             onCalculationCompleted = null,
         )
@@ -183,6 +192,7 @@ class DashboardViewModelNotificationTest {
             debtRepository = FakeDebtRepository(MutableStateFlow(debts)),
             expenseRepository = FakeExpenseRepository(MutableStateFlow(emptyList())),
             profileRepository = FakeProfileRepository(MutableStateFlow(emptyList())),
+            invitationRepository = FakeDashboardInvitationRepository(observeCalculationCompletedFlow = emptyFlow()),
             currentUserUid = "user-1",
             onCalculationCompleted = { receivedEvents.add(it) },
         )
@@ -191,9 +201,58 @@ class DashboardViewModelNotificationTest {
         assertEquals(1, receivedEvents.size)
         assertEquals(10.0, receivedEvents[0].amountOwed)
     }
+
+    @Test
+    fun `observeCalculationCompleted emission fires onCalculationCompleted callback`() = runTest {
+        val calculationCompletedFlow = MutableStateFlow(
+            NotificationEvent.CalculationCompleted(eventId = "", eventName = "", amountOwed = 0.0)
+        )
+
+        val receivedEvents = mutableListOf<NotificationEvent.CalculationCompleted>()
+        val viewModel = DashboardViewModel(
+            eventRepository = FakeEventRepository(MutableStateFlow(emptyList())),
+            debtRepository = FakeDebtRepository(MutableStateFlow(emptyList())),
+            expenseRepository = FakeExpenseRepository(MutableStateFlow(emptyList())),
+            profileRepository = FakeProfileRepository(MutableStateFlow(emptyList())),
+            invitationRepository = FakeDashboardInvitationRepository(observeCalculationCompletedFlow = calculationCompletedFlow),
+            currentUserUid = "user-1",
+            onCalculationCompleted = { receivedEvents.add(it) },
+        )
+
+        advanceUntilIdle()
+
+        calculationCompletedFlow.value = NotificationEvent.CalculationCompleted(
+            eventId = "evt-x",
+            eventName = "Cena",
+            amountOwed = 42.5,
+        )
+        advanceUntilIdle()
+
+        assertEquals(1, receivedEvents.size)
+        assertEquals("evt-x", receivedEvents[0].eventId)
+        assertEquals("Cena", receivedEvents[0].eventName)
+        assertEquals(42.5, receivedEvents[0].amountOwed)
+    }
 }
 
 // ── Fake Repositories ─────────────────────────────────────────────────────────
+
+private class FakeDashboardInvitationRepository(
+    private val observeCalculationCompletedFlow: Flow<NotificationEvent.CalculationCompleted>,
+    private val _sentNotifications: MutableList<Triple<String, String, Double>> = mutableListOf(),
+) : InvitationRepository {
+    val sentNotifications: List<Triple<String, String, Double>> get() = _sentNotifications
+
+    override fun observePendingInvitations(): Flow<List<EventInvitation>> = emptyFlow()
+    override suspend fun sendInvitation(invitation: EventInvitation) {}
+    override suspend fun acceptInvitation(invitation: EventInvitation, inviteeName: String) {}
+    override suspend fun rejectInvitation(invitationId: String) {}
+    override fun observeInvitationAccepted(): Flow<NotificationEvent.InvitationAccepted> = emptyFlow()
+    override suspend fun sendCalculationNotification(eventId: String, eventName: String, participantUid: String, amountOwed: Double) {
+        _sentNotifications.add(Triple(eventId, eventName, amountOwed))
+    }
+    override fun observeCalculationCompleted(): Flow<NotificationEvent.CalculationCompleted> = observeCalculationCompletedFlow
+}
 
 private class FakeEventRepository(
     private val flow: MutableStateFlow<List<EventItem>>,
@@ -233,6 +292,7 @@ private class FakeExpenseRepository(
     override suspend fun replaceProfileId(oldId: String, newId: String) {}
     override suspend fun fetchExpensesForEvent(eventId: String): List<EventExpenseItem> = flow.value
     override suspend fun fetchAllExpenses(): List<EventExpenseItem> = flow.value
+    override suspend fun deleteAllExpensesForEvent(eventId: String) {}
 }
 
 private class FakeProfileRepository(

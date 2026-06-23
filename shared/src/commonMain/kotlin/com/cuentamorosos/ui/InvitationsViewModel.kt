@@ -20,11 +20,15 @@ class InvitationsViewModel(
     private val onInvitationAccepted: ((NotificationEvent.InvitationAccepted) -> Unit)? = null,
 ) : ViewModel() {
 
+    /** Tracks invitation IDs already notified to prevent callback-spam from snapshot re-emissions. */
+    private val notifiedInvitationIds = mutableSetOf<String>()
+
     val pendingInvitations: StateFlow<List<EventInvitation>> =
         invitationRepository.observePendingInvitations()
             .onEach { invitations ->
                 invitations.forEach { invitation ->
-                    if (invitation.status == InvitationStatus.PENDING) {
+                    if (invitation.status == InvitationStatus.PENDING && invitation.id !in notifiedInvitationIds) {
+                        notifiedInvitationIds.add(invitation.id)
                         onNewInvitation?.invoke(
                             NotificationEvent.InvitationReceived(
                                 invitationId = invitation.id,

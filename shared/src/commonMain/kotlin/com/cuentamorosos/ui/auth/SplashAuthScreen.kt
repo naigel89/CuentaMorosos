@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
@@ -80,9 +81,9 @@ fun SplashAuthScreen(
     //                       (debe ser MENOR que start — el logo sube)
     // ═══════════════════════════════════════════════════════════════
     val logoSizeDp = 280.dp
-    val logoEndSizeDp = 164.dp
+    val logoEndSizeDp = 148.dp
     val logoStartFromTopDp = 300.dp
-    val logoEndFromTopDp = 80.dp
+    val logoEndFromTopDp = 40.dp
 
     // Distancia total que se mueve (negativo = hacia arriba)
     val slideAmountPx = remember {
@@ -153,24 +154,22 @@ fun SplashAuthScreen(
 
         // ── Logo ──
         Box(
-            modifier = Modifier.graphicsLayer(
-                alpha = logoAlpha.value,
-                translationY = logoOffsetY.value,
-                scaleX = logoScale.value,
-                scaleY = logoScale.value,
-                clip = true,
-            ),
+            modifier = Modifier
+                .offset(y = with(density) { logoOffsetY.value.toDp() })
+                .graphicsLayer(
+                    alpha = logoAlpha.value,
+                    scaleX = logoScale.value,
+                    scaleY = logoScale.value,
+                ),
         ) {
             logo(Modifier.size(logoEndSizeDp))
         }
 
         // ── Contenido que sigue al logo en su subida ──
         Column(
-            modifier = Modifier.graphicsLayer(translationY = logoOffsetY.value),
+            modifier = Modifier.offset(y = with(density) { logoOffsetY.value.toDp() }),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(8.dp))
-
             // ── Title ──
             Text(
                 text = "CuentaMorosos",
@@ -189,7 +188,7 @@ fun SplashAuthScreen(
                 modifier = Modifier.slideUp(delayMs = 1800),
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(8.dp))
 
             // ── Email field (REAL, interactive) ──
             OutlinedTextField(
@@ -241,7 +240,7 @@ fun SplashAuthScreen(
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(12.dp))
 
             // ── Login button (REAL, interactive) ──
             Button(
@@ -270,7 +269,7 @@ fun SplashAuthScreen(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
 
             // ── Forgot password link ──
             TextButton(
@@ -280,7 +279,7 @@ fun SplashAuthScreen(
                 Text("¿Olvidaste tu contraseña?")
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(4.dp))
 
             // ── Register link ──
             Row(

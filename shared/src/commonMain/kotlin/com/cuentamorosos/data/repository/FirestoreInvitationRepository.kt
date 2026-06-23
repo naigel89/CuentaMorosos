@@ -124,6 +124,47 @@ class FirestoreInvitationRepository(
             .update("status" to InvitationStatus.REJECTED)
     }
 
+    override suspend fun sendCalculationNotification(
+        eventId: String,
+        eventName: String,
+        participantUid: String,
+        amountOwed: Double,
+    ) {
+        runCatching {
+            db.collection("notifications")
+                .document(participantUid)
+                .collection("calculation-completed")
+                .document(eventId)
+                .set(mapOf(
+                    "eventId" to eventId,
+                    "eventName" to eventName,
+                    "amountOwed" to amountOwed,
+                ))
+        }
+    }
+
+    override fun observeCalculationCompleted(): Flow<NotificationEvent.CalculationCompleted> {
+        val uid = auth.currentUser?.uid ?: return flowOf()
+        return db.collection("notifications")
+            .document(uid)
+            .collection("calculation-completed")
+            .snapshots
+            .flatMapConcat { snapshot ->
+                val events = snapshot.documents.mapNotNull { doc ->
+                    val data = doc.getRawData() ?: return@mapNotNull null
+                    val eventId = data["eventId"] as? String ?: return@mapNotNull null
+                    val eventName = data["eventName"] as? String ?: ""
+                    val amountOwed = (data["amountOwed"] as? Number)?.toDouble() ?: 0.0
+                    NotificationEvent.CalculationCompleted(
+                        eventId = eventId,
+                        eventName = eventName,
+                        amountOwed = amountOwed,
+                    )
+                }
+                flowOf(*events.toTypedArray())
+            }
+    }
+
     override fun observeInvitationAccepted(): Flow<NotificationEvent.InvitationAccepted> {
         val uid = auth.currentUser?.uid ?: return flowOf()
         return db.collection("notifications")

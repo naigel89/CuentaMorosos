@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.cuentamorosos.data.repository.DebtRepository
 import com.cuentamorosos.data.repository.EventRepository
 import com.cuentamorosos.data.repository.ExpenseRepository
+import com.cuentamorosos.data.repository.InvitationRepository
 import com.cuentamorosos.data.repository.ProfileRepository
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
@@ -26,12 +27,16 @@ class DashboardViewModel(
     private val debtRepository: DebtRepository,
     private val expenseRepository: ExpenseRepository,
     private val profileRepository: ProfileRepository,
+    private val invitationRepository: InvitationRepository,
     private val currentUserUid: String,
     private val onCalculationCompleted: ((NotificationEvent.CalculationCompleted) -> Unit)? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state.asStateFlow()
+
+    /** Tracks event IDs already notified via onCalculationCompleted to prevent callback-spam from combine re-emissions. */
+    private val notifiedCalculationEventIds = mutableSetOf<String>()
 
     init {
         viewModelScope.launch {
@@ -44,6 +49,16 @@ class DashboardViewModel(
                 computeState(events, debts, expenses, profiles)
             }.collect { newState ->
                 _state.value = newState.copy(isLoading = false)
+            }
+        }
+
+        // Observe cross-user calculation notifications from Firestore
+        viewModelScope.launch {
+            invitationRepository.observeCalculationCompleted().collect { calc ->
+                if (calc.eventId.isNotBlank() && calc.eventId !in notifiedCalculationEventIds) {
+                    notifiedCalculationEventIds.add(calc.eventId)
+                    onCalculationCompleted?.invoke(calc)
+                }
             }
         }
 
@@ -68,7 +83,8 @@ class DashboardViewModel(
                     .filter { it.eventId == event.id && it.profileId == currentUserUid && !it.paid }
                     .sumOf { it.amountEuros }
 
-                if (amountOwed > 0) {
+                if (amountOwed > 0 && event.id !in notifiedCalculationEventIds) {
+                    notifiedCalculationEventIds.add(event.id)
                     onCalculationCompleted?.invoke(
                         NotificationEvent.CalculationCompleted(
                             eventId = event.id,
@@ -77,6 +93,9 @@ class DashboardViewModel(
                         )
                     )
                 }
+            } else {
+                // Re-allow notification if the event leaves CALCULATED (e.g., recalculated)
+                notifiedCalculationEventIds.remove(event.id)
             }
         }
 

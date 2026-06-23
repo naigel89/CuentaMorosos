@@ -7,6 +7,7 @@ import com.cuentamorosos.data.repository.DebtRepository
 import com.cuentamorosos.data.repository.EventRepository
 import com.cuentamorosos.model.toJson
 import com.cuentamorosos.data.repository.ExpenseRepository
+import com.cuentamorosos.data.repository.InvitationRepository
 import com.cuentamorosos.model.CalculationResult
 import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.EventDebtItem
@@ -31,6 +32,7 @@ class EventDetailViewModel(
     private val eventRepository: EventRepository,
     private val debtRepository: DebtRepository,
     private val expenseRepository: ExpenseRepository,
+    private val invitationRepository: InvitationRepository,
     private val currentProfileId: String = "",
 ) : ViewModel() {
 
@@ -179,6 +181,30 @@ class EventDetailViewModel(
                     state = EventState.CALCULATED,
                 )
             )
+
+            // Step 3: Fire-and-forget cross-user calculation notifications
+            val participantIds = event.memberIds.filter { it != currentProfileId }
+            if (participantIds.isNotEmpty()) {
+                // Compute amount owed per participant from settlement transfers
+                val amountsByParticipant = mutableMapOf<String, Double>()
+                for (transfer in transfers) {
+                    if (transfer.fromProfileId != currentProfileId) {
+                        amountsByParticipant[transfer.fromProfileId] =
+                            (amountsByParticipant[transfer.fromProfileId] ?: 0.0) + transfer.amount
+                    }
+                }
+                for (participantUid in participantIds) {
+                    val amountOwed = amountsByParticipant[participantUid] ?: 0.0
+                    runCatching {
+                        invitationRepository.sendCalculationNotification(
+                            eventId = eventId,
+                            eventName = event.name,
+                            participantUid = participantUid,
+                            amountOwed = amountOwed,
+                        )
+                    }
+                }
+            }
         }
     }
 

@@ -150,20 +150,7 @@
     .mode-card h4{font-size:14px;font-weight:600}
     .mode-card p{font-size:12px;color:var(--text-2);margin-top:var(--space-xs)}
 
-    /* ── Carousel ───────────────────────────────────────────── */
-    .carousel{position:relative;max-width:320px;margin:0 auto;overflow:hidden;border-radius:var(--radius-xl);border:2px solid rgba(60,75,53,.4);box-shadow:0 0 40px var(--accent-glow-soft);transition:all var(--anim)}
-    .carousel:hover{border-color:var(--accent);box-shadow:0 0 60px var(--accent-glow)}
-    .carousel-track{display:flex;transition:transform 500ms cubic-bezier(.25,.46,.45,.94);will-change:transform}
-    .carousel-slide{min-width:100%;position:relative}
-    .carousel-slide img{width:100%;height:auto;display:block;user-select:none;-webkit-user-drag:none}
-    .carousel-caption{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(19,19,19,.92));padding:var(--space-lg) var(--space-md) var(--space-md);font-size:13px;font-weight:500;color:var(--text);text-align:center}
-    .carousel-btn{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:1.5px solid rgba(60,75,53,.5);background:rgba(19,19,19,.85);color:var(--text);backdrop-filter:blur(8px);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;z-index:10;transition:all var(--anim-fast);opacity:0}
-    .carousel:hover .carousel-btn{opacity:1}
-    .carousel-btn:hover{border-color:var(--accent);color:var(--accent);box-shadow:0 0 16px var(--accent-glow-soft)}
-    .carousel-btn--prev{left:var(--space-sm)}.carousel-btn--next{right:var(--space-sm)}
-    .carousel-dots{display:flex;justify-content:center;gap:var(--space-sm);margin-top:var(--space-lg)}
-    .carousel-dot{width:10px;height:10px;border-radius:50%;border:none;background:var(--surface-high);cursor:pointer;transition:all var(--anim)}
-    .carousel-dot.active{background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
+
 
     /* ── FAQ ────────────────────────────────────────────────── */
     .faq{max-width:700px;margin:0 auto}
@@ -205,8 +192,7 @@
       .steps{grid-template-columns:1fr}
       .algo-viz{grid-template-columns:1fr;gap:var(--space-md)}
       .algo-arrow-divider{transform:rotate(90deg)}
-      .carousel{max-width:100%;border-radius:var(--radius-lg)}
-      .carousel-btn{width:32px;height:32px;font-size:14px;opacity:1}
+
       .cta-section{padding:var(--space-xl) var(--space-lg);margin:0}
       .particle{display:none}
       .faq-q{font-size:14px;padding:var(--space-md)}
@@ -217,7 +203,116 @@
       .stats{grid-template-columns:repeat(2,1fr)}
       .hero-logo{width:72px;height:72px}
     }
-  </style>
+  /* ── Alias tokens for embedded components ──────────────── */
+  .alg-wrap, .ss-root {
+    --font-sans:            var(--font-geist);
+    --color-text-primary:   var(--text);
+    --color-text-secondary: var(--text-2);
+    --color-text-tertiary:  #72776c;
+    --color-text-success:   var(--accent);
+    --color-text-danger:    var(--error);
+    --color-text-info:      #60a5fa;
+    --color-text-warning:   #fbbf24;
+    --color-background-primary:   var(--surface);
+    --color-background-secondary: var(--surface-low);
+    --color-background-success:   rgba(0,200,83,.1);
+    --color-background-info:      rgba(96,165,250,.1);
+    --color-background-warning:   rgba(251,191,36,.1);
+    --color-background-danger:    rgba(255,77,77,.1);
+    --color-border-secondary: var(--border);
+    --color-border-tertiary:  #2a3535;
+    --color-border-success:   rgba(0,200,83,.35);
+    --border-radius-lg:  var(--radius-xl);
+    --border-radius-md:  var(--radius-lg);
+  }
+
+  /* ── Algorithm stepper ─────────────────────────────────── */
+  .alg-wrap { padding: 0 0 1rem; font-family: var(--font-sans); }
+  .step-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+  .step-dots { display: flex; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-border-secondary); transition: background 0.3s; }
+  .dot.active { background: var(--color-text-success); }
+  .dot.done { background: var(--color-text-success); opacity: 0.4; }
+  .step-counter { font-size: 12px; color: var(--color-text-tertiary); }
+
+  .stage { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1.5rem; min-height: 280px; display: flex; flex-direction: column; gap: 1rem; }
+  .stage-label { font-size: 11px; font-weight: 500; letter-spacing: 1px; color: var(--color-text-tertiary); text-transform: uppercase; }
+  .stage-title { font-size: 18px; font-weight: 500; color: var(--color-text-primary); margin: 0; }
+  .stage-desc { font-size: 14px; color: var(--color-text-secondary); line-height: 1.5; margin: 0; }
+
+  .balances { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .balance-row { display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; flex-shrink: 0; }
+  .av-a { background: var(--color-background-info); color: var(--color-text-info); }
+  .av-b { background: var(--color-background-warning); color: var(--color-text-warning); }
+  .av-c { background: rgba(0,200,83,.12); color: var(--color-text-success); }
+  .av-d { background: var(--color-background-danger); color: var(--color-text-danger); }
+  .bal-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); width: 28px; }
+  .bal-bar-wrap { flex: 1; height: 8px; background: var(--color-border-tertiary); border-radius: 4px; overflow: hidden; }
+  .bal-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+  .bar-pos { background: var(--color-text-success); }
+  .bar-neg { background: var(--color-text-danger); }
+  .bal-amount { font-size: 13px; font-weight: 500; min-width: 60px; text-align: right; }
+  .amount-pos { color: var(--color-text-success); }
+  .amount-neg { color: var(--color-text-danger); }
+  .amount-zero { color: var(--color-text-tertiary); }
+
+  .transfers { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .transfer-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); transition: all 0.3s; }
+  .transfer-row.highlight { border-color: var(--color-border-success); background: var(--color-background-success); }
+  .transfer-row.done { opacity: 0.45; }
+  .transfer-arrow { color: var(--color-text-tertiary); font-size: 16px; }
+  .transfer-amount { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-left: auto; }
+  .transfer-amount.green { color: var(--color-text-success); }
+
+  .insight { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-success); background: var(--color-background-success); margin-top: 4px; }
+  .insight i { font-size: 18px; color: var(--color-text-success); flex-shrink: 0; margin-top: 1px; }
+  .insight p { font-size: 13px; color: var(--color-text-success); margin: 0; line-height: 1.5; }
+  .insight svg { width: 18px; height: 18px; color: var(--color-text-success); flex-shrink: 0; margin-top: 1px; }
+
+  .nav { display: flex; align-items: center; justify-content: space-between; margin-top: 1.25rem; }
+  .nav button { font-size: 13px; }
+  .nav button:disabled { opacity: 0.3; cursor: default; }
+  .auto-btn { font-size: 12px; color: var(--color-text-tertiary); background: none; border: none; cursor: pointer; padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px; }
+  .auto-btn:hover { color: var(--color-text-secondary); }
+
+  @keyframes fadein { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: none; } }
+  .fade { animation: fadein 0.3s ease forwards; }
+
+  /* ── Sticky scroll capturas ────────────────────────────── */
+  .ss-root { font-family: var(--font-sans); color: var(--color-text-primary); padding: 0 0 1rem; }
+  .ss-layout { display: grid; grid-template-columns: 220px 1fr; gap: 48px; align-items: start; }
+  .ss-phone-col { position: sticky; top: 80px; }
+  .ss-phone-frame { width: 190px; margin: 0 auto; background: #0d1117; border-radius: 36px; border: 2px solid #2a3548; padding: 12px 8px; box-shadow: 0 0 0 1px #1a2030; }
+  .ss-phone-screen { border-radius: 26px; overflow: hidden; aspect-ratio: 9/19; background: #0d1117; position: relative; }
+  .ss-phone-screen img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; transition: opacity 0.4s ease; position: absolute; top: 0; left: 0; }
+  .ss-phone-screen img.hidden { opacity: 0; }
+  .ss-phone-screen img.visible { opacity: 1; }
+  .ss-notch { width: 60px; height: 8px; background: #1a2030; border-radius: 4px; margin: 0 auto 10px; }
+  .ss-dots { display: flex; justify-content: center; gap: 6px; margin-top: 12px; }
+  .ss-dot { width: 6px; height: 6px; border-radius: 50%; background: #2a3548; transition: background 0.3s; cursor: pointer; }
+  .ss-dot.active { background: var(--accent); }
+  .ss-steps { display: flex; flex-direction: column; gap: 0; }
+  .ss-step { padding: 2.5rem 0; border-bottom: 0.5px solid var(--color-border-tertiary); opacity: 0.35; transition: opacity 0.4s ease; cursor: pointer; }
+  .ss-step:first-child { padding-top: 0; }
+  .ss-step:last-child { border-bottom: none; }
+  .ss-step.active { opacity: 1; }
+  .ss-step-num { font-size: 11px; font-weight: 500; letter-spacing: 1.2px; color: var(--color-text-tertiary); text-transform: uppercase; margin-bottom: 8px; }
+  .ss-step.active .ss-step-num { color: var(--accent); }
+  .ss-step-title { font-size: 18px; font-weight: 500; color: var(--color-text-primary); margin: 0 0 10px; line-height: 1.3; }
+  .ss-step-desc { font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; margin: 0; }
+  .ss-step-tag { display: inline-block; margin-top: 12px; font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 100px; background: var(--color-background-success); color: var(--color-text-success); border: 0.5px solid var(--color-border-success); }
+  .ss-progress { width: 2px; background: var(--color-border-tertiary); position: absolute; left: -20px; top: 0; bottom: 0; border-radius: 1px; }
+  .ss-progress-fill { width: 2px; background: var(--accent); border-radius: 1px; transition: height 0.4s ease; position: absolute; top: 0; left: 0; }
+  .ss-steps-wrap { position: relative; padding-left: 20px; }
+
+  @media(max-width:768px){
+    .ss-layout{grid-template-columns:1fr;gap:var(--space-lg)}
+    .ss-phone-col{position:static}
+    .ss-phone-frame{width:160px}
+    .ss-step{padding:1.5rem 0}
+  }
+</style>
 </head>
 <body>
 
@@ -314,57 +409,82 @@
   <section>
     <div class="container">
       <h2 class="section-title reveal">El <span>algoritmo</span> que lo cambia todo</h2>
-      <div class="algo-viz reveal">
-        <!-- Before -->
-        <div class="algo-box algo-box--bad">
-          <h4>Sin optimizar</h4>
-          <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="100" cy="30" r="18" fill="#2A2A2A" stroke="#FF4D4D" stroke-width="1.5"/>
-            <text x="100" y="34" text-anchor="middle" fill="#FFB4AB" font-size="13" font-family="Geist,sans-serif" font-weight="600">A</text>
-            <circle cx="170" cy="100" r="18" fill="#2A2A2A" stroke="#FF4D4D" stroke-width="1.5"/>
-            <text x="170" y="104" text-anchor="middle" fill="#FFB4AB" font-size="13" font-family="Geist,sans-serif" font-weight="600">B</text>
-            <circle cx="100" cy="170" r="18" fill="#2A2A2A" stroke="#FF4D4D" stroke-width="1.5"/>
-            <text x="100" y="174" text-anchor="middle" fill="#FFB4AB" font-size="13" font-family="Geist,sans-serif" font-weight="600">C</text>
-            <circle cx="30" cy="100" r="18" fill="#2A2A2A" stroke="#FF4D4D" stroke-width="1.5"/>
-            <text x="30" y="104" text-anchor="middle" fill="#FFB4AB" font-size="13" font-family="Geist,sans-serif" font-weight="600">D</text>
-            <!-- Chaotic arrows -->
-            <line x1="115" y1="42" x2="155" y2="88" stroke="#FF4D4D" stroke-width="1.2" opacity=".6" marker-end="url(#arrowRed)"/>
-            <line x1="95" y1="48" x2="40" y2="88" stroke="#FF4D4D" stroke-width="1.2" opacity=".5" marker-end="url(#arrowRed)"/>
-            <line x1="88" y1="48" x2="88" y2="152" stroke="#FF4D4D" stroke-width="1.2" opacity=".4" marker-end="url(#arrowRed)"/>
-            <line x1="155" y1="115" x2="45" y2="110" stroke="#FF4D4D" stroke-width="1.2" opacity=".5" marker-end="url(#arrowRed)"/>
-            <line x1="150" y1="115" x2="110" y2="155" stroke="#FF4D4D" stroke-width="1.2" opacity=".5" marker-end="url(#arrowRed)"/>
-            <line x1="45" y1="115" x2="85" y2="155" stroke="#FF4D4D" stroke-width="1.2" opacity=".6" marker-end="url(#arrowRed)"/>
-            <line x1="110" y1="152" x2="45" y2="115" stroke="#FF4D4D" stroke-width="1.2" opacity=".4" marker-end="url(#arrowRed)"/>
-            <defs><marker id="arrowRed" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#FF4D4D"/></marker></defs>
-          </svg>
-        </div>
-
-        <!-- Arrow -->
-        <div class="algo-arrow-divider">
-          <svg viewBox="0 0 40 40" fill="none"><path d="M8 20h20M22 14l6 6-6 6" stroke="#00C853" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-
-        <!-- After -->
-        <div class="algo-box algo-box--good">
-          <h4>CuentaMorosos</h4>
-          <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="100" cy="30" r="18" fill="#1C1B1B" stroke="#00C853" stroke-width="2"/>
-            <text x="100" y="34" text-anchor="middle" fill="#E5E2E1" font-size="13" font-family="Geist,sans-serif" font-weight="600">A</text>
-            <circle cx="170" cy="100" r="18" fill="#1C1B1B" stroke="#00C853" stroke-width="2"/>
-            <text x="170" y="104" text-anchor="middle" fill="#E5E2E1" font-size="13" font-family="Geist,sans-serif" font-weight="600">B</text>
-            <circle cx="100" cy="170" r="18" fill="#1C1B1B" stroke="#00C853" stroke-width="2"/>
-            <text x="100" y="174" text-anchor="middle" fill="#E5E2E1" font-size="13" font-family="Geist,sans-serif" font-weight="600">C</text>
-            <circle cx="30" cy="100" r="18" fill="#1C1B1B" stroke="#00C853" stroke-width="2"/>
-            <text x="30" y="104" text-anchor="middle" fill="#E5E2E1" font-size="13" font-family="Geist,sans-serif" font-weight="600">D</text>
-            <!-- Optimized arrows (animated stroke-dash) -->
-            <line x1="108" y1="48" x2="108" y2="152" stroke="#00C853" stroke-width="2" class="algo-line" marker-end="url(#arrowGreen)"/>
-            <line x1="155" y1="108" x2="45" y2="108" stroke="#00C853" stroke-width="2" class="algo-line algo-line--d1" marker-end="url(#arrowGreen)"/>
-            <line x1="40" y1="115" x2="85" y2="155" stroke="#00C853" stroke-width="2" class="algo-line algo-line--d2" marker-end="url(#arrowGreen)"/>
-            <defs><marker id="arrowGreen" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#00C853"/></marker></defs>
-          </svg>
+      <div class="reveal">
+        <div class="alg-wrap">
+          <div class="step-header">
+            <div class="step-dots" id="dots"></div>
+            <span class="step-counter" id="counter">Paso 1 de 4</span>
+          </div>
+          <div class="stage" id="stage"></div>
+          <div class="nav">
+            <button id="btn-prev" onclick="move(-1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Anterior</button>
+            <button class="auto-btn" id="btn-auto" onclick="toggleAuto()"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Auto</button>
+            <button id="btn-next" onclick="move(1)">Siguiente <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+          </div>
         </div>
       </div>
       <p style="text-align:center;color:var(--text-2);font-size:14px;max-width:600px;margin:var(--space-lg) auto 0">Sin CuentaMorosos: <strong>hasta 12 transferencias</strong> cruzadas para saldar 4 personas. Con el algoritmo greedy + round-robin: <strong>3 transferencias limpias</strong>. Cuantas más personas, más diferencia.</p>
+    </div>
+  </section>
+
+  <!-- Capturas de la app -->
+  <section id="capturas">
+    <div class="container">
+      <h2 class="section-title reveal"><span>Capturas</span> de la app</h2>
+      <div class="reveal">
+        <div class="ss-root">
+          <div class="ss-layout">
+            <div class="ss-phone-col">
+              <div class="ss-phone-frame">
+                <div class="ss-notch"></div>
+                <div class="ss-phone-screen" id="phone-screen">
+                  <img id="ss-img-0" class="visible" src="screenshots/pantalla-login.jpeg" alt="Pantalla de inicio de sesión"/>
+                  <img id="ss-img-1" class="hidden"  src="screenshots/Eventos.jpeg" alt="Pantalla de eventos"/>
+                  <img id="ss-img-2" class="hidden"  src="screenshots/detalles-evento.jpeg" alt="Pantalla de detalle del evento"/>
+                  <img id="ss-img-3" class="hidden"  src="screenshots/resumen-factura-transferencias.jpeg" alt="Pantalla de liquidación"/>
+                </div>
+              </div>
+              <div class="ss-dots" id="ss-dots">
+                <div class="ss-dot active" onclick="ssGoTo(0)"></div>
+                <div class="ss-dot" onclick="ssGoTo(1)"></div>
+                <div class="ss-dot" onclick="ssGoTo(2)"></div>
+                <div class="ss-dot" onclick="ssGoTo(3)"></div>
+              </div>
+            </div>
+            <div class="ss-steps-wrap">
+              <div class="ss-progress">
+                <div class="ss-progress-fill" id="progress-fill" style="height:0%"></div>
+              </div>
+              <div class="ss-steps" id="ss-steps">
+                <div class="ss-step active" onclick="ssGoTo(0)">
+                  <div class="ss-step-num">01 — Crea el evento</div>
+                  <h3 class="ss-step-title">Un nombre, y ya estáis dentro</h3>
+                  <p class="ss-step-desc">Crea el evento en segundos e invita a tus amigos. Cada participante tiene su perfil con foto y nombre. Sin registros obligatorios para el resto del grupo.</p>
+                  <span class="ss-step-tag">Inicio rápido</span>
+                </div>
+                <div class="ss-step" onclick="ssGoTo(1)">
+                  <div class="ss-step-num">02 — Añade gastos</div>
+                  <h3 class="ss-step-title">¿Quién pagó? ¿Cuánto? Listo.</h3>
+                  <p class="ss-step-desc">Registra cada gasto indicando quién pagó y el importe. Puedes añadirlos en cualquier momento, incluso días después. El historial siempre está sincronizado.</p>
+                  <span class="ss-step-tag">Tiempo real</span>
+                </div>
+                <div class="ss-step" onclick="ssGoTo(2)">
+                  <div class="ss-step-num">03 — Elige cómo dividir</div>
+                  <h3 class="ss-step-title">A partes iguales, o como queráis</h3>
+                  <p class="ss-step-desc">Divide a partes iguales, por porcentajes, por importes exactos o por participación. Cada gasto puede tener su propia regla de reparto.</p>
+                  <span class="ss-step-tag">4 modos de reparto</span>
+                </div>
+                <div class="ss-step" onclick="ssGoTo(3)">
+                  <div class="ss-step-num">04 — Liquida</div>
+                  <h3 class="ss-step-title">El algoritmo dice quién paga a quién</h3>
+                  <p class="ss-step-desc">Con un solo toque ves las transferencias exactas para saldar todas las cuentas. El mínimo posible de pagos, siempre. Comparte el resultado con el grupo en un clic.</p>
+                  <span class="ss-step-tag">Greedy + round-robin</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -422,26 +542,7 @@
     </div>
   </section>
 
-  <!-- Carousel -->
-  <section id="capturas">
-    <div class="container">
-      <h2 class="section-title reveal"><span>Capturas</span> de la app</h2>
-      <div class="carousel reveal" id="carousel">
-        <div class="carousel-track" id="carouselTrack">
-          <div class="carousel-slide"><img src="screenshots/pantalla-login.jpeg" alt="Login" loading="lazy" /><div class="carousel-caption">Inicio de sesión — Email o @username</div></div>
-          <div class="carousel-slide"><img src="screenshots/Eventos.jpeg" alt="Eventos" loading="lazy" /><div class="carousel-caption">Tus eventos — Organizados por estado</div></div>
-          <div class="carousel-slide"><img src="screenshots/detalles-evento.jpeg" alt="Detalle" loading="lazy" /><div class="carousel-caption">Detalle del evento — Gastos, deudas, participantes</div></div>
-          <div class="carousel-slide"><img src="screenshots/creacion-de-gastos.jpeg" alt="Gastos" loading="lazy" /><div class="carousel-caption">Creación de gastos — 6 modos de reparto</div></div>
-          <div class="carousel-slide"><img src="screenshots/resumen-factura-transferencias.jpeg" alt="Liquidación" loading="lazy" /><div class="carousel-caption">Liquidación — Transferencias mínimas</div></div>
-          <div class="carousel-slide"><img src="screenshots/Calendario.jpeg" alt="Calendario" loading="lazy" /><div class="carousel-caption">Calendario — Vista temporal de eventos</div></div>
-          <div class="carousel-slide"><img src="screenshots/Panel.jpeg" alt="Panel" loading="lazy" /><div class="carousel-caption">Panel — Resumen financiero completo</div></div>
-        </div>
-        <button class="carousel-btn carousel-btn--prev" id="carouselPrev" aria-label="Anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-        <button class="carousel-btn carousel-btn--next" id="carouselNext" aria-label="Siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></button>
-      </div>
-      <div class="carousel-dots" id="carouselDots"></div>
-    </div>
-  </section>
+
 
   <!-- FAQ -->
   <section id="faq">
@@ -490,50 +591,38 @@
     /* ── Stats Counter ──────────────────────────────────────── */
     (function(){const done=new Set();const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(!e.isIntersecting||done.has(e.target))return;done.add(e.target);const el=e.target,t=parseInt(el.dataset.target),d=1200,s=performance.now(),suf=t===0?'€':'%';function tick(n){const p=Math.min((n-s)/d,1),v=1-Math.pow(1-p,3),c=Math.round(v*t);el.textContent=c+(t===0&&p<1?'':(p<1&&t===100?suf:''));if(p<1)requestAnimationFrame(tick);else el.textContent=t+(t===0?'€':(t===100?'%':''))}requestAnimationFrame(tick)})},{threshold:.4});document.querySelectorAll('.stat-num[data-target]').forEach(e=>obs.observe(e))})();
 
-    /* ── Carousel ───────────────────────────────────────────── */
-    (function(){
-      const track=document.getElementById('carouselTrack');
-      const slides=track.querySelectorAll('.carousel-slide');
-      const dotsC=document.getElementById('carouselDots');
-      const prev=document.getElementById('carouselPrev');
-      const next=document.getElementById('carouselNext');
-      const total=slides.length;
-      let index=0,autoTimer=null,started=false;
+    /* ── Algorithm stepper ──────────────────────────────────── */
+    const STEPS = [
+      { label:'Paso 1 — Entrada', title:'Cada persona registra lo que pagó', desc:'Cuatro amigos. Gastos dispares. El algoritmo empieza calculando cuánto pagó cada uno versus cuánto debería haber pagado.', type:'balances', balances:[{name:'A',raw:104.25},{name:'B',raw:-36.75},{name:'C',raw:-33.75},{name:'D',raw:-33.75}] },
+      { label:'Paso 2 — Clasificación', title:'Greedy: ordena deudores y acreedores', desc:'El algoritmo separa a quienes deben cobrar (acreedores) de quienes deben pagar (deudores), y los ordena de mayor a menor importe.', type:'classify', creditors:[{name:'A',amount:104.25}], debtors:[{name:'B',amount:-36.75},{name:'C',amount:-33.75},{name:'D',amount:-33.75}] },
+      { label:'Paso 3 — Emparejamiento', title:'Round-robin: asigna pagos uno a uno', desc:'El deudor mayor paga al acreedor mayor. Si el deudor queda a cero, pasa al siguiente. Se repite hasta saldar todos los saldos.', type:'transfers', transfers:[{from:'B',to:'A',amount:'36,75 €',active:true},{from:'C',to:'A',amount:'33,75 €',active:false},{from:'D',to:'A',amount:'33,75 €',active:false}] },
+      { label:'Paso 4 — Resultado', title:'Cuentas saldadas. Mínimas transferencias.', desc:'4 personas, 141 € en gastos, resuelto en exactamente 3 transferencias. Sin cruces innecesarios.', type:'result', transfers:[{from:'B',to:'A',amount:'36,75 €'},{from:'C',to:'A',amount:'33,75 €'},{from:'D',to:'A',amount:'33,75 €'}], insight:'El algoritmo greedy garantiza el mínimo teórico de transferencias para cualquier número de participantes.' },
+    ];
+    const PEOPLE=['A','B','C','D'], AVATARS=['av-a','av-b','av-c','av-d'];
+    let algoCur=0, algoTimer=null;
+    function renderDots(){const e=document.getElementById('dots');e.innerHTML=STEPS.map((_,i)=>`<div class="dot ${i===algoCur?'active':i<algoCur?'done':''}"></div>`).join('')}
+    function renderCounter(){document.getElementById('counter').textContent=`Paso ${algoCur+1} de ${STEPS.length}`}
+    function renderNav(){document.getElementById('btn-prev').disabled=algoCur===0;document.getElementById('btn-next').disabled=algoCur===STEPS.length-1}
+    function balBar(r,m){const p=Math.round(Math.abs(r)/m*100),c=r>=0?'bar-pos':'bar-neg';return `<div class="bal-bar-wrap"><div class="bal-bar ${c}" style="width:${p}%"></div></div>`}
+    function avatar(n){return `<div class="avatar ${AVATARS[PEOPLE.indexOf(n)]}">${n}</div>`}
+    function renderStage(){
+      const s=STEPS[algoCur],stage=document.getElementById('stage');
+      let h=`<div class="fade"><div class="stage-label">${s.label}</div><div class="stage-title">${s.title}</div><p class="stage-desc">${s.desc}</p>`;
+      if(s.type==='balances'){const m=Math.max(...s.balances.map(b=>Math.abs(b.raw)));h+=`<div class="balances">`;s.balances.forEach(b=>{const c=b.raw>0?'amount-pos':b.raw<0?'amount-neg':'amount-zero',sg=b.raw>0?'+':'';h+=`<div class="balance-row">${avatar(b.name)}<span class="bal-name">${b.name}</span>${balBar(b.raw,m)}<span class="bal-amount ${c}">${sg}${b.raw.toFixed(2).replace('.',',')} €</span></div>`});h+=`</div>`}
+      if(s.type==='classify'){h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;"><div><p style="font-size:12px;color:var(--color-text-success);font-weight:500;margin:0 0 8px;">Acreedores</p>`;s.creditors.forEach(c=>{h+=`<div class="transfer-row highlight" style="margin-bottom:6px;">${avatar(c.name)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${c.name}</span><span class="transfer-amount green">+${c.amount.toFixed(2).replace('.',',')} €</span></div>`});h+=`</div><div><p style="font-size:12px;color:var(--color-text-danger);font-weight:500;margin:0 0 8px;">Deudores</p>`;s.debtors.forEach(d=>{h+=`<div class="transfer-row" style="margin-bottom:6px;">${avatar(d.name)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${d.name}</span><span class="transfer-amount" style="color:var(--color-text-danger)">${d.amount.toFixed(2).replace('.',',')} €</span></div>`});h+=`</div></div>`}
+      if(s.type==='transfers'){h+=`<div class="transfers">`;s.transfers.forEach((t,i)=>{const c=t.active?'highlight':'';h+=`<div class="transfer-row ${c}">${avatar(t.from)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${t.from}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-tertiary);flex-shrink:0"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>${avatar(t.to)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${t.to}</span><span class="transfer-amount ${t.active?'green':''}">${t.amount}</span></div>`});h+=`</div>`}
+      if(s.type==='result'){h+=`<div class="transfers">`;s.transfers.forEach(t=>{h+=`<div class="transfer-row done">${avatar(t.from)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${t.from}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-tertiary);flex-shrink:0"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>${avatar(t.to)}<span style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${t.to}</span><span class="transfer-amount">${t.amount}</span></div>`});h+=`</div>`;h+=`<div class="insight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><p>${s.insight}</p></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:4px;"><div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:12px;text-align:center;"><p style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px;text-transform:uppercase;letter-spacing:.8px;">Participantes</p><p style="font-size:22px;font-weight:500;color:var(--color-text-primary);margin:0;">4</p></div><div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:12px;text-align:center;"><p style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px;text-transform:uppercase;letter-spacing:.8px;">Sin optimizar</p><p style="font-size:22px;font-weight:500;color:var(--color-text-danger);margin:0;">hasta 12</p></div><div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-success);border-radius:var(--border-radius-md);padding:12px;text-align:center;"><p style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px;text-transform:uppercase;letter-spacing:.8px;">Con la app</p><p style="font-size:22px;font-weight:500;color:var(--color-text-success);margin:0;">3</p></div></div>`}
+      h+=`</div>`;stage.innerHTML=h;
+    }
+    function move(d){algoCur=Math.max(0,Math.min(STEPS.length-1,algoCur+d));renderAlgo()}
+    function renderAlgo(){renderDots();renderCounter();renderNav();renderStage()}
+    function toggleAuto(){const btn=document.getElementById('btn-auto');if(algoTimer){clearInterval(algoTimer);algoTimer=null;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Auto'}else{btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pausa';algoTimer=setInterval(()=>{if(algoCur<STEPS.length-1)move(1);else{clearInterval(algoTimer);algoTimer=null;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Auto'}},2200)}}
+    renderAlgo();
 
-      dotsC.innerHTML='';
-      for(let i=0;i<total;i++){const d=document.createElement('button');d.classList.add('carousel-dot');d.setAttribute('aria-label','Ir a captura '+(i+1));d.addEventListener('click',()=>goTo(i));dotsC.appendChild(d)}
-      const dots=dotsC.querySelectorAll('.carousel-dot');
-
-      function goTo(i){index=((i%total)+total)%total;track.style.transform='translateX(-'+(index*100)+'%)';dots.forEach((d,j)=>d.classList.toggle('active',j===index))}
-      function next_(){goTo(index+1)}function prev_(){goTo(index-1)}
-      function start(){stop();autoTimer=setInterval(next_,4000)}
-      function stop(){clearInterval(autoTimer)}
-
-      goTo(0);dots[0].classList.add('active');
-
-      prev.addEventListener('click',()=>{prev_();start()});
-      next.addEventListener('click',()=>{next_();start()});
-      document.getElementById('carousel').addEventListener('mouseenter',stop);
-      document.getElementById('carousel').addEventListener('mouseleave',start);
-
-      // Touch
-      let tsX=0,teX=0;
-      track.addEventListener('touchstart',e=>{tsX=e.changedTouches[0].screenX;stop()});
-      track.addEventListener('touchend',e=>{teX=e.changedTouches[0].screenX;const d=tsX-teX;if(Math.abs(d)>40)d>0?next_():prev_();start()});
-
-      // Mouse drag
-      let md=false,msX=0;
-      track.addEventListener('mousedown',e=>{md=true;msX=e.screenX;stop();e.preventDefault()});
-      track.addEventListener('mouseup',e=>{if(!md)return;md=false;const d=msX-e.screenX;if(Math.abs(d)>40)d>0?next_():prev_();start()});
-      track.addEventListener('mouseleave',()=>{md=false;start()});
-
-      // Keyboard
-      document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){prev_();start()}if(e.key==='ArrowRight'){next_();start()}});
-
-      // Only start autoplay when visible
-      const visObs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting&&!started){started=true;start()}if(!e.isIntersecting&&started){stop()}})},{threshold:.3});
-      visObs.observe(document.getElementById('carousel'));
-    })();
+    /* ── Sticky scroll capturas ────────────────────────────── */
+    let ssCur=0;const ssTotal=4;
+    function ssGoTo(i){const p=ssCur;ssCur=i;document.querySelectorAll('.ss-step').forEach((e,idx)=>e.classList.toggle('active',idx===i));document.querySelectorAll('.ss-dot').forEach((e,idx)=>e.classList.toggle('active',idx===i));for(let k=0;k<ssTotal;k++){const img=document.getElementById('ss-img-'+k);if(img){img.classList.toggle('visible',k===i);img.classList.toggle('hidden',k!==i)}}const pct=ssTotal<=1?100:Math.round((i/(ssTotal-1))*100);document.getElementById('progress-fill').style.height=pct+'%'}
+    const ssObs=new IntersectionObserver((entries)=>{entries.forEach(entry=>{if(entry.isIntersecting){const idx=parseInt(entry.target.dataset.idx);if(!isNaN(idx))ssGoTo(idx)}})},{threshold:0.6});document.querySelectorAll('.ss-step').forEach((el,idx)=>{el.dataset.idx=idx;ssObs.observe(el)});ssGoTo(0);
 
     /* ── FAQ Accordion ──────────────────────────────────────── */
     (function(){document.querySelectorAll('.faq-q').forEach(btn=>{btn.addEventListener('click',()=>{const item=btn.parentElement;item.classList.toggle('open')})})})();

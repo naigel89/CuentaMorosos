@@ -30,7 +30,6 @@ class NotificationDispatcher(
         const val CH_INVITATIONS = "ch_invitations"
         const val CH_CALCULATIONS = "ch_calculations"
         const val CH_REMINDERS = "ch_reminders"
-        const val CH_UPCOMING_EVENTS = "ch_upcoming_events"
 
         // Intent extra keys
         const val EXTRA_NOTIFICATION_TYPE = "extra_notification_type"

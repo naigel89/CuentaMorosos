@@ -16,4 +16,10 @@ interface InvitationRepository {
     suspend fun rejectInvitation(invitationId: String)
     /** Listen on notifications/{uid}/invitation-accepted for acceptance confirmations. */
     fun observeInvitationAccepted(): Flow<NotificationEvent.InvitationAccepted>
+    /** Write a calculation-completed doc per participant so they receive a cross-user notification.
+     *  @param participantUid The Firebase Auth UID of the participant to notify.
+     *  @param amountOwed The total unpaid debt for this participant in the event. */
+    suspend fun sendCalculationNotification(eventId: String, eventName: String, participantUid: String, amountOwed: Double)
+    /** Listen on notifications/{uid}/calculation-completed for incoming calculation notifications. */
+    fun observeCalculationCompleted(): Flow<NotificationEvent.CalculationCompleted>
 }

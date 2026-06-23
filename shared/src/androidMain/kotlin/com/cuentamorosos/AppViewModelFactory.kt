@@ -25,6 +25,7 @@ class AppViewModelFactory(
                 EventsViewModel(
                     eventRepository = repositoryProvider.eventRepository,
                     debtRepository = repositoryProvider.debtRepository,
+                    expenseRepository = repositoryProvider.expenseRepository,
                     currentProfileId = currentProfileId,
                 ) as T
             }
@@ -33,6 +34,7 @@ class AppViewModelFactory(
                     eventRepository = repositoryProvider.eventRepository,
                     debtRepository = repositoryProvider.debtRepository,
                     expenseRepository = repositoryProvider.expenseRepository,
+                    invitationRepository = repositoryProvider.invitationRepository,
                     currentProfileId = currentProfileId,
                 ) as T
             }
@@ -55,6 +57,7 @@ class AppViewModelFactory(
                     debtRepository = repositoryProvider.debtRepository,
                     expenseRepository = repositoryProvider.expenseRepository,
                     profileRepository = repositoryProvider.profileRepository,
+                    invitationRepository = repositoryProvider.invitationRepository,
                     currentUserUid = currentProfileId,
                     onCalculationCompleted = notificationCallbacks.onCalculationCompleted,
                 ) as T

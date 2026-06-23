@@ -72,8 +72,8 @@ class ReminderWorker(
             val preferences = store.loadPreferences()
             if (!preferences.remindersEnabled) return Result.success()
 
-            // Fetch data from SQLDelight repositories using first() on Flows
-            val events = repoProvider.eventRepository.observeEvents().first()
+            // Fetch data from remote/repositories
+            val events = repoProvider.eventRepository.fetchEvents()
             val debts = repoProvider.debtRepository.observeAllDebts().first()
             val expenses = repoProvider.expenseRepository.observeAllExpenses().first()
 
