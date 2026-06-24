@@ -3,6 +3,13 @@
 <div align="center">
   <img src="logoCuentaMorosos.svg" alt="CuentaMorosos Logo" width="180" />
   <p><em>Divide gastos. Sin vueltas. Sin cuentas pendientes.</em></p>
+  
+  <a href="https://github.com/naigel89/CuentaMorosos/releases/latest">
+    <img src="https://img.shields.io/github/v/release/naigel89/CuentaMorosos?label=latest&color=success&style=for-the-badge" alt="Latest Release" />
+  </a>
+  <a href="https://github.com/naigel89/CuentaMorosos/releases/latest">
+    <img src="https://img.shields.io/badge/download-APK-blue?style=for-the-badge&logo=android" alt="Download APK" />
+  </a>
 </div>
 
 ---
