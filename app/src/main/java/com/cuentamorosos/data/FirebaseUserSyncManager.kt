@@ -95,6 +95,8 @@ object FirebaseUserSyncManager {
                 .document(user.uid)
                 .set(payload, SetOptions.merge())
                 .await()
+        }.onFailure { e ->
+            LogSanitizer.log("FirebaseUserSyncManager", "ensureOwnProfile set FAILED: ${e.message}")
         }
 
         // Fire-and-forget: reconcile ghost profiles (GPS-REQ-002)
@@ -103,6 +105,8 @@ object FirebaseUserSyncManager {
             user.email?.trim()?.lowercase()?.let { email ->
                 runCatching {
                     profileRepository.linkGhostProfile(email, user.uid)
+                }.onFailure { e ->
+                    LogSanitizer.log("FirebaseUserSyncManager", "linkGhostProfile FAILED: ${e.message}")
                 }
             }
         }
@@ -128,6 +132,8 @@ object FirebaseUserSyncManager {
                 .document(user.uid)
                 .set(payload, SetOptions.merge())
                 .await()
+        }.onFailure { e ->
+            LogSanitizer.log("FirebaseUserSyncManager", "saveTokenForCurrentUser FAILED: ${e.message}")
         }
     }
 }

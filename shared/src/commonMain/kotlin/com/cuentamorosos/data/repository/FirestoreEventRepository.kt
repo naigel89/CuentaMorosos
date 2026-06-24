@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeout
 import com.cuentamorosos.data.LogSanitizer
 
 class FirestoreEventRepository : EventRepository {
@@ -100,11 +101,31 @@ class FirestoreEventRepository : EventRepository {
     }
 
     override suspend fun saveEvent(event: EventItem) {
-        collection.document(event.id).set(event.toMap())
+        LogSanitizer.log("FirestoreEventRepo", "saveEvent: id=${event.id} name='${event.name}' state=${event.state}")
+        try {
+            withTimeout(10_000) {
+                collection.document(event.id).set(event.toMap())
+            }
+            LogSanitizer.log("FirestoreEventRepo", "saveEvent: SUCCESS id=${event.id}")
+        } catch (e: Exception) {
+            LogSanitizer.log("FirestoreEventRepo", "saveEvent: FAILED id=${event.id}: ${e.javaClass.simpleName}: ${e.message}")
+            e.printStackTrace()
+            throw e
+        }
     }
 
     override suspend fun deleteEvent(eventId: String) {
-        collection.document(eventId).delete()
+        LogSanitizer.log("FirestoreEventRepo", "deleteEvent: id=$eventId")
+        try {
+            withTimeout(10_000) {
+                collection.document(eventId).delete()
+            }
+            LogSanitizer.log("FirestoreEventRepo", "deleteEvent: SUCCESS id=$eventId")
+        } catch (e: Exception) {
+            LogSanitizer.log("FirestoreEventRepo", "deleteEvent: FAILED id=$eventId: ${e.javaClass.simpleName}: ${e.message}")
+            e.printStackTrace()
+            throw e
+        }
     }
 
     override suspend fun removeMember(eventId: String, memberUid: String) {

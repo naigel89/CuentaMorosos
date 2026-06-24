@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Configuration — CuentaMorosos (DEBUG)
+    No certificate pinning so that Charles/Proxyman/Fiddler/mitmproxy
+    and other HTTPS debugging tools work out of the box.
+    Still blocks cleartext traffic.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

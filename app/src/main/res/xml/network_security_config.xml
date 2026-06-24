@@ -16,6 +16,8 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">googleapis.com</domain>
         <pin-set expiration="2026-09-21">
+            <!-- GTS WR2: current intermediate CA for *.googleapis.com -->
+            <pin digest="SHA-256">5v4iv0Xk8NO4XFngLA9JVBjh640yEPeI1IzV4ctUfNQ=</pin>
             <!-- GTS CA 1C3 -->
             <pin digest="SHA-256">7HIpactkIAq2Y49orFO6ud1c6eRdxEiO3o1YWr3fkL0=</pin>
             <!-- Google Internet Authority G3 (backup from different CA hierarchy) -->
@@ -27,7 +29,11 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">firebaseio.com</domain>
         <pin-set expiration="2026-09-21">
+            <!-- GTS WR1: current intermediate CA for *.firebaseio.com -->
+            <pin digest="SHA-256">sQtvAOYJUJ6HAPbTRoeiv8446gWo/fHNxAw6Kg0NDkU=</pin>
+            <!-- GTS CA 1C3 -->
             <pin digest="SHA-256">7HIpactkIAq2Y49orFO6ud1c6eRdxEiO3o1YWr3fkL0=</pin>
+            <!-- Google Internet Authority G3 (backup from different CA hierarchy) -->
             <pin digest="SHA-256">h6801m+z8v3zbgkRHpq6L29Esgfzhj89C1SyUCOQmqU=</pin>
         </pin-set>
     </domain-config>

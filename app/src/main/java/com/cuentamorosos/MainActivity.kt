@@ -119,9 +119,13 @@ class MainActivity : ComponentActivity() {
         }
 
         // Initialize SQLDelight driver and repositories
+        LogSanitizer.log("MainActivity", "Initializing SQLDelight driver")
         val sqlDriver = DriverFactory(applicationContext).createDriver()
+        LogSanitizer.log("MainActivity", "Creating NetworkMonitor")
         networkMonitor = NetworkMonitorFactory(applicationContext).create()
+        LogSanitizer.log("MainActivity", "Creating RepositoryProvider")
         repositoryProvider = RepositoryProvider(sqlDriver, networkMonitor)
+        LogSanitizer.log("MainActivity", "Initialization complete")
 
         // Store RepositoryProvider in Application for Worker access
         (application as CuentaMorososApp).repositoryProvider = repositoryProvider
@@ -271,6 +275,7 @@ private fun MainAppContent(
     // Start staggered sync after first render AND on user change
     val syncScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     LaunchedEffect(user.uid) {
+        LogSanitizer.log("MainActivity", "LaunchedEffect: starting sync for uid=${user.uid}")
         // Profile sync runs in background (non-blocking)
         runCatching {
             FirebaseUserSyncManager.syncCurrentUser(
@@ -279,6 +284,7 @@ private fun MainAppContent(
         }.onFailure { e ->
             LogSanitizer.log("MainActivity", "Profile sync failed: ${e.message}")
         }
+        LogSanitizer.log("MainActivity", "Starting staggered sync")
         repositoryProvider.startSyncStaggered(syncScope)
 
         // Trigger idempotent orphan cleanup after initial sync completes (GPS-REQ-006)

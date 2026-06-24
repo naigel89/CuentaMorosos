@@ -63,6 +63,7 @@ class OfflineFirstEventRepository(
     }
 
     fun startSync() {
+        LogSanitizer.log("OfflineFirstEventRepo", "startSync: starting sync loop")
         stopSyncLoop()
         // Start sync loop IMMEDIATELY — don't wait for network monitor
         startSyncLoop()
@@ -70,6 +71,7 @@ class OfflineFirstEventRepository(
         networkMonitor.isOnline
             .drop(1) // Skip initial emission (already handled above)
             .onEach { isOnline ->
+                LogSanitizer.log("OfflineFirstEventRepo", "Network change: isOnline=$isOnline")
                 if (isOnline) startSyncLoop() else stopSyncLoop()
             }
             .launchIn(syncScope)
@@ -93,12 +95,17 @@ class OfflineFirstEventRepository(
 
     private fun startSyncLoop() {
         syncJob?.cancel()
+        LogSanitizer.log("OfflineFirstEventRepo", "syncLoop: starting")
         syncJob = syncScope.launch(Dispatchers.Default) {
             var backoffMs = 1000L
             val maxBackoffMs = 30000L
             while (isActive) {
                 try {
                     // 0. Drain pending operations FIRST
+                    val pendingCount = pendingQueue.getAllPending()
+                    if (pendingCount > 0) {
+                        LogSanitizer.log("OfflineFirstEventRepo", "syncLoop: draining $pendingCount pending operations")
+                    }
                     pendingQueue.drainAll(eventRemoteOps)
 
                     // 1. One-shot fetch — loads data immediately via get(), not snapshot listeners
@@ -117,7 +124,7 @@ class OfflineFirstEventRepository(
                     }
                     backoffMs = 1000L
                 } catch (e: Exception) {
-                    LogSanitizer.log("OfflineFirstEventRepo", "Sync error: ${e.message}")
+                    LogSanitizer.log("OfflineFirstEventRepo", "Sync error: ${e.javaClass.simpleName}: ${e.message}")
                     delay(backoffMs)
                     backoffMs = minOf(backoffMs * 2, maxBackoffMs)
                 }
@@ -126,6 +133,7 @@ class OfflineFirstEventRepository(
     }
 
     private fun stopSyncLoop() {
+        LogSanitizer.log("OfflineFirstEventRepo", "syncLoop: stopping")
         syncJob?.cancel()
         syncJob = null
     }
@@ -168,6 +176,7 @@ class OfflineFirstEventRepository(
         remoteRepository.fetchEvents()
 
     override suspend fun saveEvent(event: EventItem) {
+        LogSanitizer.log("OfflineFirstEventRepo", "saveEvent: id=${event.id} name='${event.name}'")
         // Update local immediately
         queries.upsert(
             id = event.id,
@@ -189,6 +198,7 @@ class OfflineFirstEventRepository(
         // Try remote, enqueue on failure
         try {
             remoteRepository.saveEvent(event)
+            LogSanitizer.log("OfflineFirstEventRepo", "saveEvent: remote OK for ${event.id}")
         } catch (e: Exception) {
             LogSanitizer.log("OfflineFirstEventRepo", "saveEvent remote FAILED for ${event.id}: ${e.message}")
             e.printStackTrace()

@@ -17,9 +17,11 @@ class AndroidNetworkMonitor(private val context: Context) : NetworkMonitor {
         
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
+                LogSanitizer.log("NetworkMonitor", "onAvailable → ONLINE")
                 trySend(true)
             }
             override fun onLost(network: Network) {
+                LogSanitizer.log("NetworkMonitor", "onLost → OFFLINE")
                 trySend(false)
             }
         }
@@ -28,14 +30,18 @@ class AndroidNetworkMonitor(private val context: Context) : NetworkMonitor {
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
         
+        LogSanitizer.log("NetworkMonitor", "Registering network callback")
         connectivityManager.registerNetworkCallback(request, callback)
         
         // Initial state
         val currentNetwork = connectivityManager.activeNetwork
         val capabilities = connectivityManager.getNetworkCapabilities(currentNetwork)
-        trySend(capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true)
+        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        LogSanitizer.log("NetworkMonitor", "Initial state: hasInternet=$hasInternet, activeNetwork=${currentNetwork != null}")
+        trySend(hasInternet)
 
         awaitClose {
+            LogSanitizer.log("NetworkMonitor", "Unregistering network callback")
             connectivityManager.unregisterNetworkCallback(callback)
         }
     }.distinctUntilChanged()
