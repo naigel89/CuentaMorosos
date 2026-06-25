@@ -69,9 +69,8 @@ He diseñado los eventos con un ciclo de vida estricto de tres estados —**Abie
 se puedan añadir gastos después de liquidar ni reabrir un evento saldado sin pasar
 por el flujo correcto.
 
-Cada evento soporta **roles por participante**:
+Cada evento soporta dos **roles por participante**:
 - **Propietario**: control total — calcular, cerrar, reabrir, eliminar, gestionar roles.
-- **Colaborador**: crea y edita sus propios gastos, ve todo.
 - **Lector**: acceso de solo lectura.
 
 El sistema de **invitaciones** permite invitar a otras personas por email o @username,
