@@ -17,7 +17,7 @@
 
 ---
 
-**CuentaMorosos** (moroso = alguien que no paga lo que debe) es una aplicación Android
+**CuentaMorosos** es una aplicación Android
 construida con Kotlin Multiplatform que he desarrollado para gestionar gastos
 compartidos en eventos del día a día: viajes, cenas, fiestas, pisos compartidos y
 más. El problema es conocido: alguien paga por todos, aparecen cuentas pendientes,
