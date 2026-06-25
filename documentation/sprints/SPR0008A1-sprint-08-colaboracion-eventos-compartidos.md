@@ -9,15 +9,15 @@
 Permitir que varios usuarios accedan a un mismo evento, implementando el sistema de invitaciones, la gestión de participantes y las notificaciones push mediante Firebase Cloud Messaging.
 
 ## Estado
-Parcial — código implementado en `shared/src/commonMain/` pero **NO integrado** en `MainActivity`. Cloud Functions y pruebas manuales pendientes.
+Hecho — código implementado en `shared/src/commonMain/` e **integrado** en `MainActivity` vía `RepositoryProvider.invitationRepository`. Cloud Functions pendientes para push (requiere plan Blaze).
 
 ## Requisitos e historias incluidas
 | ID | Tipo | Nombre | Prioridad | Estado | Dependencias |
 |---|---|---|---|---|---|
-| US-07 | US | Invitar a alguien a un evento por email | Alta | Parcial | SPR0007 |
-| US-08 | US | Aceptar o rechazar una invitación | Alta | Parcial | US-07 |
-| US-09 | US | Ver miembros de un evento | Media | Parcial | US-07 |
-| US-10 | US | Expulsar a un miembro | Media | Parcial | US-09 |
+| US-07 | US | Invitar a alguien a un evento por email | Alta | Hecho | SPR0007 |
+| US-08 | US | Aceptar o rechazar una invitación | Alta | Hecho | US-07 |
+| US-09 | US | Ver miembros de un evento | Media | Hecho | US-07 |
+| US-10 | US | Expulsar a un miembro | Media | Hecho | US-09 |
 
 ## Tareas técnicas
 
@@ -42,8 +42,8 @@ Parcial — código implementado en `shared/src/commonMain/` pero **NO integrado
 ### T3-09 — Reglas de seguridad ⏳
 - Pendientes de aplicar en Firebase Console.
 
-### T3-10 — Pruebas de colaboración ⏳
-- Pendientes de integración con MainActivity.
+### T3-10 — Pruebas de colaboración ✅
+- Validadas con dos cuentas: invitación → aceptar/rechazar → expulsar.
 
 ### T3-11 — Hardening Firebase/Auth/FCM ✓ (en shared/)
 - `FirebaseUserSyncManager` centraliza sync de usuario y token.
@@ -53,9 +53,9 @@ Parcial — código implementado en `shared/src/commonMain/` pero **NO integrado
 ## Definition of Done
 - [x] Código de invitaciones, membresías y FCM implementado en shared/
 - [x] Hardening transversal Firebase/Auth/FCM completado
-- [ ] MainActivity wireada para usar versiones de shared/
+- [x] MainActivity wireada con RepositoryProvider — invitations, members, FCM funcionales
 - [ ] Cloud Functions para push notifications (plan Blaze)
-- [ ] Pruebas manuales con dos cuentas distintas
+- [x] Pruebas manuales con dos cuentas distintas
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
@@ -64,3 +64,4 @@ Parcial — código implementado en `shared/src/commonMain/` pero **NO integrado
 | 2026-05-01 | A | A.2 | Alta | Implementación completa en shared/: invitaciones, miembros, FCM. |
 | 2026-05-02 | A | A.3 | Actualización | Hardening transversal Firebase/Auth/FCM. |
 | 2026-05-14 | A | A.4 | Corrección | Estado cambiado a Parcial: código en shared/ pero MainActivity no integrada. |
+| 2026-06-25 | A | A.5 | Actualización | Estado cambiado a Hecho: FirestoreInvitationRepository integrado en RepositoryProvider, invitaciones funcionales en app real, pruebas con dos cuentas validadas. |

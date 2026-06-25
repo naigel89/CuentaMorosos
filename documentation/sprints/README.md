@@ -7,7 +7,7 @@ Esta carpeta recoge el backlog y la planificación iterativa del proyecto.
 - `BKL0001A1-product-backlog.md`: backlog general priorizado
 - `SPR0001A1-sprint-01.md`: detalle del sprint 1
 - futuros `SPRxxxx...`: siguientes sprints
-- `SPR0011B1-sprint-11-redisenno-ui-neo-fintech.md`: rediseño UI Neo-Fintech Precision (pendiente)
+
 
 ## Reglas rápidas
 

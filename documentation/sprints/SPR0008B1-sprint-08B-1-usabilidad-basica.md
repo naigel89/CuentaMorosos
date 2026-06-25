@@ -9,13 +9,13 @@
 Mejorar la experiencia de usuario inmediata eliminando restricciones innecesarias para el creador y reduciendo la carga cognitiva en la pantalla de cálculo.
 
 ## Estado
-Parcial — código implementado en `shared/src/commonMain/` pero **NO integrado** en `MainActivity`. La app actual no usa estas mejoras.
+Hecho — implementado e integrado. `REAL_CONSUMPTION` es el modo de reparto por defecto, con selector desplegable para modos alternativos. Creador opcional funcional desde detalle de evento.
 
 ## Requisitos e historias incluidas
 | ID | Tipo | Nombre | Prioridad | Estado | Dependencias |
 |---|---|---|---|---|---|
-| FR0007A1 | FR | Creador de evento opcional en el reparto | Media | Parcial | SPR0008A1 |
-| UI0006A1 | UI | Simplificación de la interfaz de modos de cálculo | Media | Parcial | UI0005A1 |
+| FR0007A1 | FR | Creador de evento opcional en el reparto | Media | Hecho | SPR0008A1 |
+| UI0006A1 | UI | Simplificación de la interfaz de modos de cálculo | Media | Hecho | UI0005A1 |
 
 ## Tareas técnicas
 
@@ -33,8 +33,8 @@ Parcial — código implementado en `shared/src/commonMain/` pero **NO integrado
 ## Definition of Done
 - [x] Código de creador opcional implementado en shared/
 - [x] QuickSplitDialog simplificado con selector desplegable en shared/
-- [ ] MainActivity wireada para usar versiones de shared/
-- [ ] Flujo validado en app real
+- [x] MainActivity wireada: CalculatorSheet usa REAL_CONSUMPTION por defecto con modo selector
+- [x] Flujo validado en app real
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
@@ -42,3 +42,4 @@ Parcial — código implementado en `shared/src/commonMain/` pero **NO integrado
 | 2026-05-01 | A | A.1 | Alta | Creación del sprint 08B1 enfocado en usabilidad básica. |
 | 2026-05-01 | A | A.2 | Actualización | Sprint completado en shared/: creador opcional y simplificación de QuickSplitDialog. |
 | 2026-05-14 | A | A.3 | Corrección | Estado cambiado a Parcial: código en shared/ pero MainActivity no integrada. |
+| 2026-06-25 | A | A.4 | Actualización | Estado cambiado a Hecho: CalculatorSheet con REAL_CONSUMPTION por defecto, creador opcional funcional. Integración completa validada. |

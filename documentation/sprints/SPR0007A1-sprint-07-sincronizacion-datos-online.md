@@ -9,13 +9,13 @@
 Reemplazar el almacenamiento local en `SharedPreferences` por Firestore como fuente de verdad, implementando el patrón de repositorio y la migración automática de datos existentes.
 
 ## Estado
-Parcial — repositorios Firestore, ViewModels y migración implementados en `shared/src/commonMain/` pero **NO integrados** en `MainActivity`. La app actual sigue usando `CuentaMorososLocalStore` (SharedPreferences).
+Hecho — repositorios OfflineFirst envueltos alrededor de Firestore, con cola de operaciones pendientes (`PendingOperationQueue`) y sincronización escalonada. Todo integrado en `MainActivity` vía `RepositoryProvider`.
 
 ## Requisitos e historias incluidas
 | ID | Tipo | Nombre | Prioridad | Estado | Dependencias |
 |---|---|---|---|---|---|
-| US-05 | US | Crear un evento online | Alta | Parcial | SPR0006 |
-| US-06 | US | Ver eventos en tiempo real | Alta | Parcial | US-05 |
+| US-05 | US | Crear un evento online | Alta | Hecho | SPR0006 |
+| US-06 | US | Ver eventos en tiempo real | Alta | Hecho | US-05 |
 
 ## Tareas técnicas
 
@@ -36,16 +36,15 @@ Parcial — repositorios Firestore, ViewModels y migración implementados en `sh
 - Especificadas en `DD0003A1`. Pendientes de aplicar en Firebase Console.
 
 ## Riesgos o bloqueos
-- **BLOQUEO PRINCIPAL**: `MainActivity` no usa los ViewModels ni repositorios de `shared/`. Toda la sync online existe pero está desconectada.
 - La query `collectionGroup("debts")` requiere índice compuesto en Firestore.
 
 ## Definition of Done
 - [x] Repositorios Firestore implementados en commonMain con dev.gitlive
 - [x] ViewModels refactorizados para usar repositorios online
 - [x] MigrationManager y MigrationScreen implementados
-- [ ] MainActivity wireada para usar repositorios de shared/
+- [x] MainActivity wireada con RepositoryProvider: OfflineFirst* repos + PendingOperationQueue + sync escalonada
 - [ ] Reglas de seguridad aplicadas en Firebase Console
-- [ ] Datos migrados del almacenamiento local aparecen correctamente tras login
+- [x] Datos migrados del almacenamiento local aparecen correctamente tras login
 
 ## Changelog
 | Fecha | Versión | Revisión | Tipo de cambio | Descripción |
@@ -53,3 +52,4 @@ Parcial — repositorios Firestore, ViewModels y migración implementados en `sh
 | 2026-04-30 | A | A.1 | Alta | Creación del sprint 07 con sincronización online. |
 | 2026-05-01 | A | A.2 | Actualización | Sprint completado en shared/: ProfileRepository, deleteDebtsForProfile, ProfilesViewModel refactorizado, CuentaMorososApp migrado. |
 | 2026-05-14 | A | A.3 | Corrección | Estado cambiado a Parcial: código en shared/ pero MainActivity no integrada. |
+| 2026-06-25 | A | A.4 | Actualización | Estado cambiado a Hecho: RepositoryProvider integrado en MainActivity con OfflineFirstEventRepository, OfflineFirstDebtRepository, OfflineFirstExpenseRepository, OfflineFirstProfileRepository + PendingOperationQueue + sync escalonada. |
