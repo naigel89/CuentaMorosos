@@ -42,11 +42,6 @@
     body{font-family:var(--font-geist);background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
     ::selection{background:var(--accent);color:var(--bg)}
 
-    /* ── Particles ──────────────────────────────────────────── */
-    .particles{position:fixed;inset:0;pointer-events:none;z-index:0}
-    .particle{position:absolute;border-radius:50%;background:var(--accent);opacity:0;animation:floatUp linear infinite;will-change:transform,opacity}
-    @keyframes floatUp{0%{transform:translateY(110vh) scale(0);opacity:0}10%{opacity:.3}90%{opacity:.05}100%{transform:translateY(-10vh) scale(1.2);opacity:0}}
-
     /* ── Orbs ───────────────────────────────────────────────── */
     .bg-orb{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;will-change:opacity;animation:orbPulse 12s ease-in-out infinite alternate}
     @keyframes orbPulse{0%{transform:scale(1);opacity:.05}100%{transform:scale(1.15);opacity:.1}}
@@ -206,7 +201,6 @@
       .algo-arrow-divider{transform:rotate(90deg)}
 
       .cta-section{padding:var(--space-xl) var(--space-lg);margin:0}
-      .particle{display:none}
       .faq-q{font-size:14px;padding:var(--space-md)}
     }
     @media(max-width:480px){
@@ -327,7 +321,7 @@
   }
 
   @media(prefers-reduced-motion:reduce){
-    .particle,.bg-orb,.hero-logo-wrapper,.hero h1,.btn-primary,.algo-arrow-divider svg,.category-track{animation:none!important}
+    .bg-orb,.hero-logo-wrapper,.hero h1,.btn-primary,.algo-arrow-divider svg,.category-track{animation:none!important}
     .reveal{opacity:1;transform:none;transition:none}
     .fade{animation:none}
     html{scroll-behavior:auto}
@@ -336,7 +330,6 @@
 </head>
 <body>
 
-  <div class="particles" id="particles"></div>
   <div class="bg-orb bg-orb--green"></div>
   <div class="bg-orb bg-orb--teal"></div>
   <div class="bg-orb bg-orb--amber"></div>
@@ -605,9 +598,6 @@
   </footer>
 
   <script>
-    /* ── Particles ──────────────────────────────────────────── */
-    (function(){const c=document.getElementById('particles');for(let i=0;i<10;i++){const p=document.createElement('div');p.classList.add('particle');const s=Math.random()*3+2;p.style.width=s+'px';p.style.height=s+'px';p.style.left=Math.random()*100+'%';p.style.animationDuration=(Math.random()*14+14)+'s';p.style.animationDelay=Math.random()*12+'s';c.appendChild(p)}})();
-
     /* ── Stats Counter ──────────────────────────────────────── */
     (function(){const done=new Set();const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(!e.isIntersecting||done.has(e.target))return;done.add(e.target);const el=e.target,t=parseInt(el.dataset.target),d=1200,s=performance.now(),suf=t===0?'€':'%';function tick(n){const p=Math.min((n-s)/d,1),v=1-Math.pow(1-p,3),c=Math.round(v*t);el.textContent=c+(t===0&&p<1?'':(p<1&&t===100?suf:''));if(p<1)requestAnimationFrame(tick);else el.textContent=t+(t===0?'€':(t===100?'%':''))}requestAnimationFrame(tick)})},{threshold:.4});document.querySelectorAll('.stat-num[data-target]').forEach(e=>obs.observe(e))})();
 
