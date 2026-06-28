@@ -39,8 +39,16 @@ class OfflineFirstProfileRepository(
         override suspend fun saveExpense(entityId: String) = throw UnsupportedOperationException()
         override suspend fun deleteExpense(entityId: String) = throw UnsupportedOperationException()
         override suspend fun saveProfile(entityId: String) {
-            val profiles = remoteRepository.observeProfiles().first()
-            profiles.find { it.id == entityId }?.let { remoteRepository.saveProfile(it) }
+            // Look up locally first — the profile may not exist in Firestore yet
+            // if the initial save was blocked by rules (see profiles Firestore rules fix).
+            val local = queries.selectById(entityId).executeAsOneOrNull()?.toProfileItem()
+            if (local != null) {
+                remoteRepository.saveProfile(local)
+            } else {
+                // Fallback: try from remote snapshot
+                val profiles = remoteRepository.observeProfiles().first()
+                profiles.find { it.id == entityId }?.let { remoteRepository.saveProfile(it) }
+            }
         }
         override suspend fun deleteProfile(entityId: String) = remoteRepository.deleteProfile(entityId)
         override suspend fun updateProfilePhoto(profileId: String, photoUrl: String) {

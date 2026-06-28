@@ -168,7 +168,8 @@ class OfflineFirstExpenseRepository(
                     payer_contributions = expense.payerContributions.toJsonObject(),
                     assigned_profile_ids = expense.assignedProfileIds.toJsonArray(),
                     profile_weights = expense.profileWeights.toJsonObject(),
-                    split_mode = expense.splitMode
+                    split_mode = expense.splitMode,
+                    createdByProfileId = expense.createdByProfileId
                 )
             }
         }
@@ -188,20 +189,25 @@ class OfflineFirstExpenseRepository(
             payer_contributions = expense.payerContributions.toJsonObject(),
             assigned_profile_ids = expense.assignedProfileIds.toJsonArray(),
             profile_weights = expense.profileWeights.toJsonObject(),
-            split_mode = expense.splitMode
+            split_mode = expense.splitMode,
+            createdByProfileId = expense.createdByProfileId
         )
         try {
             remoteRepository.saveExpense(expense)
         } catch (e: Exception) {
             LogSanitizer.log("OfflineFirstExpenseRepo", "saveExpense remote FAILED for ${expense.id}: ${e.message}")
             e.printStackTrace()
-            pendingQueue.enqueue(
-                id = "expense_${expense.id}_${currentTimeMillis()}",
-                entityType = "expense",
-                entityId = expense.id,
-                operation = "save",
-                payload = ""
-            )
+            if (!isPermissionDenied(e)) {
+                pendingQueue.enqueue(
+                    id = "expense_${expense.id}_${currentTimeMillis()}",
+                    entityType = "expense",
+                    entityId = expense.id,
+                    operation = "save",
+                    payload = ""
+                )
+            } else {
+                LogSanitizer.log("OfflineFirstExpenseRepo", "saveExpense permission denied for ${expense.id} — dropping from queue")
+            }
         }
     }
 
@@ -212,13 +218,17 @@ class OfflineFirstExpenseRepository(
         } catch (e: Exception) {
             LogSanitizer.log("OfflineFirstExpenseRepo", "deleteExpense remote FAILED for $expenseId: ${e.message}")
             e.printStackTrace()
-            pendingQueue.enqueue(
-                id = "expense_${expenseId}_${currentTimeMillis()}",
-                entityType = "expense",
-                entityId = expenseId,
-                operation = "delete",
-                payload = ""
-            )
+            if (!isPermissionDenied(e)) {
+                pendingQueue.enqueue(
+                    id = "expense_${expenseId}_${currentTimeMillis()}",
+                    entityType = "expense",
+                    entityId = expenseId,
+                    operation = "delete",
+                    payload = ""
+                )
+            } else {
+                LogSanitizer.log("OfflineFirstExpenseRepo", "deleteExpense permission denied for $expenseId — dropping from queue")
+            }
         }
     }
 
@@ -285,6 +295,20 @@ class OfflineFirstExpenseRepository(
         exchangeRate = null,
         itemCurrency = null,
         createdAtMillis = dateMillis,
-        createdByProfileId = ""
+        createdByProfileId = createdByProfileId
     )
+
+    /**
+     * Detects Firestore permission-denied errors to avoid retrying them forever.
+     * Checks both the exception type name and message for common permission indicators.
+     */
+    private fun isPermissionDenied(e: Exception): Boolean {
+        val typeName = e::class.simpleName ?: ""
+        val message = e.message?.lowercase() ?: ""
+        return typeName.contains("permission", ignoreCase = true) ||
+            typeName.contains("security", ignoreCase = true) ||
+            message.contains("permission") ||
+            message.contains("insufficient") ||
+            message.contains("unauthorized")
+    }
 }

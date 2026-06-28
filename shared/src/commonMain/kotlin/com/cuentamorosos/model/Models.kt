@@ -44,7 +44,7 @@ enum class EventRole {
  */
 data class EventParticipant(
     val profileId: String,
-    val role: EventRole = EventRole.CONTRIBUTOR,
+    val role: EventRole = EventRole.READER,
     val joinedAtMillis: Long = 0L,
 )
 

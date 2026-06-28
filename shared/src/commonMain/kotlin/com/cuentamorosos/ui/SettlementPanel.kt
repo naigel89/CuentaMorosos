@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.displayNameFor
@@ -277,6 +278,8 @@ fun SettlementPanel(
                         val totalOwed = profileDebts.filter { !it.paid }.sumOf { it.amountEuros }
                         val checkState = computeProfileCheckState(profileDebts)
                         val showCheckbox = computeShouldShowCheckbox(profileDebts, eventState)
+                        val participantRole = _event.participants.firstOrNull { it.profileId == profile.id }?.role
+                            ?: if (profile.id == _event.ownerId) EventRole.OWNER else EventRole.READER
 
                         Row(
                             modifier = Modifier
@@ -336,6 +339,10 @@ fun SettlementPanel(
                                                 )
                                             }
                                         }
+                                        RoleBadge(
+                                            role = participantRole,
+                                            themeColors = themeColors,
+                                        )
                                     }
                                     if (totalOwed > 0.0) {
                                         Text(
@@ -360,7 +367,7 @@ fun SettlementPanel(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                if (onRemoveMember != null && profile.id != currentUserUid) {
+                                if (onRemoveMember != null && profile.id != currentUserUid && canManageParticipants) {
                                     IconButton(
                                         onClick = { onRemoveMember(profile.id) },
                                         modifier = Modifier.size(32.dp),
@@ -438,5 +445,44 @@ fun SettlementPanel(
                 Text("Invitar")
             }
         }
+    }
+}
+
+// ── RoleBadge ──────────────────────────────────────────────────────────────────
+
+/**
+ * Small colored pill showing the participant's role in the event.
+ */
+@Composable
+private fun RoleBadge(
+    role: EventRole,
+    themeColors: androidx.compose.material3.ColorScheme,
+) {
+    val (label, containerColor) = when (role) {
+        EventRole.OWNER -> Pair(
+            "Dueño",
+            themeColors.primary,
+        )
+        EventRole.CONTRIBUTOR -> Pair(
+            "Colaborador",
+            themeColors.secondary,
+        )
+        EventRole.READER -> Pair(
+            "Lector",
+            themeColors.tertiary,
+        )
+    }
+
+    Surface(
+        color = containerColor.copy(alpha = 0.15f),
+        shape = NeoFintechShapes.full,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = containerColor,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+        )
     }
 }

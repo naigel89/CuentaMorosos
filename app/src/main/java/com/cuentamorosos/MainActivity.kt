@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import com.cuentamorosos.SystemBackHandler
+import com.cuentamorosos.auth.SignInResult
+import com.cuentamorosos.auth.SignInWithRetry
 import com.cuentamorosos.data.CuentaMorososLocalStore
 import com.cuentamorosos.data.FirebaseUserSyncManager
 import com.cuentamorosos.data.NetworkMonitorFactory
@@ -60,6 +63,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 import com.cuentamorosos.data.LogSanitizer
 
 class MainActivity : ComponentActivity() {
@@ -413,6 +418,8 @@ private fun AuthFlow(
     auth: FirebaseAuth,
     onAuthSuccess: (com.google.firebase.auth.FirebaseUser) -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
+
     var showLogin by remember { mutableStateOf(true) }
     var showRegister by remember { mutableStateOf(false) }
     var showForgotPassword by remember { mutableStateOf(false) }
@@ -448,14 +455,15 @@ private fun AuthFlow(
                 showForgotPassword = true
             },
             onLogin = { email, password, onResult ->
-                auth.signInWithEmailAndPassword(email, password)
-                    .addOnSuccessListener { result ->
-                        result.user?.let { onResult(null) }
-                            ?: onResult("No se pudo iniciar sesión")
+                coroutineScope.launch {
+                    val result = SignInWithRetry(email, password) { e, p ->
+                        auth.signInWithEmailAndPassword(e, p).awaitAuthResult().map { }
                     }
-                    .addOnFailureListener { e ->
-                        onResult(e.localizedMessage ?: "Error al iniciar sesión")
+                    when (result) {
+                        is SignInResult.Success -> onResult(null)
+                        is SignInResult.Error -> onResult(result.message)
                     }
+                }
             },
         )
     } else if (showRegister) {
@@ -492,7 +500,7 @@ private fun AuthFlow(
                         }
                     }
                     .addOnFailureListener { e ->
-                        onResult(e.localizedMessage ?: "Error al registrarse")
+                        onResult(com.cuentamorosos.auth.AuthErrorMapper.map(e))
                     }
             }
         )
@@ -514,6 +522,16 @@ private fun AuthFlow(
 }
 
 private const val TAG = "MainActivity"
+
+/**
+ * Awaits a Firebase [com.google.android.gms.tasks.Task] and returns [Result.success]
+ * when it completes normally, or [Result.failure] when it fails.
+ */
+private suspend fun <T> com.google.android.gms.tasks.Task<T>.awaitAuthResult(): Result<T> =
+    suspendCoroutine { cont ->
+        addOnSuccessListener { cont.resume(Result.success(it)) }
+        addOnFailureListener { cont.resume(Result.failure(it)) }
+    }
 
 /**
  * Compresses an image from a content URI to a 256x256 JPEG at 85% quality.

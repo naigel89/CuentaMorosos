@@ -17,6 +17,32 @@ service cloud.firestore {
             && request.auth.uid in eventDoc.data.memberIds);
     }
 
+    // ── Helper: user is event OWNER ────────────────────────────────────
+    function isEventOwner(eventDoc) {
+      return request.auth.uid == eventDoc.data.ownerId;
+    }
+
+    // ── Helper: user is event CONTRIBUTOR ──────────────────────────────
+    // A contributor is a participant who is not the owner,
+    // AND whose uid is in the contributorIds list.
+    // Falls back to allowing non-owner participants for legacy events
+    // that predate the contributorIds field.
+    function isEventContributor(eventDoc) {
+      return isEventParticipant(eventDoc) && !isEventOwner(eventDoc)
+        && (!(eventDoc.data.contributorIds is list)
+            || request.auth.uid in eventDoc.data.contributorIds);
+    }
+
+    // ── Helper: expense was created by the requesting user ─────────────
+    function isExpenseCreator(eventDoc, expenseDoc) {
+      return expenseDoc.data.createdByProfileId == request.auth.uid;
+    }
+
+    // ── Helper: expense was created by the requesting user (create) ────
+    function isCreatingOwnExpense(eventDoc) {
+      return request.resource.data.createdByProfileId == request.auth.uid;
+    }
+
     // ── Users: self-access only ────────────────────────────────────────
     // Protects FCM tokens and private fields from cross-user access.
     match /users/{userId} {
@@ -30,9 +56,18 @@ service cloud.firestore {
       // participant name resolution across shared events).
       allow read: if isAuthenticated();
 
-      // Only the profile owner can write their own profile.
-      allow write: if isAuthenticated()
-        && request.auth.uid == profileId;
+      // Create: allowed when the new document's ownerId matches the
+      // requester. This lets users create additional profiles (with
+      // UUID document IDs) beyond their own identity profile.
+      allow create: if isAuthenticated()
+        && request.resource.data.ownerId == request.auth.uid;
+
+      // Update/Delete: allowed when the requester is either the profile
+      // document ID (own identity profile) or the profile's ownerId
+      // (additional profiles this user created).
+      allow update, delete: if isAuthenticated()
+        && (request.auth.uid == profileId
+            || resource.data.ownerId == request.auth.uid);
 
       // Custom names subcollection: per-viewer custom display names.
       match /customNames/{viewerId} {
@@ -62,17 +97,36 @@ service cloud.firestore {
 
       // ── Expenses subcollection ────────────────────────────────────
       match /expenses/{expenseId} {
-        // Phase 1 baseline: authenticated users with event access.
-        // Full PermissionEngine mirroring (CONTRIBUTOR write scoping,
-        // expense ownership checks) deferred per design.
+        // Read: any event participant can read expenses.
         allow read: if isAuthenticated()
           && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
 
+        // Create: OWNER creates any expense; CONTRIBUTOR creates own expense.
+        // VIEWER (READER) cannot create expenses at all.
+        // The createdByProfileId must match the requester's uid for non-OWNER.
         allow create: if isAuthenticated()
-          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)))
+          && (isEventOwner(get(/databases/$(database)/documents/events/$(eventId)))
+              || (isEventContributor(get(/databases/$(database)/documents/events/$(eventId)))
+                  && isCreatingOwnExpense(get(/databases/$(database)/documents/events/$(eventId)))));
 
-        allow update, delete: if isAuthenticated()
-          && resource.data.createdByProfileId == request.auth.uid;
+        // Update: OWNER updates any expense; CONTRIBUTOR updates own expense.
+        allow update: if isAuthenticated()
+          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)))
+          && (isEventOwner(get(/databases/$(database)/documents/events/$(eventId)))
+              || (isEventContributor(get(/databases/$(database)/documents/events/$(eventId)))
+                  && isExpenseCreator(
+                       get(/databases/$(database)/documents/events/$(eventId)),
+                       resource)));
+
+        // Delete: OWNER deletes any expense; CONTRIBUTOR deletes own expense.
+        allow delete: if isAuthenticated()
+          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)))
+          && (isEventOwner(get(/databases/$(database)/documents/events/$(eventId)))
+              || (isEventContributor(get(/databases/$(database)/documents/events/$(eventId)))
+                  && isExpenseCreator(
+                       get(/databases/$(database)/documents/events/$(eventId)),
+                       resource)));
 
         // Audit subcollection: append-only expense mutation records.
         match /audit/{auditId} {
@@ -86,24 +140,23 @@ service cloud.firestore {
 
       // ── Debts subcollection ───────────────────────────────────────
       match /debts/{debtId} {
-        // Phase 1 baseline: authenticated users with event access.
-        // Full role-based write restrictions deferred.
+        // Debts are read by participants, written only by OWNER (via calculation).
         allow read: if isAuthenticated()
           && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
 
         allow write: if isAuthenticated()
-          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+          && isEventOwner(get(/databases/$(database)/documents/events/$(eventId)));
       }
 
       // ── Calculations subcollection ─────────────────────────────────
       match /calculations/{calcId} {
         // Calculation snapshots: read-only for event participants.
-        // Created by server-side calculation (admin SDK) or owner.
+        // Created only by OWNER (server-side calculation or owner trigger).
         allow read: if isAuthenticated()
           && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
 
         allow create: if isAuthenticated()
-          && request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId;
+          && isEventOwner(get(/databases/$(database)/documents/events/$(eventId)));
 
         allow update, delete: if false;
       }
@@ -113,8 +166,9 @@ service cloud.firestore {
         allow read: if isAuthenticated()
           && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
 
+        // Only OWNER can create adjustments.
         allow create: if isAuthenticated()
-          && isEventParticipant(get(/databases/$(database)/documents/events/$(eventId)));
+          && isEventOwner(get(/databases/$(database)/documents/events/$(eventId)));
 
         allow update, delete: if false;
       }

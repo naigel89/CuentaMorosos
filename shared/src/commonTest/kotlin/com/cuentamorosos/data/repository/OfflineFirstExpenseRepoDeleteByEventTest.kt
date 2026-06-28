@@ -146,7 +146,8 @@ class OfflineFirstExpenseRepoDeleteByEventTest {
             payer_contributions = "{}",
             assigned_profile_ids = "[]",
             profile_weights = "{}",
-            split_mode = "SIMPLE_AVG"
+            split_mode = "SIMPLE_AVG",
+            createdByProfileId = ""
         )
 
         assertEquals(1, queries.selectAll().executeAsList().size)

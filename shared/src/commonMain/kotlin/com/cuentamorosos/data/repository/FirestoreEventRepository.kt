@@ -140,7 +140,10 @@ class FirestoreEventRepository : EventRepository {
         val updates = mutableMapOf<String, Any?>(
             "memberIds" to newMemberIds,
             "participants" to newParticipants,
-            "participantIds" to newParticipants.map { it["profileId"] }
+            "participantIds" to newParticipants.map { it["profileId"] },
+            "contributorIds" to newParticipants
+                .filter { it["role"] == "CONTRIBUTOR" }
+                .map { it["profileId"] }
         )
         // If removing the owner, apply onOwnerLeave logic
         val ownerId = doc.get("ownerId") as? String
@@ -181,13 +184,19 @@ class FirestoreEventRepository : EventRepository {
                     // 4. Update participantIds — derived from updated participants
                     val newParticipantIds = newParticipants.map { it["profileId"] }
 
-                    // Batch update all 4 fields atomically
+                    // 5. Update contributorIds — derived from updated participants
+                    val newContributorIds = newParticipants
+                        .filter { it["role"] == "CONTRIBUTOR" }
+                        .map { it["profileId"] }
+
+                    // Batch update all 5 fields atomically
                     val docRef = collection.document(doc.id)
                     update(docRef, mapOf(
                         "memberIds" to newMemberIds,
                         "ownerId" to newOwnerId,
                         "participants" to newParticipants,
-                        "participantIds" to newParticipantIds
+                        "participantIds" to newParticipantIds,
+                        "contributorIds" to newContributorIds
                     ))
                 }
                 commit()
@@ -221,6 +230,9 @@ class FirestoreEventRepository : EventRepository {
             )
         },
         "participantIds" to participants.map { it.profileId },
+        "contributorIds" to participants
+            .filter { it.role == com.cuentamorosos.model.EventRole.CONTRIBUTOR }
+            .map { it.profileId },
         "baseCurrency" to baseCurrency,
         "creatorId" to creatorId,
         "startDateMillis" to startDateMillis,

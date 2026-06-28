@@ -36,6 +36,12 @@ class EventsViewModel(
     private val _permissionError = MutableStateFlow<String?>(null)
     val permissionError: StateFlow<String?> = _permissionError.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _errorMessage = MutableSharedFlow<String>()
+    val errorMessage: SharedFlow<String> = _errorMessage.asSharedFlow()
+
     init {
         observeEvents()
     }

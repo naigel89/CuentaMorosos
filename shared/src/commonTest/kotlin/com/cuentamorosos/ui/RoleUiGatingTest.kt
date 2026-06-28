@@ -70,8 +70,9 @@ class RoleUiGatingTest {
         assertTrue(canDo(EventAction.CreateExpense), "CONTRIBUTOR should create expenses")
         assertTrue(canDo(EventAction.EditExpense("bob")), "CONTRIBUTOR should edit own expenses")
         assertFalse(canDo(EventAction.EditExpense("charlie")), "CONTRIBUTOR should NOT edit others' expenses")
-        assertFalse(canDo(EventAction.DeleteExpense("bob")), "CONTRIBUTOR should NOT delete expenses")
-        assertTrue(canDo(EventAction.ManageParticipants), "CONTRIBUTOR should manage participants")
+        assertTrue(canDo(EventAction.DeleteExpense("bob")), "CONTRIBUTOR should delete own expenses")
+        assertFalse(canDo(EventAction.DeleteExpense("charlie")), "CONTRIBUTOR should NOT delete others' expenses")
+        assertFalse(canDo(EventAction.ManageParticipants), "CONTRIBUTOR should NOT manage participants")
         assertFalse(canDo(EventAction.Calculate), "CONTRIBUTOR should NOT calculate")
         assertFalse(canDo(EventAction.Close), "CONTRIBUTOR should NOT close event")
         assertFalse(canDo(EventAction.DeleteEvent), "CONTRIBUTOR should NOT delete event")
@@ -141,7 +142,7 @@ class RoleUiGatingTest {
     }
 
     @Test
-    fun `Expense delete — only OWNER can delete`() {
+    fun `Expense delete — OWNER can delete any, CONTRIBUTOR only own, READER none`() {
         val event = testEvent(
             ownerId = "alice",
             participants = listOf(
@@ -150,15 +151,22 @@ class RoleUiGatingTest {
             ),
         )
 
+        // OWNER can delete any expense
         assertTrue(buildCanDo("alice", event)(EventAction.DeleteExpense("bob")))
-        assertFalse(buildCanDo("bob", event)(EventAction.DeleteExpense("bob")))
+        assertTrue(buildCanDo("alice", event)(EventAction.DeleteExpense("charlie")))
+
+        // CONTRIBUTOR can only delete own
+        assertTrue(buildCanDo("bob", event)(EventAction.DeleteExpense("bob")))
+        assertFalse(buildCanDo("bob", event)(EventAction.DeleteExpense("alice")))
+
+        // READER cannot delete any
         assertFalse(buildCanDo("charlie", event)(EventAction.DeleteExpense("bob")))
     }
 
     // ── E4-5/E4-6: SettlementPanel role gating ───────────────────────────────
 
     @Test
-    fun `SettlementPanel buttons — OWNER and CONTRIBUTOR can manage participants, only OWNER can calculate and invite`() {
+    fun `SettlementPanel buttons — only OWNER can manage participants, calculate and invite`() {
         val event = testEvent(
             ownerId = "alice",
             participants = listOf(
@@ -172,9 +180,9 @@ class RoleUiGatingTest {
         assertFalse(buildCanDo("bob", event)(EventAction.Calculate))
         assertFalse(buildCanDo("charlie", event)(EventAction.Calculate))
 
-        // ManageParticipants / Invite
+        // ManageParticipants / Invite — OWNER only
         assertTrue(buildCanDo("alice", event)(EventAction.ManageParticipants))
-        assertTrue(buildCanDo("bob", event)(EventAction.ManageParticipants))
+        assertFalse(buildCanDo("bob", event)(EventAction.ManageParticipants))
         assertFalse(buildCanDo("charlie", event)(EventAction.ManageParticipants))
     }
 

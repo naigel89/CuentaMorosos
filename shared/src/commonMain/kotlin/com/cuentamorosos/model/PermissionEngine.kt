@@ -5,11 +5,13 @@ package com.cuentamorosos.model
  */
 sealed class EventAction {
     object CreateExpense : EventAction()
-    data class EditExpense(val expenseOwnerId: String) : EventAction()
-    data class DeleteExpense(val expenseOwnerId: String) : EventAction()
+    data class EditExpense(val createdByProfileId: String) : EventAction()
+    data class DeleteExpense(val createdByProfileId: String) : EventAction()
     object ManageParticipants : EventAction()
     object AssignRoles : EventAction()
     object Calculate : EventAction()
+    object RunCalculation : EventAction()
+    object SettleDebts : EventAction()
     object Close : EventAction()
     object DeleteEvent : EventAction()
     object Reopen : EventAction()
@@ -41,11 +43,14 @@ object PermissionEngine {
     fun hasPermission(role: EventRole, action: EventAction): Boolean = when (action) {
         EventAction.CreateExpense -> role != EventRole.READER
         is EventAction.EditExpense -> role == EventRole.OWNER ||
-            (role == EventRole.CONTRIBUTOR && action.expenseOwnerId.isNotBlank())
-        is EventAction.DeleteExpense -> role == EventRole.OWNER
-        EventAction.ManageParticipants -> role == EventRole.OWNER || role == EventRole.CONTRIBUTOR
+            (role == EventRole.CONTRIBUTOR && action.createdByProfileId.isNotBlank())
+        is EventAction.DeleteExpense -> role == EventRole.OWNER ||
+            (role == EventRole.CONTRIBUTOR && action.createdByProfileId.isNotBlank())
+        EventAction.ManageParticipants -> role == EventRole.OWNER
         EventAction.AssignRoles,
         EventAction.Calculate,
+        EventAction.RunCalculation,
+        EventAction.SettleDebts,
         EventAction.Close,
         EventAction.DeleteEvent,
         EventAction.Reopen -> role == EventRole.OWNER
@@ -61,11 +66,14 @@ object PermissionEngine {
         return when (action) {
             EventAction.CreateExpense -> role != EventRole.READER
             is EventAction.EditExpense -> role == EventRole.OWNER ||
-                (role == EventRole.CONTRIBUTOR && action.expenseOwnerId == profileId)
-            is EventAction.DeleteExpense -> role == EventRole.OWNER
-            EventAction.ManageParticipants -> role == EventRole.OWNER || role == EventRole.CONTRIBUTOR
+                (role == EventRole.CONTRIBUTOR && action.createdByProfileId == profileId && action.createdByProfileId.isNotBlank())
+            is EventAction.DeleteExpense -> role == EventRole.OWNER ||
+                (role == EventRole.CONTRIBUTOR && action.createdByProfileId == profileId && action.createdByProfileId.isNotBlank())
+            EventAction.ManageParticipants -> role == EventRole.OWNER
             EventAction.AssignRoles,
             EventAction.Calculate,
+            EventAction.RunCalculation,
+            EventAction.SettleDebts,
             EventAction.Close,
             EventAction.DeleteEvent,
             EventAction.Reopen -> role == EventRole.OWNER

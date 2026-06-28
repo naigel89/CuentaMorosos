@@ -19,18 +19,17 @@ A `firestore.rules` file MUST exist in the repository root and be deployable via
 - **THEN** rules are deployed to the Firestore project
 - **AND** the rules content is visible in the Firebase Console
 
-### R002: Unauthenticated Access Denied
+### R002: Unauthenticated Writes Are Denied
 
-Firestore rules MUST deny all reads and writes when `request.auth == null`. No collection or document may be world-readable or world-writable.
+The system MUST deny any write to events, expenses, or participants from an unauthenticated request. No collection or document may be world-writable.
 
-**Acceptance Criteria**: Direct REST API call to Firestore without auth token returns `PERMISSION_DENIED`.
+**Acceptance Criteria**: Direct REST API write call to Firestore without auth token returns `PERMISSION_DENIED`.
 
-#### Scenario: Anonymous access to events is denied
+#### Scenario: Anonymous user attempts to create an expense
 
-- **GIVEN** an unauthenticated client (no Firebase Auth token)
-- **WHEN** it attempts to read `/events/{eventId}`
-- **THEN** Firestore returns `PERMISSION_DENIED`
-- **AND** no data is returned
+- **GIVEN** the request is not authenticated
+- **WHEN** it attempts to create an expense
+- **THEN** Firestore rules MUST reject the write
 
 ### R003: User Document Self-Access Only
 
@@ -50,9 +49,9 @@ Authenticated users MUST only read/write their own document at `/users/{uid}` wh
 - **WHEN** they attempt to read `/users/xyz789`
 - **THEN** Firestore returns `PERMISSION_DENIED`
 
-### R004: Event Access Restricted to Participants
+### R004: Event Read Access Restricted to Participants
 
-Event documents MUST only be readable by authenticated users who are listed as participants in the event's `participants` map. Writes MUST be restricted by participant role (OWNER can write, CONTRIBUTOR can add expenses, READER can only read).
+Event documents MUST only be readable by authenticated users who are listed as participants in the event's `participants` map.
 
 **Acceptance Criteria**: User not in event's `participants` map cannot read event data.
 
@@ -68,7 +67,85 @@ Event documents MUST only be readable by authenticated users who are listed as p
 - **WHEN** they attempt to read `/events/eventX`
 - **THEN** Firestore returns `PERMISSION_DENIED`
 
-### R005: Email Verification Enforced
+### R005: OWNER Has Full Write Access
+
+The system MUST allow an event OWNER to create, update, and delete both the event document and its expense sub-documents.
+
+**Acceptance Criteria**: OWNER can write any event or expense document in their event.
+
+#### Scenario: OWNER updates event metadata
+
+- **GIVEN** the authenticated user is the event OWNER
+- **WHEN** they update the event title or date
+- **THEN** Firestore rules MUST allow the write
+
+#### Scenario: OWNER deletes an event
+
+- **GIVEN** the authenticated user is the event OWNER
+- **WHEN** they delete the event
+- **THEN** Firestore rules MUST allow the deletion
+
+### R006: CONTRIBUTOR Has Limited Write Access
+
+The system MUST allow a CONTRIBUTOR to create expenses and update expenses they created. A CONTRIBUTOR MUST NOT add, edit, or delete participants.
+
+**Acceptance Criteria**: CONTRIBUTOR can create and manage their own expenses but cannot mutate participants or run final settlement.
+
+#### Scenario: CONTRIBUTOR creates an expense
+
+- **GIVEN** the authenticated user is a CONTRIBUTOR on the event
+- **WHEN** they create a new expense with their profile id as `createdByProfileId`
+- **THEN** Firestore rules MUST allow the create
+
+#### Scenario: CONTRIBUTOR updates their own expense
+
+- **GIVEN** the authenticated user is a CONTRIBUTOR and the expense's `createdByProfileId` matches their profile id
+- **WHEN** they update the expense
+- **THEN** Firestore rules MUST allow the update
+
+#### Scenario: CONTRIBUTOR deletes their own expense
+
+- **GIVEN** the authenticated user is a CONTRIBUTOR and the expense's `createdByProfileId` matches their profile id
+- **WHEN** they delete the expense
+- **THEN** Firestore rules MUST allow the delete
+
+#### Scenario: CONTRIBUTOR attempts to delete another user's expense
+
+- **GIVEN** the authenticated user is a CONTRIBUTOR and the expense's `createdByProfileId` does NOT match their profile id
+- **WHEN** they attempt to delete the expense
+- **THEN** Firestore rules MUST reject the write
+
+#### Scenario: CONTRIBUTOR attempts to delete a participant
+
+- **GIVEN** the authenticated user is a CONTRIBUTOR
+- **WHEN** they attempt to delete a participant document
+- **THEN** Firestore rules MUST reject the write
+
+#### Scenario: CONTRIBUTOR attempts to run final calculation
+
+- **GIVEN** the authenticated user is a CONTRIBUTOR
+- **WHEN** they attempt to write a calculation/settlement result
+- **THEN** Firestore rules MUST reject the write
+
+### R007: VIEWER Is Read-Only
+
+The system MUST deny all write operations on events, expenses, and participants to VIEWERs.
+
+**Acceptance Criteria**: VIEWER cannot create, update, or delete any document in an event.
+
+#### Scenario: VIEWER attempts to create an expense
+
+- **GIVEN** the authenticated user is a VIEWER on the event
+- **WHEN** they attempt to create an expense
+- **THEN** Firestore rules MUST reject the write
+
+#### Scenario: VIEWER attempts to update event metadata
+
+- **GIVEN** the authenticated user is a VIEWER
+- **WHEN** they attempt to update the event
+- **THEN** Firestore rules MUST reject the write
+
+### R008: Email Verification Enforced
 
 After Firebase Auth registration, the app MUST check `user.isEmailVerified`. If `false`, the app MUST present a verification screen and block access to main content.
 

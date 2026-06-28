@@ -204,6 +204,7 @@ fun EventDetailScreen(
                                     name = "",
                                     amountEuros = 0.0,
                                     paidByProfileId = currentUid,
+                                    createdByProfileId = currentUid,
                                 )
                             },
                             onEditExpense = { editableExpense = it },
@@ -267,16 +268,17 @@ fun EventDetailScreen(
                         currentRole = currentRole,
                         canDo = canDo,
                         onAddExpense = {
-                            editableExpense = EventExpenseItem(
-                                eventId = event.id,
-                                name = "",
-                                amountEuros = 0.0,
-                                paidByProfileId = currentUid,
-                            )
-                        },
-                        onEditExpense = { editableExpense = it },
-                        onRemoveExpense = onRemoveExpense,
-                    )
+                                editableExpense = EventExpenseItem(
+                                    eventId = event.id,
+                                    name = "",
+                                    amountEuros = 0.0,
+                                    paidByProfileId = currentUid,
+                                    createdByProfileId = currentUid,
+                                )
+                            },
+                            onEditExpense = { editableExpense = it },
+                            onRemoveExpense = onRemoveExpense,
+                        )
 
                     SettlementPanel(
                         _event = event,
@@ -627,8 +629,8 @@ private fun ExpensesList(
                     onTap = { onEditExpense(expense) },
                     onEdit = { onEditExpense(expense) },
                     onDelete = { onRemoveExpense(expense.id) },
-                    enabledEdit = canDo(EventAction.EditExpense(expense.paidByProfileId)),
-                    enabledDelete = canDo(EventAction.DeleteExpense(expense.paidByProfileId)),
+                    enabledEdit = canDo(EventAction.EditExpense(expense.createdByProfileId)),
+                    enabledDelete = canDo(EventAction.DeleteExpense(expense.createdByProfileId)),
                 )
             }
         }

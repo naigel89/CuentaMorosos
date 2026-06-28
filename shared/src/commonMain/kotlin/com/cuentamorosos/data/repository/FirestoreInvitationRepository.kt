@@ -97,6 +97,9 @@ class FirestoreInvitationRepository(
                         "memberIds" to (current + uid),
                         "participants" to newParticipants,
                         "participantIds" to newParticipants.map { it["profileId"] },
+                        "contributorIds" to newParticipants
+                            .filter { it["role"] == "CONTRIBUTOR" }
+                            .map { it["profileId"] },
                     )
             }
 
@@ -255,7 +258,7 @@ internal fun createAcceptanceParticipant(uid: String): Map<String, Any?> = mapOf
 
 /**
  * Returns `true` if a user with the given [role] can send invitations.
- * OWNER and CONTRIBUTOR may manage participants; READER may not.
+ * Only OWNER may manage participants; CONTRIBUTOR and READER may not.
  */
 internal fun canSendInvitation(role: EventRole): Boolean =
     PermissionEngine.hasPermission(role, EventAction.ManageParticipants)

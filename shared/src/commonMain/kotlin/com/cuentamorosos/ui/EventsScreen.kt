@@ -600,7 +600,7 @@ private fun EventEditorDialog(
                             .find { it.profileId == profileId }?.role
                         EventParticipant(
                             profileId = profileId,
-                            role = if (profileId == ownerId) EventRole.OWNER else (existingRole ?: EventRole.CONTRIBUTOR),
+                            role = if (profileId == ownerId) EventRole.OWNER else (existingRole ?: EventRole.READER),
                             joinedAtMillis = initialEvent.participants
                                 .find { it.profileId == profileId }?.joinedAtMillis ?: if (isNew) currentTimeMillis() else 0L,
                         )

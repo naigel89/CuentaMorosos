@@ -207,8 +207,8 @@ class InvitationSerializationTest {
     }
 
     @Test
-    fun `sendInvitation guard — CONTRIBUTOR can manage participants`() {
-        assertTrue(com.cuentamorosos.data.repository.canSendInvitation(EventRole.CONTRIBUTOR))
+    fun `sendInvitation guard — CONTRIBUTOR cannot manage participants`() {
+        assertFalse(com.cuentamorosos.data.repository.canSendInvitation(EventRole.CONTRIBUTOR))
     }
 
     @Test

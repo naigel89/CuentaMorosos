@@ -1,21 +1,31 @@
 package com.cuentamorosos.ui.auth
 
+import androidx.compose.animation.AnimatedVisibility
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -45,22 +55,28 @@ import androidx.compose.ui.unit.dp
 import com.cuentamorosos.isValidEmail
 import com.cuentamorosos.ui.LocalAnimationsEnabled
 import com.cuentamorosos.ui.NeoFintechColors
-import com.cuentamorosos.ui.slideUp
 
 /**
- * Animated splash + login screen in one.
+ * Splash + login screen.
  *
- * The logo starts centered (fade-in), then slides to the top.
- * The title "CuentaMorosos" slides in below the logo.
- * The REAL login form (email, password, button) staggers in.
- * After the animation (~3s), the form is fully interactive.
+ * Layout de tres zonas:
+ *  - Branding (logo + título + subtítulo): wrap content. Se oculta con
+ *    fade cuando el teclado está visible.
+ *  - Spacer con weight(1f): SIEMPRE presente, empuja el formulario
+ *    hacia abajo sin importar si el branding está visible u oculto.
+ *  - Formulario: siempre visible, anclado a la parte inferior.
  *
- * No transition — this IS the login screen.
+ * La animación del logo usa graphicsLayer.translationY (no modifica
+ * el layout) para moverlo desde el centro visual de la pantalla hasta
+ * su posición final, mientras encoge su escala. No hay salto brusco
+ * al abrir/cerrar el teclado porque el Spacer con weight NO está
+ * dentro del AnimatedVisibility.
  */
 @Composable
 fun SplashAuthScreen(
     logo: @Composable (modifier: Modifier) -> Unit,
     modifier: Modifier = Modifier,
+    isLoading: Boolean = false,
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
     onNavigateToForgotPassword: () -> Unit,
@@ -71,39 +87,19 @@ fun SplashAuthScreen(
     val colors = remember(isDark) { if (isDark) NeoFintechColors.dark() else NeoFintechColors.light() }
     val density = LocalDensity.current
 
-    // ═══════════════════════════════════════════════════════════════
-    //  CONTROLES DE POSICIÓN DEL LOGO — ajustalos a tu gusto
-    // ═══════════════════════════════════════════════════════════════
-    // logoSizeDp          → tamaño INICIAL del logo (ancho y alto)
-    // logoEndSizeDp       → tamaño FINAL del logo (se escala durante la subida)
-    // logoStartFromTopDp  → distancia desde el borde SUPERIOR donde ARRANCA
-    // logoEndFromTopDp    → distancia desde el borde SUPERIOR donde TERMINA
-    //                       (debe ser MENOR que start — el logo sube)
-    // ═══════════════════════════════════════════════════════════════
-    val logoSizeDp = 280.dp
-    val logoEndSizeDp = 148.dp
-    val logoStartFromTopDp = 300.dp
-    val logoEndFromTopDp = 40.dp
-
-    // Distancia total que se mueve (negativo = hacia arriba)
-    val slideAmountPx = remember {
-        with(density) { (logoEndFromTopDp - logoStartFromTopDp).toPx() }
-    }
-
-    // Factor de escala: el layout usa logoEndSizeDp, la escala arranca grande para
-    // que el logo se vea de logoSizeDp y termina en 1f (coincidiendo con el layout)
-    val logoScaleFactor = remember { logoSizeDp / logoEndSizeDp }
-
-    // ── Logo animation state ──
+    // ─── Animatables ────────────────────────────────────────────────────────
     val logoAlpha = remember { Animatable(if (animationsEnabled) 0f else 1f) }
-    val logoOffsetY = remember { Animatable(0f) }
-    val logoScale = remember { Animatable(if (animationsEnabled) logoScaleFactor else 1f) }
+    val logoScale = remember { Animatable(if (animationsEnabled) 2f else 1f) }
+    val logoTranslateY = remember { Animatable(if (animationsEnabled) Float.NaN else 0f) }
+    val titleAlpha = remember { Animatable(if (animationsEnabled) 0f else 1f) }
+    val formAlpha = remember { Animatable(if (animationsEnabled) 0f else 1f) }
 
-    // ── Login form state ──
+    // ─── Form state ─────────────────────────────────────────────────────────
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
+    var localLoading by remember { mutableStateOf(false) }
+    val showLoading = isLoading || localLoading
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val emailError = if (email.isNotBlank() && !isValidEmail(email))
@@ -111,189 +107,236 @@ fun SplashAuthScreen(
     val passwordError = if (password.isNotBlank() && password.length < 8)
         "Mínimo 8 caracteres" else null
     val canSubmit = email.isNotBlank() && password.isNotBlank() &&
-            emailError == null && passwordError == null && !isLoading
+            emailError == null && passwordError == null && !localLoading
 
-    // ── Animation orchestration ──
-    LaunchedEffect(Unit) {
-        if (!animationsEnabled) return@LaunchedEffect
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    val isKeyboardVisible = imeBottom > 0
 
-        // Phase 1: Logo fade-in (0ms)
-        logoAlpha.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 400),
-        )
-
-        // Phase 2: Logo slide-up (800ms)
-        kotlinx.coroutines.delay(400)
-        logoOffsetY.animateTo(
-            targetValue = slideAmountPx,
-            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-        )
-
-        // Phase 2b: Logo scale-down to match layout size
-        logoScale.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
-        )
-
-        // Phases 3-4 handled by slideUp modifiers on title + form elements
-        // No onAnimationComplete needed — the form IS the destination
-        kotlinx.coroutines.delay(1600)
-    }
-
-    Column(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(color = colors.background)
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top,
+            .background(colors.background)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding(),
     ) {
-        // ── Spacer que controla dónde arranca el logo ──
-        Spacer(Modifier.height(logoStartFromTopDp))
+        val logoEndSizeDp = 96.dp
+        val logoSizePx = with(density) { logoEndSizeDp.toPx() }
+        // Posición central (visual) del logo en el viewport
+        val centerOffsetPx = with(density) { (maxHeight.toPx() - logoSizePx) / 2f }
 
-        // ── Logo ──
-        Box(
-            modifier = Modifier
-                .offset(y = with(density) { logoOffsetY.value.toDp() })
-                .graphicsLayer(
-                    alpha = logoAlpha.value,
-                    scaleX = logoScale.value,
-                    scaleY = logoScale.value,
-                ),
-        ) {
-            logo(Modifier.size(logoEndSizeDp))
-        }
+        LaunchedEffect(Unit) {
+            // Inicializar estado inicial UNA vez
+            if (logoTranslateY.value.isNaN()) {
+                logoTranslateY.snapTo(centerOffsetPx)
+            }
+            if (logoAlpha.value == 0f && !animationsEnabled) {
+                logoAlpha.snapTo(1f)
+                logoScale.snapTo(1f)
+                titleAlpha.snapTo(1f)
+                formAlpha.snapTo(1f)
+            }
 
-        // ── Contenido que sigue al logo en su subida ──
-        Column(
-            modifier = Modifier.offset(y = with(density) { logoOffsetY.value.toDp() }),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            // ── Title ──
-            Text(
-                text = "CuentaMorosos",
-                style = MaterialTheme.typography.headlineLarge,
-                color = colors.primaryContainer,
-                modifier = Modifier.slideUp(delayMs = 1400, durationMs = 400),
-            )
+            if (!animationsEnabled) return@LaunchedEffect
 
-            Spacer(Modifier.height(8.dp))
+            // 1. Logo fade-in
+            logoAlpha.animateTo(1f, tween(400))
 
-            // ── Subtitle ──
-            Text(
-                text = "Inicia sesión para continuar",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.onSurfaceVariant,
-                modifier = Modifier.slideUp(delayMs = 1800),
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            // ── Email field (REAL, interactive) ──
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it.trim(); errorMessage = null },
-                label = { Text("Email") },
-                singleLine = true,
-                isError = emailError != null,
-                supportingText = emailError?.let { { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .slideUp(delayMs = 1900),
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            // ── Password field (REAL, interactive) ──
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it; errorMessage = null },
-                label = { Text("Contraseña") },
-                singleLine = true,
-                isError = passwordError != null,
-                supportingText = passwordError?.let { { Text(it) } },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña",
-                        )
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .slideUp(delayMs = 2000),
-            )
-
-            // ── Error message ──
-            if (errorMessage != null) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = errorMessage!!,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.slideUp(delayMs = 2100),
+            // 2. Logo sube y encoge: centro → posición final
+            launch {
+                logoScale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(650, easing = FastOutSlowInEasing),
                 )
             }
+            logoTranslateY.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(800, easing = FastOutSlowInEasing),
+            )
 
-            Spacer(Modifier.height(12.dp))
+            // 3. Título + subtítulo aparecen
+            titleAlpha.animateTo(1f, tween(350))
 
-            // ── Login button (REAL, interactive) ──
-            Button(
-                onClick = {
-                    isLoading = true
-                    errorMessage = null
-                    onLogin(email, password) { error ->
-                        isLoading = false
-                        if (error == null) {
-                            password = ""
-                            onLoginSuccess()
-                        }
-                        else errorMessage = error
+            // 4. Formulario aparece
+            formAlpha.animateTo(1f, tween(350))
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // ═══════════════════════════════════════════════════════════════
+            //  ZONA BRANDING — wrap content.
+            //  El logo se mueve visualmente con translationY sin afectar el
+            //  layout. Se oculta con fade cuando el teclado está visible.
+            // ═══════════════════════════════════════════════════════════════
+            AnimatedVisibility(
+                visible = !isKeyboardVisible,
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(150)),
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    // Logo: graphicsLayer con translationY (no desplaza el layout)
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer {
+                                alpha = logoAlpha.value
+                                scaleX = logoScale.value
+                                scaleY = logoScale.value
+                                translationY = logoTranslateY.value
+                            },
+                    ) {
+                        logo(Modifier.size(logoEndSizeDp))
                     }
-                },
-                enabled = canSubmit,
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Text(
+                        text = "CuentaMorosos",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = colors.primaryContainer,
+                        modifier = Modifier.graphicsLayer(alpha = titleAlpha.value),
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Text(
+                        text = "Inicia sesión para continuar",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                        modifier = Modifier.graphicsLayer(alpha = titleAlpha.value),
+                    )
+                }
+            }
+
+            // ══════════════════════════════════════════════════════════════
+            //  SPACER FIJO — separación controlada entre branding y form.
+            //  Al no usar weight, el formulario queda cerca del branding
+            //  cuando el teclado está cerrado. Cuando el teclado se abre,
+            //  el imePadding() del Box raíz empuja todo el Column hacia
+            //  arriba, dejando el formulario justo encima del teclado.
+            // ═══════════════════════════════════════════════════════════════
+            Spacer(Modifier.height(32.dp))
+
+            // ═══════════════════════════════════════════════════════════════
+            //  FORMULARIO — siempre visible, anclado abajo.
+            // ═══════════════════════════════════════════════════════════════
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .slideUp(delayMs = 2100),
+                    .graphicsLayer(alpha = formAlpha.value),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it.trim(); errorMessage = null },
+                    label = { Text("Email") },
+                    singleLine = true,
+                    isError = emailError != null,
+                    supportingText = emailError?.let { { Text(it) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it; errorMessage = null },
+                    label = { Text("Contraseña") },
+                    singleLine = true,
+                    isError = passwordError != null,
+                    supportingText = passwordError?.let { { Text(it) } },
+                    visualTransformation = if (passwordVisible)
+                        VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible)
+                                    Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (passwordVisible)
+                                    "Ocultar contraseña" else "Mostrar contraseña",
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                if (errorMessage != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = errorMessage!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                } else {
-                    Text("Iniciar sesión")
                 }
-            }
 
-            Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(12.dp))
 
-            // ── Forgot password link ──
-            TextButton(
-                onClick = onNavigateToForgotPassword,
-                modifier = Modifier.slideUp(delayMs = 2100),
-            ) {
-                Text("¿Olvidaste tu contraseña?")
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            // ── Register link ──
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.slideUp(delayMs = 2100),
-            ) {
-                Text("¿No tienes cuenta?", style = MaterialTheme.typography.bodyMedium)
-                TextButton(onClick = onNavigateToRegister) {
-                    Text("Regístrate")
+                Button(
+                    onClick = {
+                        localLoading = true
+                        errorMessage = null
+                        onLogin(email, password) { error ->
+                            localLoading = false
+                            if (error == null) {
+                                password = ""
+                                onLoginSuccess()
+                            } else {
+                                errorMessage = error
+                            }
+                        }
+                    },
+                    enabled = canSubmit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
+                ) {
+                    if (showLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Text("Iniciar sesión")
+                    }
                 }
+
+                TextButton(
+                    onClick = onNavigateToForgotPassword,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
+                ) {
+                    Text("¿Olvidaste tu contraseña?")
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "¿No tienes cuenta?",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    TextButton(
+                        onClick = onNavigateToRegister,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text("Regístrate")
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
             }
-        }  // inner Column (slides with logo)
-    }  // outer Column
+        }
+    }
 }

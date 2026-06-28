@@ -178,6 +178,7 @@ class RepositoryProvider(
                             payerContributions = parseJsonDoubleMap(ex.payer_contributions),
                             debtorIds = parseJsonStringArray(ex.debtor_ids),
                             createdAtMillis = ex.dateMillis,
+                            createdByProfileId = ex.createdByProfileId,
                         )
                     }
                 if (local != null) remoteExpenseRepository.saveExpense(local)

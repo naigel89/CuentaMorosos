@@ -103,8 +103,8 @@ class PermissionEngineTest {
     }
 
     @Test
-    fun `CONTRIBUTOR cannot delete expense`() {
-        assertFalse(PermissionEngine.hasPermission(EventRole.CONTRIBUTOR, EventAction.DeleteExpense("self")))
+    fun `CONTRIBUTOR can delete expense (hasPermission checks role only)`() {
+        assertTrue(PermissionEngine.hasPermission(EventRole.CONTRIBUTOR, EventAction.DeleteExpense("self")))
     }
 
     @Test
@@ -118,8 +118,8 @@ class PermissionEngineTest {
     }
 
     @Test
-    fun `CONTRIBUTOR can manage participants`() {
-        assertTrue(PermissionEngine.hasPermission(EventRole.CONTRIBUTOR, EventAction.ManageParticipants))
+    fun `CONTRIBUTOR cannot manage participants`() {
+        assertFalse(PermissionEngine.hasPermission(EventRole.CONTRIBUTOR, EventAction.ManageParticipants))
     }
 
     @Test
@@ -209,6 +209,36 @@ class PermissionEngineTest {
         assertTrue(PermissionEngine.hasPermission(EventRole.READER, EventAction.LeaveEvent))
     }
 
+    @Test
+    fun `OWNER can run calculation`() {
+        assertTrue(PermissionEngine.hasPermission(EventRole.OWNER, EventAction.RunCalculation))
+    }
+
+    @Test
+    fun `CONTRIBUTOR cannot run calculation`() {
+        assertFalse(PermissionEngine.hasPermission(EventRole.CONTRIBUTOR, EventAction.RunCalculation))
+    }
+
+    @Test
+    fun `READER cannot run calculation`() {
+        assertFalse(PermissionEngine.hasPermission(EventRole.READER, EventAction.RunCalculation))
+    }
+
+    @Test
+    fun `OWNER can settle debts`() {
+        assertTrue(PermissionEngine.hasPermission(EventRole.OWNER, EventAction.SettleDebts))
+    }
+
+    @Test
+    fun `CONTRIBUTOR cannot settle debts`() {
+        assertFalse(PermissionEngine.hasPermission(EventRole.CONTRIBUTOR, EventAction.SettleDebts))
+    }
+
+    @Test
+    fun `READER cannot settle debts`() {
+        assertFalse(PermissionEngine.hasPermission(EventRole.READER, EventAction.SettleDebts))
+    }
+
     // ── canDo — full permission check with profileId ─────────────────────────
 
     @Test
@@ -245,6 +275,71 @@ class PermissionEngineTest {
             participants = listOf(participant("bob", EventRole.READER)),
         )
         assertFalse(PermissionEngine.canDo("bob", event, EventAction.CreateExpense))
+    }
+
+    @Test
+    fun `canDo — contributor can delete own expense`() {
+        val event = testEvent(
+            ownerId = "alice",
+            participants = listOf(participant("bob", EventRole.CONTRIBUTOR)),
+        )
+        assertTrue(PermissionEngine.canDo("bob", event, EventAction.DeleteExpense("bob")))
+    }
+
+    @Test
+    fun `canDo — contributor cannot delete other expense`() {
+        val event = testEvent(
+            ownerId = "alice",
+            participants = listOf(participant("bob", EventRole.CONTRIBUTOR)),
+        )
+        assertFalse(PermissionEngine.canDo("bob", event, EventAction.DeleteExpense("charlie")))
+    }
+
+    @Test
+    fun `canDo — contributor cannot edit expense with empty creatorId`() {
+        val event = testEvent(
+            ownerId = "alice",
+            participants = listOf(participant("bob", EventRole.CONTRIBUTOR)),
+        )
+        assertFalse(PermissionEngine.canDo("bob", event, EventAction.EditExpense("")))
+    }
+
+    @Test
+    fun `canDo — contributor cannot delete expense with empty creatorId`() {
+        val event = testEvent(
+            ownerId = "alice",
+            participants = listOf(participant("bob", EventRole.CONTRIBUTOR)),
+        )
+        assertFalse(PermissionEngine.canDo("bob", event, EventAction.DeleteExpense("")))
+    }
+
+    @Test
+    fun `canDo — contributor cannot manage participants`() {
+        val event = testEvent(
+            ownerId = "alice",
+            participants = listOf(participant("bob", EventRole.CONTRIBUTOR)),
+        )
+        assertFalse(PermissionEngine.canDo("bob", event, EventAction.ManageParticipants))
+    }
+
+    @Test
+    fun `canDo — only owner can run calculation`() {
+        val event = testEvent(
+            ownerId = "alice",
+            participants = listOf(participant("bob", EventRole.CONTRIBUTOR)),
+        )
+        assertTrue(PermissionEngine.canDo("alice", event, EventAction.RunCalculation))
+        assertFalse(PermissionEngine.canDo("bob", event, EventAction.RunCalculation))
+    }
+
+    @Test
+    fun `canDo — only owner can settle debts`() {
+        val event = testEvent(
+            ownerId = "alice",
+            participants = listOf(participant("bob", EventRole.CONTRIBUTOR)),
+        )
+        assertTrue(PermissionEngine.canDo("alice", event, EventAction.SettleDebts))
+        assertFalse(PermissionEngine.canDo("bob", event, EventAction.SettleDebts))
     }
 
     // ── onOwnerLeave ─────────────────────────────────────────────────────────

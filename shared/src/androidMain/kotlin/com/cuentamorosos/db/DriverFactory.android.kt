@@ -138,6 +138,16 @@ actual class DriverFactory(private val context: Context) {
                 } else {
                     LogSanitizer.log("DB", "CachedDebt column order is correct")
                 }
+
+                // Add createdByProfileId column to CachedExpense if missing
+                val expenseColumns = mutableSetOf<String>()
+                db.rawQuery("PRAGMA table_info(CachedExpense)", null).use { cursor ->
+                    while (cursor.moveToNext()) expenseColumns.add(cursor.getString(1))
+                }
+                if ("createdByProfileId" !in expenseColumns) {
+                    LogSanitizer.log("DB", "Adding missing column: createdByProfileId to CachedExpense")
+                    db.execSQL("ALTER TABLE CachedExpense ADD COLUMN createdByProfileId TEXT NOT NULL DEFAULT ''")
+                }
             }
         } catch (e: Exception) {
             LogSanitizer.log("DB", "Failed to ensure columns: ${e.message}. Deleting database.")

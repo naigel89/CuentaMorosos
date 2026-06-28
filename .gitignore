@@ -8,6 +8,7 @@ local.properties
 .cxx
 .DS_Store
 app/build/
+app/release/
 shared/build/
 
 # SDD artifacts (local, not shareable)

@@ -422,6 +422,7 @@ fun CuentaMorososApp(
                             scrollState = scrollState,
                             onBack = { eventDetailViewModel.setEventId(null) },
                             onAddProfileToEvent = { profilesList ->
+                                // Save debts for new profiles
                                 profilesList.forEach { profile ->
                                     if (debts.none { it.eventId == currentEvent.id && it.profileId == profile.id }) {
                                         eventDetailViewModel.saveDebt(
@@ -431,16 +432,22 @@ fun CuentaMorososApp(
                                             )
                                         )
                                     }
-                                    if (currentEvent.participants.none { it.profileId == profile.id }) {
-                                        val newParticipant = EventParticipant(
+                                }
+                                // Accumulate ALL new participants in memory, save ONCE
+                                val currentParticipants = currentEvent.participants
+                                val newParticipants = profilesList
+                                    .filter { profile -> currentParticipants.none { it.profileId == profile.id } }
+                                    .map { profile ->
+                                        EventParticipant(
                                             profileId = profile.id,
-                                            role = EventRole.CONTRIBUTOR,
+                                            role = EventRole.READER,
                                             joinedAtMillis = currentTimeMillis()
                                         )
-                                        eventsViewModel.saveEvent(
-                                            currentEvent.copy(participants = currentEvent.participants + newParticipant)
-                                        )
                                     }
+                                if (newParticipants.isNotEmpty()) {
+                                    eventsViewModel.saveEvent(
+                                        currentEvent.copy(participants = currentParticipants + newParticipants)
+                                    )
                                 }
                                 feedbackMessage = "Perfiles añadidos al evento."
                             },

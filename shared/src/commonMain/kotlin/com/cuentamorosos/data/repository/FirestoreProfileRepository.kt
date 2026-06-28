@@ -231,10 +231,15 @@ class FirestoreProfileRepository : ProfileRepository {
                             val hasGhostInParticipants = participants.any {
                                 it["profileId"] == ghostId
                             }
-                            if (hasGhostInParticipants) {
-                                updates["participants"] = participants.map { p ->
+                            val newParticipants = if (hasGhostInParticipants) {
+                                participants.map { p ->
                                     if (p["profileId"] == ghostId) p + ("profileId" to userUid) else p
                                 }
+                            } else {
+                                participants
+                            }
+                            if (hasGhostInParticipants) {
+                                updates["participants"] = newParticipants
                             }
 
                             // participantIds
@@ -259,6 +264,16 @@ class FirestoreProfileRepository : ProfileRepository {
                             val ownerId = data["ownerId"] as? String
                             if (ownerId == ghostId) {
                                 updates["ownerId"] = userUid
+                            }
+
+                            // contributorIds — recalculate from new participants
+                            // Only include when there are actual participant changes
+                            val calculatedContributorIds = newParticipants
+                                .filter { it["role"] == "CONTRIBUTOR" }
+                                .map { it["profileId"] }
+                            val oldContributorIds = (data["contributorIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                            if (calculatedContributorIds != oldContributorIds) {
+                                updates["contributorIds"] = calculatedContributorIds
                             }
 
                             if (updates.isNotEmpty()) {

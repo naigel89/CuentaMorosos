@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS CachedExpense (
     payer_contributions TEXT,
     assigned_profile_ids TEXT,
     profile_weights TEXT,
-    split_mode TEXT
+    split_mode TEXT,
+    createdByProfileId TEXT NOT NULL DEFAULT ''
 );
 
 selectAll:
@@ -25,7 +26,7 @@ SELECT * FROM CachedExpense WHERE eventId = ?;
 
 upsert:
 INSERT OR REPLACE INTO CachedExpense
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteById:
 DELETE FROM CachedExpense WHERE id = ?;
