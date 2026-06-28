@@ -187,9 +187,9 @@ class OfflineFirstProfileRepository(
     }
 
     override suspend fun deleteProfile(profileId: String) {
-        queries.deleteById(profileId)
         try {
             remoteRepository.deleteProfile(profileId)
+            queries.deleteById(profileId)
         } catch (e: Exception) {
             LogSanitizer.log("OfflineFirstProfileRepo", "deleteProfile remote FAILED for $profileId: ${e.message}")
             e.printStackTrace()

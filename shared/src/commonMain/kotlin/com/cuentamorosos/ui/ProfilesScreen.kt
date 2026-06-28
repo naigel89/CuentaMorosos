@@ -164,8 +164,8 @@ fun ProfilesScreen(
         // Solo los perfiles ghost (locales) pueden editarse o eliminarse.
         // Los perfiles reales (Firebase Auth) se gestionan desde la cuenta del usuario.
         val uid = currentUid ?: ""
-        val canEdit = profile.isGhost && (profile.ownerId.isBlank() || profile.ownerId == uid)
-        val canDelete = profile.isGhost && (profile.ownerId.isBlank() || profile.ownerId == uid)
+        val canEdit = profile.isGhost && profile.ownerId == uid
+        val canDelete = profile.isGhost && profile.ownerId == uid
         EventBreakdownDialog(
             item = UnifiedDebtItem(
                 profileId = profile.id,

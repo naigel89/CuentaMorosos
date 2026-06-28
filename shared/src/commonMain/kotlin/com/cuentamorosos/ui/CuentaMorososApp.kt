@@ -330,6 +330,26 @@ fun CuentaMorososApp(
         }
     }
 
+    // Only show profiles the current user is allowed to see:
+    // VIS-001: own real profile always visible (profile.id == uid)
+    // VIS-002: own ghost profiles visible (isGhost && ownerId == uid)
+    // VIS-003: co-participants in shared events visible (profile in event's participant set)
+    // VIS-004: everything else hidden
+    val visibleProfiles by remember(profiles, events, currentUserUid) {
+        derivedStateOf {
+            val uid = currentUserUid ?: ""
+            val eventProfileIds = events.flatMap { event ->
+                listOfNotNull(event.ownerId) + event.effectiveMemberIds
+            }.toSet()
+
+            profiles.filter { profile ->
+                profile.id == uid
+                        || (profile.isGhost && profile.ownerId == uid)
+                        || profile.id in eventProfileIds
+            }
+        }
+    }
+
     val selectedEvent by eventDetailViewModel.currentEvent.collectAsState()
 
     val reminderMessages by remember(events, allDebts, allExpenses, profiles, currentUserUid, preferences) {
@@ -648,7 +668,7 @@ fun CuentaMorososApp(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(innerPadding),
-                                profiles = profiles.map { profile ->
+                                profiles = visibleProfiles.map { profile ->
                                     profile.copy(totalPendingEuros = netBalances[profile.id] ?: 0.0)
                                 },
                                 currentUid = currentUserUid,
