@@ -74,8 +74,8 @@ class ReminderWorker(
 
             // Fetch data from remote/repositories
             val events = repoProvider.eventRepository.fetchEvents()
-            val debts = repoProvider.debtRepository.observeAllDebts().first()
-            val expenses = repoProvider.expenseRepository.observeAllExpenses().first()
+            val debts = repoProvider.debtRepository.fetchAllDebts()
+            val expenses = repoProvider.expenseRepository.fetchAllExpenses()
 
             // First-launch migration: seed fingerprints for already-calculated events
             store.seedDedupMigration(events)

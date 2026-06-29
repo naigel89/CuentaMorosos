@@ -435,7 +435,7 @@ fun CuentaMorososApp(
                                 .fillMaxSize()
                                 .padding(innerPadding),
                             event = currentEvent,
-                            profiles = profiles.toList(),
+                            profiles = visibleProfiles.toList(),
                             eventDebts = debts.filter { it.eventId == currentEvent.id },
                             eventExpenses = expenses.filter { it.eventId == currentEvent.id },
                             currentUserUid = currentUserUid,
@@ -625,7 +625,7 @@ fun CuentaMorososApp(
                                     .fillMaxSize()
                                     .padding(innerPadding),
                                 events = events,
-                                profiles = profiles.toList(),
+                                profiles = visibleProfiles.toList(),
                                 participantCountByEvent = participantCountByEvent,
                                 pendingTotalsByEvent = pendingTotalsByEvent,
                                 totalSpent = totalSpent,

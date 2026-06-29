@@ -304,6 +304,17 @@ private fun MainAppContent(
         }
     }
 
+    // Ensure ReminderWorker is scheduled/cancelled based on current preferences
+    LaunchedEffect(preferences.remindersEnabled) {
+        if (preferences.remindersEnabled) {
+            LogSanitizer.log("MainActivity", "ReminderWorker: scheduling (remindersEnabled=true)")
+            ReminderWorker.schedule(application)
+        } else {
+            LogSanitizer.log("MainActivity", "ReminderWorker: cancelling (remindersEnabled=false)")
+            ReminderWorker.cancel(application)
+        }
+    }
+
     // ── Photo picker bridge ───────────────────────────────────────────────────
     // Capture context for image compression
     val context = LocalContext.current
