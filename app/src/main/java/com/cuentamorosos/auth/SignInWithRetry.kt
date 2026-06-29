@@ -50,7 +50,11 @@ object SignInWithRetry {
             when {
                 outcome == null -> return@withContext SignInResult.Error(TIMEOUT_MESSAGE)
                 outcome.isSuccess -> return@withContext SignInResult.Success
-                attempt == attempts - 1 -> return@withContext SignInResult.Error(AuthErrorMapper.map(outcome.exceptionOrNull()!!))
+                attempt == attempts - 1 -> {
+                    val error = outcome.exceptionOrNull()
+                        ?: return@withContext SignInResult.Error(GENERIC_ERROR_MESSAGE)
+                    return@withContext SignInResult.Error(AuthErrorMapper.map(error))
+                }
                 else -> delay(backoffDelay(attempt))
             }
         }

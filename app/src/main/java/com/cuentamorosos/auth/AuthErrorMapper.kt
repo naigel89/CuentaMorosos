@@ -1,5 +1,6 @@
 package com.cuentamorosos.auth
 
+import com.cuentamorosos.data.LogSanitizer
 import com.google.firebase.FirebaseNetworkException
 
 /**
@@ -22,6 +23,9 @@ object AuthErrorMapper {
     private const val ERROR_EMAIL_ALREADY_IN_USE = "ERROR_EMAIL_ALREADY_IN_USE"
     private const val ERROR_WEAK_PASSWORD = "ERROR_WEAK_PASSWORD"
     private const val ERROR_OPERATION_NOT_ALLOWED = "ERROR_OPERATION_NOT_ALLOWED"
+    private const val ERROR_TOO_MANY_REQUESTS = "ERROR_TOO_MANY_REQUESTS"
+    private const val ERROR_INTERNAL_ERROR = "ERROR_INTERNAL_ERROR"
+    private const val ERROR_APP_NOT_AUTHORIZED = "ERROR_APP_NOT_AUTHORIZED"
 
     /**
      * Maps a [throwable] to a user-facing Spanish error message.
@@ -35,23 +39,73 @@ object AuthErrorMapper {
      * @return a Spanish description suitable for showing directly to the user.
      */
     fun map(throwable: Throwable): String = when {
-        throwable.errorCode() == ERROR_INVALID_EMAIL -> "Email inválido"
-        throwable.errorCode() == ERROR_WRONG_PASSWORD -> "Email o contraseña incorrectos"
-        throwable.errorCode() == ERROR_USER_NOT_FOUND -> "Email o contraseña incorrectos"
-        throwable.errorCode() == ERROR_USER_DISABLED -> "Cuenta deshabilitada. Contacta a soporte."
-        throwable.errorCode() == ERROR_EMAIL_ALREADY_IN_USE -> "Este email ya está registrado"
-        throwable.errorCode() == ERROR_WEAK_PASSWORD -> "La contraseña debe tener al menos 6 caracteres"
-        throwable.errorCode() == ERROR_OPERATION_NOT_ALLOWED -> "El registro no está habilitado. Contacta a soporte."
-        throwable is FirebaseNetworkException -> "Error de red. Verifica tu conexión e intenta de nuevo."
-        throwable.errorCode() == ERROR_NETWORK_REQUEST_FAILED -> "Error de red. Verifica tu conexión e intenta de nuevo."
-        else -> "Error al iniciar sesión. Intenta de nuevo."
+        throwable.findErrorCode() == ERROR_INVALID_EMAIL -> "Email inválido"
+        throwable.findErrorCode() == ERROR_WRONG_PASSWORD -> "Email o contraseña incorrectos"
+        throwable.findErrorCode() == ERROR_USER_NOT_FOUND -> "Email o contraseña incorrectos"
+        throwable.findErrorCode() == ERROR_USER_DISABLED -> "Cuenta deshabilitada. Contacta a soporte."
+        throwable.findErrorCode() == ERROR_EMAIL_ALREADY_IN_USE -> "Este email ya está registrado"
+        throwable.findErrorCode() == ERROR_WEAK_PASSWORD -> "La contraseña debe tener al menos 6 caracteres"
+        throwable.findErrorCode() == ERROR_OPERATION_NOT_ALLOWED -> "El registro no está habilitado. Contacta a soporte."
+        throwable.findErrorCode() == ERROR_TOO_MANY_REQUESTS -> "Demasiados intentos. Espera unos minutos antes de volver a intentar."
+        throwable.findErrorCode() == ERROR_INTERNAL_ERROR -> "Error interno del servidor. Intenta de nuevo más tarde."
+        throwable.findErrorCode() == ERROR_APP_NOT_AUTHORIZED -> "App no autorizada. Verificá la configuración en Firebase Console."
+        throwable.hasCauseOf<FirebaseNetworkException>() -> "Error de red. Verifica tu conexión e intenta de nuevo."
+        throwable.findErrorCode() == ERROR_NETWORK_REQUEST_FAILED -> "Error de red. Verifica tu conexión e intenta de nuevo."
+        throwable.isCertOrTlsError() -> "Error de conexión segura. Reinstalá la app para actualizar los certificados."
+        else -> {
+            LogSanitizer.log("AuthErrorMapper", "Unmapped: ${throwable.javaClass.name} — ${throwable.message}")
+            "Error al iniciar sesión. Intenta de nuevo."
+        }
     }
 
     /**
-     * Extracts the Firebase error code via reflection.
+     * Detects SSL/TLS certificate errors (including pinning failures) regardless of
+     * how they are wrapped by Firebase / OkHttp.
+     */
+    private fun Throwable.isCertOrTlsError(): Boolean {
+        var current: Throwable? = this
+        while (current != null) {
+            val name = current::class.java.name
+            if (name.contains("SSL", ignoreCase = true) ||
+                name.contains("CertPath", ignoreCase = true) ||
+                name.contains("Certificate", ignoreCase = true) ||
+                name.contains("CertPin", ignoreCase = true) ||
+                current.message?.contains("certificate", ignoreCase = true) == true ||
+                current.message?.contains("Certificate pin", ignoreCase = true) == true
+            ) return true
+            current = current.cause
+        }
+        return false
+    }
+
+    /**
+     * Finds a Firebase error code by walking this [Throwable] and its cause chain,
+     * using reflection to call `getErrorCode()`. This handles exceptions wrapped
+     * by Play Services [com.google.android.gms.tasks.RuntimeExecutionException].
      * Works with both real [com.google.firebase.auth.FirebaseAuthException] and test stubs.
      */
-    private fun Throwable.errorCode(): String? = runCatching {
-        this::class.java.getMethod("getErrorCode").invoke(this) as? String
-    }.getOrNull()
+    private fun Throwable.findErrorCode(): String? {
+        var current: Throwable? = this
+        while (current != null) {
+            val t = current
+            val code = runCatching {
+                t::class.java.getMethod("getErrorCode").invoke(t) as? String
+            }.getOrNull()
+            if (code != null) return code
+            current = current.cause
+        }
+        return null
+    }
+
+    /**
+     * Checks whether any exception in the cause chain is an instance of [T].
+     */
+    private inline fun <reified T : Throwable> Throwable.hasCauseOf(): Boolean {
+        var current: Throwable? = this
+        while (current != null) {
+            if (current is T) return true
+            current = current.cause
+        }
+        return false
+    }
 }

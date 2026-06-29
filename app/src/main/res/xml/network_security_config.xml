@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Network Security Configuration — CuentaMorosos
-    Certificate pinning for Firebase domains with backup pins and 90-day expiry.
-    Pins: Google Trust Services intermediate CA + Google Internet Authority G3.
+    Certificate pinning for Firebase domains with backup pins.
+    Pins updated 2026-06-29: Google rotated WR2 intermediate CA key.
 -->
 <network-security-config>
     <!-- Block all cleartext (HTTP) traffic at platform level -->
@@ -15,26 +15,11 @@
     <!-- Firebase Firestore, Auth, Storage API domain -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">googleapis.com</domain>
-        <pin-set expiration="2026-09-21">
+        <pin-set expiration="2027-06-29">
             <!-- GTS WR2: current intermediate CA for *.googleapis.com -->
-            <pin digest="SHA-256">5v4iv0Xk8NO4XFngLA9JVBjh640yEPeI1IzV4ctUfNQ=</pin>
-            <!-- GTS CA 1C3 -->
-            <pin digest="SHA-256">7HIpactkIAq2Y49orFO6ud1c6eRdxEiO3o1YWr3fkL0=</pin>
-            <!-- Google Internet Authority G3 (backup from different CA hierarchy) -->
-            <pin digest="SHA-256">h6801m+z8v3zbgkRHpq6L29Esgfzhj89C1SyUCOQmqU=</pin>
-        </pin-set>
-    </domain-config>
-
-    <!-- Firebase Realtime Database domain -->
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">firebaseio.com</domain>
-        <pin-set expiration="2026-09-21">
-            <!-- GTS WR1: current intermediate CA for *.firebaseio.com -->
-            <pin digest="SHA-256">sQtvAOYJUJ6HAPbTRoeiv8446gWo/fHNxAw6Kg0NDkU=</pin>
-            <!-- GTS CA 1C3 -->
-            <pin digest="SHA-256">7HIpactkIAq2Y49orFO6ud1c6eRdxEiO3o1YWr3fkL0=</pin>
-            <!-- Google Internet Authority G3 (backup from different CA hierarchy) -->
-            <pin digest="SHA-256">h6801m+z8v3zbgkRHpq6L29Esgfzhj89C1SyUCOQmqU=</pin>
+            <pin digest="SHA-256">YPtHaftLw6/0vnc2BnNKGF54xiCA28WFcccjkA4ypCM=</pin>
+            <!-- GTS Root R1 (backup — different CA hierarchy) -->
+            <pin digest="SHA-256">hxqRlPTu1bMS/0DITB1SSu0vd4u/8l8TjPgfaAp63Gc=</pin>
         </pin-set>
     </domain-config>
 </network-security-config>
