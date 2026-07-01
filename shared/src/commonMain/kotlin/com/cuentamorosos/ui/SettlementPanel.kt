@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -124,6 +125,7 @@ fun SettlementPanel(
     onRemoveMember: ((String) -> Unit)? = null,
     lastCalculationSummary: String? = null,
     onViewReceipt: () -> Unit = {},
+    onHowCalculated: () -> Unit = {},
 ) {
     val colors = LocalNeoFintechColors.current
     val themeColors = MaterialTheme.colorScheme
@@ -200,8 +202,8 @@ fun SettlementPanel(
                         )
                     }
 
-                    // Receipt button — circular, visible only when event is CALCULATED
-                    val receiptEnabled = eventState == EventState.CALCULATED && snapshot != null
+                    // Receipt button — circular, visible only when event is CALCULATED or CLOSED
+                    val receiptEnabled = (eventState == EventState.CALCULATED || eventState == EventState.CLOSED) && snapshot != null
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -216,6 +218,29 @@ fun SettlementPanel(
                                 imageVector = Icons.Default.Receipt,
                                 contentDescription = "Ver recibo del evento",
                                 tint = if (receiptEnabled) colors.primaryContainer
+                                       else themeColors.onSurfaceVariant.copy(alpha = 0.38f),
+                            )
+                        }
+                    }
+
+                    // How calculated button — circular, visible only when trace exists
+                    val currentSnapshot = snapshot
+                    val howCalculatedEnabled = (eventState == EventState.CALCULATED || eventState == EventState.CLOSED) &&
+                        currentSnapshot != null && currentSnapshot.trace.isNotEmpty()
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape),
+                    ) {
+                        IconButton(
+                            onClick = onHowCalculated,
+                            enabled = howCalculatedEnabled,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "¿Cómo se calculó esto?",
+                                tint = if (howCalculatedEnabled) colors.primaryContainer
                                        else themeColors.onSurfaceVariant.copy(alpha = 0.38f),
                             )
                         }

@@ -102,6 +102,12 @@ object SettlementEngine {
         // Step 3: Net balance per person (in cents to avoid float drift)
         val balances = mutableMapOf<String, Int>()
 
+        // Debug: trace each expense's payerContributions and debtorIds
+        LogSanitizer.log("SettlementEngine", "=== EXPENSES INPUT ===")
+        for (expense in expenses) {
+            LogSanitizer.log("SettlementEngine", "📝 expense='${expense.name}' splitMode='${expense.splitMode}' payerContributions=${expense.payerContributions} debtorIds=${expense.debtorIds}")
+        }
+
         for (expense in expenses) {
             // Add what each payer paid
             for ((payerId, amount) in expense.payerContributions) {
@@ -115,6 +121,8 @@ object SettlementEngine {
                 val cents = (amount * 100).roundToInt()
                 balances[debtorId] = (balances[debtorId] ?: 0) - cents
             }
+
+            LogSanitizer.log("SettlementEngine", "   after '${expense.name}': balances=$balances")
         }
 
         // Step 4: Verify sum zero
@@ -137,8 +145,12 @@ object SettlementEngine {
             .sortedBy { it.second }
             .toMutableList()
 
+        LogSanitizer.log("SettlementEngine", "creditors=${creditors.map { (id, cents) -> "$id=${cents}c" }}")
+        LogSanitizer.log("SettlementEngine", "debtors=${debtors.map { (id, cents) -> "$id=${cents}c" }}")
+
         // Step 6: Greedy minimum transfers
         val transfers = mutableListOf<SettlementTransfer>()
+        val trace = mutableListOf<SettlementTraceStep>()
         var ci = 0
         var di = 0
 
@@ -156,10 +168,22 @@ object SettlementEngine {
             val transferCents = minOf(abs(debtorBal), creditorBal)
 
             if (transferCents > 0) {
+                val amount = transferCents / 100.0
                 transfers.add(SettlementTransfer(
                     fromProfileId = debtorId,
                     toProfileId = creditorId,
-                    amount = transferCents / 100.0,
+                    amount = amount,
+                ))
+                LogSanitizer.log("SettlementEngine", "   transfer: $debtorId -> $creditorId ${transferCents}c")
+
+                val newDebtorBalCents = debtorBal + transferCents
+                val newCreditorBalCents = creditorBal - transferCents
+                trace.add(SettlementTraceStep(
+                    fromProfileId = debtorId,
+                    toProfileId = creditorId,
+                    amount = amount,
+                    debtorRemaining = newDebtorBalCents / 100.0,
+                    creditorRemaining = newCreditorBalCents / 100.0,
                 ))
             }
 
@@ -193,6 +217,7 @@ object SettlementEngine {
             calculatedAtMillis = currentTimeMillis(),
             algorithmVersion = ALGORITHM_VERSION,
             participantBalances = balancesAsDoubles,
+            trace = trace,
         )
 
         return CalculationResult(snapshot = snapshot)

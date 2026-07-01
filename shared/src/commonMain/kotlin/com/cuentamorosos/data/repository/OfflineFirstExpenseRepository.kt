@@ -290,7 +290,13 @@ class OfflineFirstExpenseRepository(
         profileWeights = profile_weights.toMapDouble(),
         paidByProfileId = paidByProfileId,
         splitMode = split_mode ?: "SIMPLE_AVG",
-        payerContributions = payer_contributions.toMapDouble(),
+        payerContributions = payer_contributions.toMapDouble().let {
+            if (it.isEmpty() && paidByProfileId.isNotBlank() && amountEuros > 0.0) {
+                mapOf(paidByProfileId to amountEuros)
+            } else {
+                it
+            }
+        },
         debtorIds = debtor_ids.toStringArray(),
         exchangeRate = null,
         itemCurrency = null,

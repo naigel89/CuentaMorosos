@@ -329,6 +329,15 @@ data class SettlementTransfer(
     val amount: Double,
 )
 
+/**
+ * Computes minimum settlement transfers from net debt amounts.
+ *
+ * **Sign convention** (opposite to SettlementEngine.calculate()):
+ * - positive amount = person OWES money (debtor)
+ * - negative amount = person IS OWED money (creditor)
+ *
+ * Used only in tests. Production code uses SettlementEngine.calculate().
+ */
 fun buildSettlementTransfers(
     profileIds: List<String>,
     amounts: List<Double>,

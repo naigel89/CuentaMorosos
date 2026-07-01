@@ -209,7 +209,11 @@ class FirestoreExpenseRepository : ExpenseRepository {
                 debtorIds = (data["debtorIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                 payerContributions = (data["payerContributions"] as? Map<*, *>)?.entries?.associate {
                     (it.key as String) to ((it.value as? Number)?.toDouble() ?: 0.0)
-                } ?: emptyMap(),
+                }?.takeIf { it.isNotEmpty() }?.let { it } ?: run {
+                    val paidBy = data["paidByProfileId"] as? String ?: ""
+                    val amount = (data["amountEuros"] as? Number)?.toDouble() ?: 0.0
+                    if (paidBy.isNotBlank() && amount > 0.0) mapOf(paidBy to amount) else emptyMap()
+                },
                 exchangeRate = (data["exchangeRate"] as? Number)?.toDouble(),
                 itemCurrency = data["itemCurrency"] as? String,
                 createdAtMillis = (data["createdAtMillis"] as? Number)?.toLong() ?: 0L,

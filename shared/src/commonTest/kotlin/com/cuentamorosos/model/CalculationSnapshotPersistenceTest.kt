@@ -32,12 +32,14 @@ class CalculationSnapshotPersistenceTest {
             "carlos-1" to 25.0,
             "luis-1" to 10.0,
         ),
+        trace: List<SettlementTraceStep> = emptyList(),
     ) = CalculationSnapshot(
         transfers = transfers,
         totalExpense = totalExpense,
         calculatedAtMillis = calculatedAtMillis,
         algorithmVersion = algorithmVersion,
         participantBalances = participantBalances,
+        trace = trace,
     )
 
     // ── T-13: Roundtrip tests ───────────────────────────────────────────────
@@ -203,5 +205,47 @@ class CalculationSnapshotPersistenceTest {
 
         assertNotNull(restored)
         assertEquals(2, restored.transfers.size)
+    }
+
+    // ── Trace roundtrip tests ────────────────────────────────────────────────
+
+    @Test
+    fun `roundtrip preserves trace steps`() {
+        val trace = listOf(
+            SettlementTraceStep("B", "A", 10.0, 0.0, 10.0),
+            SettlementTraceStep("C", "A", 10.0, 0.0, 0.0),
+        )
+        val original = makeSnapshot(trace = trace)
+        val json = original.toJson()
+        val restored = json.toCalculationSnapshot()
+
+        assertNotNull(restored)
+        assertEquals(original.trace.size, restored.trace.size)
+        original.trace.forEachIndexed { i, step ->
+            assertEquals(step.fromProfileId, restored.trace[i].fromProfileId)
+            assertEquals(step.toProfileId, restored.trace[i].toProfileId)
+            assertEquals(step.amount, restored.trace[i].amount, 0.001)
+            assertEquals(step.debtorRemaining, restored.trace[i].debtorRemaining, 0.001)
+            assertEquals(step.creditorRemaining, restored.trace[i].creditorRemaining, 0.001)
+        }
+    }
+
+    @Test
+    fun `old snapshot without trace deserializes with empty trace`() {
+        val oldJson = """{"transfers":[{"from":"A","to":"B","amount":10.0}],"totalExpense":10.0,"calculatedAtMillis":1,"algorithmVersion":"v1-greedy"}"""
+        val restored = oldJson.toCalculationSnapshot()
+
+        assertNotNull(restored)
+        assertTrue(restored.trace.isEmpty(), "Old format must yield empty trace")
+    }
+
+    @Test
+    fun `snapshot with empty trace serializes and deserializes correctly`() {
+        val original = makeSnapshot(trace = emptyList())
+        val json = original.toJson()
+        val restored = json.toCalculationSnapshot()
+
+        assertNotNull(restored)
+        assertTrue(restored.trace.isEmpty())
     }
 }

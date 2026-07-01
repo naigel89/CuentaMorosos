@@ -217,6 +217,130 @@ class SettlementEngineTest {
         assertEquals(2, snapshot.participantBalances.size)
     }
 
+    // ── Multi-payer: debt split between two creditors (user-reported scenario) ─
+
+    @Test
+    fun `two payers among 5 people — debt splits between both creditors`() {
+        // Natalia pays 10€ for drinks, User pays 10€ for appetizers, same 5 people
+        // Each person owes 2€ per expense = 4€ total per person
+        // Natalia: +10 - 4 = +6€ (creditor)
+        // User: +10 - 4 = +6€ (creditor)
+        // A, B, C: -4€ each (debtors)
+        // Expected: debt from A, B, C should be split between Natalia and User
+        val event = testEvent(memberIds = listOf("Natalia", "User", "A", "B", "C"))
+        val expenses = listOf(
+            testExpense(
+                id = "drinks",
+                amountEuros = 10.0,
+                payerContributions = mapOf("Natalia" to 10.0),
+                debtorIds = listOf("Natalia", "User", "A", "B", "C"),
+            ),
+            testExpense(
+                id = "appetizers",
+                amountEuros = 10.0,
+                payerContributions = mapOf("User" to 10.0),
+                debtorIds = listOf("Natalia", "User", "A", "B", "C"),
+            ),
+        )
+
+        val result = SettlementEngine.calculate(event, expenses)
+
+        assertTrue(result.isSuccess)
+        val snapshot = result.snapshot!!
+
+        // Both Natalia and User should be creditors with +6€ each
+        assertEquals(6.0, snapshot.participantBalances["Natalia"]!!, 0.01)
+        assertEquals(6.0, snapshot.participantBalances["User"]!!, 0.01)
+        assertEquals(-4.0, snapshot.participantBalances["A"]!!, 0.01)
+        assertEquals(-4.0, snapshot.participantBalances["B"]!!, 0.01)
+        assertEquals(-4.0, snapshot.participantBalances["C"]!!, 0.01)
+
+        // Total transferred should be 12€ (4+4+4 from A, B, C)
+        val totalTransferred = snapshot.transfers.sumOf { it.amount }
+        assertEquals(12.0, totalTransferred, 0.01)
+
+        // CRITICAL: debt must be split between BOTH creditors
+        // Natalia should receive some money, User should receive some money
+        val nataliaReceived = snapshot.transfers
+            .filter { it.toProfileId == "Natalia" }
+            .sumOf { it.amount }
+        val userReceived = snapshot.transfers
+            .filter { it.toProfileId == "User" }
+            .sumOf { it.amount }
+
+        assertTrue(nataliaReceived > 0.0, "Natalia should receive money as creditor, but got 0€")
+        assertTrue(userReceived > 0.0, "User should receive money as creditor, but got 0€")
+        assertEquals(6.0, nataliaReceived, 0.01)
+        assertEquals(6.0, userReceived, 0.01)
+    }
+
+    @Test
+    fun `two payers with different amounts — proportional split`() {
+        // A pays 30€, B pays 30€, split among A, B, C
+        // Each expense: 30€ / 3 = 10€ each (clean division)
+        // A: +30 - 10 - 10 = +10; B: +30 - 10 - 10 = +10; C: -10 - 10 = -20
+        // C → A: 10€, C → B: 10€
+        val event = testEvent(memberIds = listOf("A", "B", "C"))
+        val expenses = listOf(
+            testExpense(id = "e1", eventId = "evt1", amountEuros = 30.0, payerContributions = mapOf("A" to 30.0), debtorIds = listOf("A", "B", "C")),
+            testExpense(id = "e2", eventId = "evt1", amountEuros = 30.0, payerContributions = mapOf("B" to 30.0), debtorIds = listOf("A", "B", "C")),
+        )
+
+        val result = SettlementEngine.calculate(event, expenses)
+
+        assertTrue(result.isSuccess)
+        val snapshot = result.snapshot!!
+        assertEquals(10.0, snapshot.participantBalances["A"]!!, 0.01)
+        assertEquals(10.0, snapshot.participantBalances["B"]!!, 0.01)
+        assertEquals(-20.0, snapshot.participantBalances["C"]!!, 0.01)
+
+        val transfers = snapshot.transfers
+        assertEquals(2, transfers.size)
+        assertTrue(transfers.any { it.fromProfileId == "C" && it.toProfileId == "A" && it.amount == 10.0 })
+        assertTrue(transfers.any { it.fromProfileId == "C" && it.toProfileId == "B" && it.amount == 10.0 })
+    }
+
+    @Test
+    fun `three payers — debt distributed among all creditors`() {
+        // A pays 30€, B pays 30€, C pays 30€, split among A, B, C, D, E
+        // Each expense: 30€ / 5 = 6€ each
+        // A: +30 - 6 - 6 - 6 = +12; B: +30 - 6 - 6 - 6 = +12; C: +30 - 6 - 6 - 6 = +12
+        // D: -6 - 6 - 6 = -18; E: -6 - 6 - 6 = -18
+        // D and E owe 18€ each, split among A, B, C (12€ each)
+        val event = testEvent(memberIds = listOf("A", "B", "C", "D", "E"))
+        val expenses = listOf(
+            testExpense(id = "e1", amountEuros = 30.0, payerContributions = mapOf("A" to 30.0), debtorIds = listOf("A", "B", "C", "D", "E")),
+            testExpense(id = "e2", amountEuros = 30.0, payerContributions = mapOf("B" to 30.0), debtorIds = listOf("A", "B", "C", "D", "E")),
+            testExpense(id = "e3", amountEuros = 30.0, payerContributions = mapOf("C" to 30.0), debtorIds = listOf("A", "B", "C", "D", "E")),
+        )
+
+        val result = SettlementEngine.calculate(event, expenses)
+
+        assertTrue(result.isSuccess)
+        val snapshot = result.snapshot!!
+
+        assertEquals(12.0, snapshot.participantBalances["A"]!!, 0.01)
+        assertEquals(12.0, snapshot.participantBalances["B"]!!, 0.01)
+        assertEquals(12.0, snapshot.participantBalances["C"]!!, 0.01)
+        assertEquals(-18.0, snapshot.participantBalances["D"]!!, 0.01)
+        assertEquals(-18.0, snapshot.participantBalances["E"]!!, 0.01)
+
+        val totalTransferred = snapshot.transfers.sumOf { it.amount }
+        assertEquals(36.0, totalTransferred, 0.01)
+
+        // All three creditors should receive money
+        val aReceived = snapshot.transfers.filter { it.toProfileId == "A" }.sumOf { it.amount }
+        val bReceived = snapshot.transfers.filter { it.toProfileId == "B" }.sumOf { it.amount }
+        val cReceived = snapshot.transfers.filter { it.toProfileId == "C" }.sumOf { it.amount }
+
+        assertTrue(aReceived > 0.0, "A should receive money")
+        assertTrue(bReceived > 0.0, "B should receive money")
+        assertTrue(cReceived > 0.0, "C should receive money")
+        assertEquals(12.0, aReceived, 0.01)
+        assertEquals(12.0, bReceived, 0.01)
+        assertEquals(12.0, cReceived, 0.01)
+    }
+
     // ── D8 Edge Cases: calculateWithEdgeCases ────────────────────────────────
 
     private fun testEventWithId(
@@ -594,5 +718,84 @@ class SettlementEngineTest {
         // Original calculate does NOT set status field
         assertEquals(null, result.status)
         assertEquals(2, result.snapshot!!.transfers.size)
+    }
+
+    // ── Trace emission tests ─────────────────────────────────────────────────
+
+    @Test
+    fun `calculate emits trace steps matching transfer count`() {
+        val event = testEvent(memberIds = listOf("A", "B", "C"))
+        val expenses = listOf(
+            testExpense(
+                amountEuros = 30.0,
+                payerContributions = mapOf("A" to 30.0),
+                debtorIds = listOf("A", "B", "C"),
+            )
+        )
+
+        val result = SettlementEngine.calculate(event, expenses)
+
+        assertTrue(result.isSuccess)
+        val snapshot = result.snapshot!!
+        assertEquals(snapshot.transfers.size, snapshot.trace.size, "Trace steps must match transfer count")
+    }
+
+    @Test
+    fun `trace step amounts match transfer amounts`() {
+        val event = testEvent(memberIds = listOf("A", "B"))
+        val expenses = listOf(
+            testExpense(
+                amountEuros = 20.0,
+                payerContributions = mapOf("A" to 20.0),
+                debtorIds = listOf("A", "B"),
+            )
+        )
+
+        val result = SettlementEngine.calculate(event, expenses)
+
+        assertTrue(result.isSuccess)
+        val snapshot = result.snapshot!!
+        snapshot.trace.forEachIndexed { i, step ->
+            assertEquals(snapshot.transfers[i].amount, step.amount, 0.001)
+            assertEquals(snapshot.transfers[i].fromProfileId, step.fromProfileId)
+            assertEquals(snapshot.transfers[i].toProfileId, step.toProfileId)
+        }
+    }
+
+    @Test
+    fun `trace is empty when no transfers needed`() {
+        val event = testEvent(memberIds = listOf("A", "B"))
+        val expenses = listOf(
+            testExpense(
+                amountEuros = 10.0,
+                payerContributions = mapOf("A" to 10.0),
+                debtorIds = listOf("A"),
+            )
+        )
+
+        val result = SettlementEngine.calculate(event, expenses)
+
+        assertTrue(result.isSuccess)
+        assertTrue(result.snapshot!!.trace.isEmpty())
+    }
+
+    @Test
+    fun `trace captures remaining balances correctly`() {
+        val event = testEvent(memberIds = listOf("A", "B", "C"))
+        val expenses = listOf(
+            testExpense(
+                amountEuros = 30.0,
+                payerContributions = mapOf("A" to 30.0),
+                debtorIds = listOf("A", "B", "C"),
+            )
+        )
+
+        val result = SettlementEngine.calculate(event, expenses)
+
+        assertTrue(result.isSuccess)
+        val snapshot = result.snapshot!!
+        // Last trace step should leave creditor at 0 (fully settled)
+        val lastStep = snapshot.trace.last()
+        assertEquals(0.0, lastStep.creditorRemaining, 0.001)
     }
 }

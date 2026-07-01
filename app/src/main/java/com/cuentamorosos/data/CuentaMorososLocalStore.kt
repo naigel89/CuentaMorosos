@@ -244,9 +244,15 @@ class CuentaMorososLocalStore(
                 splitMode = item.optString("splitMode").ifBlank { "SIMPLE_AVG" },
                 payerContributions = buildMap {
                     val contributions = item.optJSONObject("payerContributions") ?: JSONObject()
-                    contributions.keys().forEach { key ->
-                        put(key, contributions.optDouble(key, 0.0))
+                    if (contributions.length() > 0) {
+                        contributions.keys().forEach { key ->
+                            put(key, contributions.optDouble(key, 0.0))
+                        }
                     }
+                }.takeIf { it.isNotEmpty() }?.let { it } ?: run {
+                    val paidBy = item.optString("paidByProfileId", "")
+                    val amount = item.optDouble("amountEuros", 0.0)
+                    if (paidBy.isNotBlank() && amount > 0.0) mapOf(paidBy to amount) else emptyMap()
                 },
                 debtorIds = buildList {
                     val ids = item.optJSONArray("debtorIds") ?: JSONArray()

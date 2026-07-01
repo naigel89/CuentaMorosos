@@ -171,6 +171,7 @@ data class CalculationSnapshot(
     val calculatedAtMillis: Long,
     val algorithmVersion: String = "v1-greedy",
     val participantBalances: Map<String, Double> = emptyMap(),
+    val trace: List<SettlementTraceStep> = emptyList(),
 )
 
 /** Result of running the settlement calculation. */
@@ -181,6 +182,15 @@ data class CalculationResult(
 ) {
     val isSuccess: Boolean get() = snapshot != null && errors.isEmpty()
 }
+
+/** Single step in the greedy settlement algorithm trace. */
+data class SettlementTraceStep(
+    val fromProfileId: String,
+    val toProfileId: String,
+    val amount: Double,
+    val debtorRemaining: Double,
+    val creditorRemaining: Double,
+)
 
 /** Status of a calculation run, including edge case detection. */
 sealed class CalculationStatus {
@@ -362,7 +372,8 @@ fun CalculationSnapshot.toJson(): String = buildString {
     append("\"totalExpense\":$totalExpense,")
     append("\"calculatedAtMillis\":$calculatedAtMillis,")
     append("\"algorithmVersion\":\"${algorithmVersion.escapeJson()}\",")
-    append("\"participantBalances\":{${participantBalances.entries.joinToString(",") { (k, v) -> "\"${k.escapeJson()}\":$v" }}}")
+    append("\"participantBalances\":{${participantBalances.entries.joinToString(",") { e -> "\"${e.key.escapeJson()}\":${e.value}" }}},")
+    append("\"trace\":[${trace.joinToString(",") { s -> "{\"from\":\"${s.fromProfileId.escapeJson()}\",\"to\":\"${s.toProfileId.escapeJson()}\",\"amount\":${s.amount},\"debtorRemaining\":${s.debtorRemaining},\"creditorRemaining\":${s.creditorRemaining}}" }}]")
     append("}")
 }
 
@@ -412,11 +423,29 @@ fun String.toCalculationSnapshot(): CalculationSnapshot? {
         emptyMap()
     }
 
+    val traceRegex = """"trace"\s*:\s*(\[[^\]]*\])""".toRegex()
+    val traceMatch = traceRegex.find(this)
+    val trace: List<SettlementTraceStep> = if (traceMatch != null) {
+        val stepRegex = """\{"from":"([^"]*)","to":"([^"]*)","amount":([\d.eE+\-]+),"debtorRemaining":([\d.eE+\-]+),"creditorRemaining":([\d.eE+\-]+)\}""".toRegex()
+        stepRegex.findAll(traceMatch.groupValues[1]).map { match ->
+            SettlementTraceStep(
+                fromProfileId = match.groupValues[1],
+                toProfileId = match.groupValues[2],
+                amount = match.groupValues[3].toDouble(),
+                debtorRemaining = match.groupValues[4].toDouble(),
+                creditorRemaining = match.groupValues[5].toDouble(),
+            )
+        }.toList()
+    } else {
+        emptyList()
+    }
+
     return CalculationSnapshot(
         transfers = transfers,
         totalExpense = totalExpense,
         calculatedAtMillis = calculatedAtMillis,
         algorithmVersion = algorithmVersion,
         participantBalances = participantBalances,
+        trace = trace,
     )
 }

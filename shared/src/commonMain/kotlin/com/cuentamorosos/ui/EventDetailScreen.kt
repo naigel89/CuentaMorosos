@@ -163,6 +163,7 @@ fun EventDetailScreen(
     var showRemoveOwnerConfirm by remember { mutableStateOf<EventDebtItem?>(null) }
     var profileToRemove by remember { mutableStateOf<String?>(null) }
     var showReceiptDialog by remember { mutableStateOf(false) }
+    var showHowCalculated by remember { mutableStateOf(false) }
     val currentUid = currentUserUid ?: ""
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -242,6 +243,7 @@ fun EventDetailScreen(
                             onRemoveMember = { profileToRemove = it },
                             lastCalculationSummary = event.lastCalculationSummary,
                             onViewReceipt = { showReceiptDialog = true },
+                            onHowCalculated = { showHowCalculated = true },
                         )
                     }
                 }
@@ -304,6 +306,7 @@ fun EventDetailScreen(
                         onRemoveMember = { profileToRemove = it },
                         lastCalculationSummary = event.lastCalculationSummary,
                         onViewReceipt = { showReceiptDialog = true },
+                        onHowCalculated = { showHowCalculated = true },
                     )
                 }
             }
@@ -465,6 +468,22 @@ fun EventDetailScreen(
                 }
             }
         )
+    }
+
+    // Dialog 9: HowCalculatedPanel — explanation of how the calculation was done
+    if (showHowCalculated) {
+        val snapshot = event.lastCalculationSummary?.toCalculationSnapshot()
+        if (snapshot != null && snapshot.trace.isNotEmpty()) {
+            HowCalculatedPanel(
+                event = event,
+                snapshot = snapshot,
+                expenses = eventExpenses,
+                profiles = eventParticipants,
+                onDismiss = { showHowCalculated = false },
+            )
+        } else {
+            showHowCalculated = false
+        }
     }
 }
 
