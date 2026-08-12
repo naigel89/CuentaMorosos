@@ -78,8 +78,10 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
-            implementation("app.cash.sqldelight:sqlite-driver:2.0.2")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+        }
+        jvmTest.dependencies {
+            implementation("app.cash.sqldelight:sqlite-driver:2.0.2")
         }
         if (isMac) {
             val iosX64Main = findByName("iosX64Main")

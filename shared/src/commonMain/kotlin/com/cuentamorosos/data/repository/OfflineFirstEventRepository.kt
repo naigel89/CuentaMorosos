@@ -124,7 +124,7 @@ class OfflineFirstEventRepository(
                     }
                     backoffMs = 1000L
                 } catch (e: Exception) {
-                    LogSanitizer.log("OfflineFirstEventRepo", "Sync error: ${e.javaClass.simpleName}: ${e.message}")
+                    LogSanitizer.log("OfflineFirstEventRepo", "Sync error: ${e::class.simpleName}: ${e.message}")
                     delay(backoffMs)
                     backoffMs = minOf(backoffMs * 2, maxBackoffMs)
                 }

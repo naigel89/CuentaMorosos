@@ -1,8 +1,9 @@
-@file:OptIn(ExperimentalForeignApi::class)
+@file:OptIn(ExperimentalForeignApi::class, ExperimentalNativeApi::class)
 
 package com.cuentamorosos
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlin.experimental.ExperimentalNativeApi
 import kotlinx.cinterop.useContents
 import platform.Foundation.NSCalendar
 import platform.Foundation.NSCalendarIdentifierGregorian
@@ -54,6 +55,8 @@ actual fun isValidEmail(email: String): Boolean {
     val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
     return emailRegex.matches(email)
 }
+
+actual val isDebug: Boolean = kotlin.native.Platform.isDebugBinary
 
 actual fun shortWeekDayNames(): List<String> {
     // L M X J V S D (Spanish abbreviations, Monday-first)
