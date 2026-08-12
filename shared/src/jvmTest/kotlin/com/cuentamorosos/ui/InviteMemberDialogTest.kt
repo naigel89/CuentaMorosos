@@ -389,9 +389,17 @@ class InviteMemberDialogTest {
 
     @Test
     fun `network error produces Offline state`() = runTest {
-        val offlineState = determineSearchStateForError(isOffline = true, query = "na")
+        val offlineState = determineSearchStateForError(
+            isOffline = isOfflineSearchError(java.io.IOException("Simulated network error")),
+            query = "na",
+        )
 
         assertTrue(offlineState is SearchState.Offline)
+    }
+
+    @Test
+    fun `network message produces Offline state without platform exception type`() {
+        assertTrue(isOfflineSearchError(IllegalStateException("network unavailable")))
     }
 
     @Test

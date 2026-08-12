@@ -108,7 +108,7 @@ class FirestoreEventRepository : EventRepository {
             }
             LogSanitizer.log("FirestoreEventRepo", "saveEvent: SUCCESS id=${event.id}")
         } catch (e: Exception) {
-            LogSanitizer.log("FirestoreEventRepo", "saveEvent: FAILED id=${event.id}: ${e.javaClass.simpleName}: ${e.message}")
+            LogSanitizer.log("FirestoreEventRepo", "saveEvent: FAILED id=${event.id}: ${e::class.simpleName}: ${e.message}")
             e.printStackTrace()
             throw e
         }
@@ -122,7 +122,7 @@ class FirestoreEventRepository : EventRepository {
             }
             LogSanitizer.log("FirestoreEventRepo", "deleteEvent: SUCCESS id=$eventId")
         } catch (e: Exception) {
-            LogSanitizer.log("FirestoreEventRepo", "deleteEvent: FAILED id=$eventId: ${e.javaClass.simpleName}: ${e.message}")
+            LogSanitizer.log("FirestoreEventRepo", "deleteEvent: FAILED id=$eventId: ${e::class.simpleName}: ${e.message}")
             e.printStackTrace()
             throw e
         }

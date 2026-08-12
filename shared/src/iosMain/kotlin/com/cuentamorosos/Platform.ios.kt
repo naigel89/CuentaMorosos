@@ -55,6 +55,8 @@ actual fun isValidEmail(email: String): Boolean {
     return emailRegex.matches(email)
 }
 
+actual val isDebug: Boolean = kotlin.native.Platform.isDebugBinary
+
 actual fun shortWeekDayNames(): List<String> {
     // L M X J V S D (Spanish abbreviations, Monday-first)
     return listOf("L", "M", "X", "J", "V", "S", "D")

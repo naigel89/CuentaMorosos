@@ -107,12 +107,16 @@ fun determineSearchState(results: List<ProfileItem>?, query: String): SearchStat
 
 /**
  * Determines SearchState after an error.
- * - IOException → Offline
+ * - connectivity errors → Offline
  * - other errors → Empty with the query
  */
 fun determineSearchStateForError(isOffline: Boolean, query: String): SearchState {
     return if (isOffline) SearchState.Offline else SearchState.Empty(query)
 }
+
+internal fun isOfflineSearchError(error: Throwable): Boolean =
+    error::class.simpleName == "IOException" ||
+        error.message?.contains("network", ignoreCase = true) == true
 
 // ── EventDetailScreen ─────────────────────────────────────────────────────────
 
@@ -681,11 +685,7 @@ private fun InviteMemberDialog(
                 SearchState.Results(results)
             }
         } catch (e: Exception) {
-            searchState = if (e is java.io.IOException || e.message?.contains("network", ignoreCase = true) == true) {
-                SearchState.Offline
-            } else {
-                SearchState.Empty(searchQuery)
-            }
+            searchState = determineSearchStateForError(isOfflineSearchError(e), searchQuery)
         }
     }
 
