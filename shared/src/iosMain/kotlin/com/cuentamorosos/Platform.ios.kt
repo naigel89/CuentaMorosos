@@ -1,8 +1,9 @@
-@file:OptIn(ExperimentalForeignApi::class)
+@file:OptIn(ExperimentalForeignApi::class, ExperimentalNativeApi::class)
 
 package com.cuentamorosos
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlin.experimental.ExperimentalNativeApi
 import kotlinx.cinterop.useContents
 import platform.Foundation.NSCalendar
 import platform.Foundation.NSCalendarIdentifierGregorian
