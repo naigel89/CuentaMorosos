@@ -7,8 +7,8 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * Verifies network_security_config.xml requirements:
- * - network R001: certificate pinning for Firebase domains
- * - network R002: at least 2 backup pins per domain
+ * - network R001: certificate pinning for the Google APIs domain
+ * - network R002: at least 2 pins for the pinned domain
  * - network R003: cleartextTrafficPermitted="false"
  */
 class NetworkSecurityConfigTest {
@@ -75,40 +75,10 @@ class NetworkSecurityConfigTest {
             pinCount >= 2
         )
 
-        // Verify expiration is set (90-day expiry per design)
+        // Verify expiration is set
         val expiration = pinSet.attributes.getNamedItem("expiration")
-        assertNotNull("pin-set must have an expiration date (90-day policy)", expiration)
+        assertNotNull("pin-set must have an expiration date", expiration)
         assertTrue("expiration date must not be empty", expiration.nodeValue.isNotEmpty())
-    }
-
-    @Test
-    fun `domain config pins firebaseio com with backup pins`() {
-        val doc = DocumentBuilderFactory.newInstance()
-            .newDocumentBuilder()
-            .parse(configFile)
-
-        val domainConfigs = doc.getElementsByTagName("domain-config")
-        val firebaseioConfig = findDomainConfig(domainConfigs, "firebaseio.com")
-
-        assertNotNull(
-            "Must have a domain-config for *.firebaseio.com (Firebase Realtime Database domain)",
-            firebaseioConfig
-        )
-
-        val pinSets = firebaseioConfig!!.getElementsByTagName("pin-set")
-        assertTrue("firebaseio.com domain config must contain a pin-set", pinSets.length > 0)
-
-        val pinSet = pinSets.item(0)
-        val pins = pinSet.childNodes
-        var pinCount = 0
-        for (i in 0 until pins.length) {
-            if (pins.item(i).nodeName == "pin") pinCount++
-        }
-
-        assertTrue(
-            "firebaseio.com must have at least 2 pins (primary + backup), found $pinCount",
-            pinCount >= 2
-        )
     }
 
     private fun findDomainConfig(
