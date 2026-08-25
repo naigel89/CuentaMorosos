@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.cuentamorosos.ui
 
 import androidx.compose.foundation.clickable
@@ -16,7 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -103,6 +105,7 @@ fun EventsScreen(
     currentProfileId: String? = null,
 ) {
     val colors = LocalNeoFintechColors.current
+    val entrance = rememberEntranceTracker()
     var editableEvent by remember { mutableStateOf<EventItem?>(null) }
     var eventToDelete by remember { mutableStateOf<EventItem?>(null) }
     var searchQuery by remember { mutableStateOf("") }
@@ -230,7 +233,7 @@ fun EventsScreen(
                         horizontalArrangement = Arrangement.spacedBy(NeoFintechSpacing.md),
                         verticalArrangement = Arrangement.spacedBy(NeoFintechSpacing.md),
                     ) {
-                        items(filteredEvents, key = { it.id }) { event ->
+                        itemsIndexed(filteredEvents, key = { _, event -> event.id }) { index, event ->
                             val eventProfiles = event.effectiveMemberIds.mapNotNull { memberId ->
                                 profiles.find { it.id == memberId }
                             }
@@ -238,7 +241,13 @@ fun EventsScreen(
                             val role = PermissionEngine.getRole(profileId, event)
                             val canEdit = role == EventRole.OWNER
                             val canDelete = PermissionEngine.hasPermission(role, EventAction.DeleteEvent)
-                            Box(modifier = Modifier.slideUp()) {
+                            Box(
+                                modifier = Modifier
+                                    // Filtrar o buscar recoloca las tarjetas deslizándolas
+                                    // en vez de reconstruir el grid de golpe.
+                                    .animateItemPlacement(NeoFintechMotion.placement)
+                                    .appearOnce(entrance, key = event.id, index = index),
+                            ) {
                                 EventCard(
                                     event = event,
                                     _participantCount = participantCountByEvent[event.id] ?: 0,

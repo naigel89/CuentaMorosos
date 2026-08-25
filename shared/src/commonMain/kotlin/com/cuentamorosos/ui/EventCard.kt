@@ -1,11 +1,8 @@
 package com.cuentamorosos.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -28,8 +26,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,23 +58,29 @@ fun EventCard(
     val colors = MaterialTheme.colorScheme
     val neoColors = LocalNeoFintechColors.current
     val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
     val stateBadgeColor = event.state.stateBadgeColor(neoColors)
     val stateLabelText = event.state.stateBadgeLabel()
+
+    // Antes esto colgaba de `hoverable`, que en un móvil no se dispara nunca: el estado
+    // interactivo de la tarjeta era invisible en el dispositivo real. El peso de la
+    // fuente ya no cambia — alterarlo al pulsar reflowaba el texto y daba un salto.
+    val titleColor by animateColorAsState(
+        targetValue = if (isPressed) neoColors.primaryContainer else colors.onSurface,
+        animationSpec = NeoFintechMotion.color,
+        label = "eventCardTitle",
+    )
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = if (isHovered == true) NeoFintechElevation.cardShadowHoverElevation
-                else NeoFintechElevation.cardShadowElevation,
-                shape = NeoFintechElevation.cardShadowShape,
-                clip = false,
-            )
-            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg)
-            .clip(NeoFintechShapes.lg)
-            .hoverable(interactionSource)
-            .clickable(onClick = onTap),
+            .pressableCard(
+                onClick = onTap,
+                shape = NeoFintechShapes.lg,
+                borderColor = colors.outlineVariant,
+                role = Role.Button,
+                interactionSource = interactionSource,
+            ),
         colors = CardDefaults.cardColors(containerColor = colors.surface),
         shape = NeoFintechShapes.lg,
     ) {
@@ -129,9 +133,9 @@ fun EventCard(
                     text = event.name,
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontSize = 20.sp,
-                        fontWeight = if (isHovered == true) FontWeight.Bold else FontWeight.SemiBold,
+                        fontWeight = FontWeight.SemiBold,
                     ),
-                    color = if (isHovered == true) neoColors.primaryContainer else colors.onSurface,
+                    color = titleColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

@@ -1,6 +1,7 @@
 package com.cuentamorosos.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -47,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cuentamorosos.SystemBackHandler
@@ -82,8 +84,17 @@ fun AccountScreen(
         targetState = subScreenIndex,
         transitionSpec = {
             val direction = if (targetState > initialState) 1 else -1
-            slideInHorizontally { it * direction } + fadeIn(animationSpec = tween(250)) togetherWith
-            slideOutHorizontally { -it * direction } + fadeOut(animationSpec = tween(250))
+            val slideSpec = tween<IntOffset>(
+                durationMillis = NeoFintechMotion.LONG_MS,
+                easing = NeoFintechMotion.emphasized,
+            )
+            val fadeSpec = tween<Float>(
+                durationMillis = NeoFintechMotion.MEDIUM_MS,
+                easing = NeoFintechMotion.standard,
+            )
+            (slideInHorizontally(slideSpec) { it * direction } + fadeIn(fadeSpec) togetherWith
+                slideOutHorizontally(slideSpec) { -it * direction } + fadeOut(fadeSpec))
+                .using(SizeTransform(clip = false))
         },
         label = "account-sub-screen",
         modifier = modifier,

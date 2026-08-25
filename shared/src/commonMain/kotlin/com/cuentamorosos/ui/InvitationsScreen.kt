@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.cuentamorosos.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -54,7 +56,13 @@ fun InvitationsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(invitations, key = { it.id }) { invitation ->
-                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    ElevatedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // Aceptar o rechazar saca la tarjeta de la lista y el resto
+                            // sube deslizándose en vez de dar un salto.
+                            .animateItemPlacement(NeoFintechMotion.placement),
+                    ) {
                         Column(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)

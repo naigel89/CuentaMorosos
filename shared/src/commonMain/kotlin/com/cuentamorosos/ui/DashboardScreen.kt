@@ -1,7 +1,6 @@
 package com.cuentamorosos.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -36,6 +36,9 @@ fun DashboardScreen(
 ) {
     val colors = LocalNeoFintechColors.current
     val summary = state.toFinancialSummary()
+    // Una sola entrada por visita a la pestaña: sin esto, cada tarjeta repite su
+    // fundido cada vez que vuelve a entrar en pantalla al hacer scroll.
+    val entrance = rememberEntranceTracker()
 
     if (state.isLoading) {
         LoadingSkeleton(modifier = modifier)
@@ -63,7 +66,11 @@ fun DashboardScreen(
                     modifier = Modifier
                         .size(40.dp)
                         .background(colors.primaryContainer, RoundedCornerShape(12.dp))
-                        .clickable(onClick = onOpenCalendar),
+                        .pressable(
+                            onClick = onOpenCalendar,
+                            shape = RoundedCornerShape(12.dp),
+                            role = Role.Button,
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -83,12 +90,13 @@ fun DashboardScreen(
                 teDeben = summary.teDeben,
                 debesCount = summary.debesCount,
                 teDebenCount = summary.teDebenCount,
+                entrance = entrance,
             )
         }
 
         // Net Balance Card — siempre visible
         item(key = "net-balance") {
-            NetBalanceCard(balance = summary.netBalance)
+            NetBalanceCard(balance = summary.netBalance, entrance = entrance)
         }
 
         // Unified debts card (all profiles in one list)
@@ -109,6 +117,7 @@ private fun FinancialSummaryRow(
     teDeben: Double,
     debesCount: Int,
     teDebenCount: Int,
+    entrance: EntranceTracker,
 ) {
     val colors = LocalNeoFintechColors.current
 
@@ -120,7 +129,7 @@ private fun FinancialSummaryRow(
         Card(
             modifier = Modifier
                 .weight(1f)
-                .fadeInStaggered(index = 0),
+                .appearOnce(entrance, key = "summary-debes", index = 0),
             colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
             shape = NeoFintechShapes.lg,
         ) {
@@ -135,7 +144,10 @@ private fun FinancialSummaryRow(
                     color = colors.secondary,
                 )
                 Text(
-                    text = rememberAnimatedAmount(targetValue = debes),
+                    text = rememberAnimatedAmount(
+                        targetValue = debes,
+                        countUp = entrance.isFirstAppearance("count-debes"),
+                    ),
                     style = MaterialTheme.typography.headlineSmall,
                     fontFamily = JetBrainsMonoFontFamily(),
                     fontWeight = FontWeight.Bold,
@@ -153,7 +165,7 @@ private fun FinancialSummaryRow(
         Card(
             modifier = Modifier
                 .weight(1f)
-                .fadeInStaggered(index = 1),
+                .appearOnce(entrance, key = "summary-te-deben", index = 1),
             colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
             shape = NeoFintechShapes.lg,
         ) {
@@ -168,7 +180,10 @@ private fun FinancialSummaryRow(
                     color = colors.primaryContainer,
                 )
                 Text(
-                    text = rememberAnimatedAmount(targetValue = teDeben),
+                    text = rememberAnimatedAmount(
+                        targetValue = teDeben,
+                        countUp = entrance.isFirstAppearance("count-te-deben"),
+                    ),
                     style = MaterialTheme.typography.headlineSmall,
                     fontFamily = JetBrainsMonoFontFamily(),
                     fontWeight = FontWeight.Bold,
@@ -187,7 +202,7 @@ private fun FinancialSummaryRow(
 // ── Net Balance Card ──────────────────────────────────────────────────────────
 
 @Composable
-private fun NetBalanceCard(balance: Double) {
+private fun NetBalanceCard(balance: Double, entrance: EntranceTracker) {
     val colors = LocalNeoFintechColors.current
     val isPositive = balance >= 0
     val isZero = balance == 0.0
@@ -210,7 +225,7 @@ private fun NetBalanceCard(balance: Double) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .fadeInStaggered(index = 2),
+            .appearOnce(entrance, key = "net-balance", index = 2),
         colors = CardDefaults.cardColors(containerColor = accentColor.copy(alpha = 0.12f)),
         shape = NeoFintechShapes.lg,
     ) {
@@ -225,7 +240,12 @@ private fun NetBalanceCard(balance: Double) {
                 color = accentColor,
             )
             Text(
-                text = "$prefix${rememberAnimatedAmount(targetValue = kotlin.math.abs(balance))}",
+                text = "$prefix${
+                    rememberAnimatedAmount(
+                        targetValue = kotlin.math.abs(balance),
+                        countUp = entrance.isFirstAppearance("count-net-balance"),
+                    )
+                }",
                 style = MaterialTheme.typography.headlineSmall,
                 fontFamily = JetBrainsMonoFontFamily(),
                 fontWeight = FontWeight.Bold,

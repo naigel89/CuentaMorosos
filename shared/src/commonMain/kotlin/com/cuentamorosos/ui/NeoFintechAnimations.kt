@@ -3,11 +3,7 @@ package com.cuentamorosos.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -16,11 +12,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 
 /**
  * Animation and transition tokens for the Neo-Fintech Precision design system.
@@ -224,16 +218,25 @@ fun rememberAnimatedAmount(
     prefix: String = "",
     suffix: String = "€",
     decimals: Int = 2,
+    countUp: Boolean = true,
 ): String {
-    val animatable = remember { Animatable(0f) }
-    LaunchedEffect(targetValue) {
-        animatable.animateTo(
-            targetValue = targetValue.toFloat(),
-            animationSpec = tween(
-                durationMillis = durationMillis,
-                easing = FastOutSlowInEasing,
-            ),
-        )
+    val animationsEnabled = LocalAnimationsEnabled.current
+    val shouldCountUp = countUp && animationsEnabled
+    // Sembrar en el valor final cuando no toca contar evita que el importe vuelva
+    // a subir desde 0 cada vez que la tarjeta se recompone (p. ej. al hacer scroll).
+    val animatable = remember { Animatable(if (shouldCountUp) 0f else targetValue.toFloat()) }
+    LaunchedEffect(targetValue, shouldCountUp) {
+        if (shouldCountUp) {
+            animatable.animateTo(
+                targetValue = targetValue.toFloat(),
+                animationSpec = tween(
+                    durationMillis = durationMillis,
+                    easing = NeoFintechMotion.emphasized,
+                ),
+            )
+        } else {
+            animatable.snapTo(targetValue.toFloat())
+        }
     }
     return formatAmount(animatable.value.toDouble(), prefix, suffix, decimals)
 }
@@ -243,37 +246,50 @@ fun rememberAnimatedAmount(
 // ═══════════════════════════════════════════════════════════════════
 
 /**
+ * Tope de items que participan en el escalonado. Sin él, el item 30 de una lista
+ * esperaría tres segundos antes de aparecer.
+ */
+private const val MAX_STAGGERED_INDEX = 5
+
+/**
  * Applies a staggered fade-in animation to a composable.
  *
  * Each item fades in from alpha 0 → 1 after a delay proportional to its
  * [index] × [delayPerItemMs], creating a cascading reveal effect.
  *
- * When [enabled] is false the modifier renders at alpha 0 (hidden).
+ * Cuando [enabled] es false (o las animaciones están desactivadas vía
+ * [LocalAnimationsEnabled]) el elemento se dibuja directamente opaco, sin animar.
  *
  * @param index          Zero-based position in the list (drives stagger delay).
  * @param delayPerItemMs Delay between each item's fade start (default 100).
  * @param fadeDurationMs Duration of each individual fade animation (default 300).
  * @param enabled        Whether the animation is active.
+ *
+ * En listas lazy usa [Modifier.appearOnce] en su lugar: este modificador se
+ * reproduce de nuevo cada vez que el item se recicla al hacer scroll.
  */
+@Composable
 fun Modifier.fadeInStaggered(
     index: Int,
     delayPerItemMs: Int = NeoFintechAnimations.FADE_IN_DELAY_PER_ITEM_MS,
     fadeDurationMs: Int = NeoFintechAnimations.FADE_IN_DURATION_MS,
     enabled: Boolean = true,
-): Modifier = composed {
-    val alphaAnim = remember { Animatable(if (enabled) 0f else 1f) }
-    LaunchedEffect(index, enabled) {
-        if (enabled) {
-            kotlinx.coroutines.delay((index * delayPerItemMs).toLong())
+): Modifier {
+    val shouldPlay = enabled && LocalAnimationsEnabled.current
+    val alphaAnim = remember { Animatable(if (shouldPlay) 0f else 1f) }
+    LaunchedEffect(index, shouldPlay) {
+        if (shouldPlay) {
+            kotlinx.coroutines.delay((index.coerceAtMost(MAX_STAGGERED_INDEX) * delayPerItemMs).toLong())
             alphaAnim.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = fadeDurationMs),
+                animationSpec = tween(durationMillis = fadeDurationMs, easing = NeoFintechMotion.standard),
             )
         } else {
             alphaAnim.snapTo(1f)
         }
     }
-    graphicsLayer(alpha = alphaAnim.value)
+    // Lectura diferida del valor animado: solo invalida la capa de dibujo.
+    return this.graphicsLayer { alpha = alphaAnim.value }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -294,66 +310,45 @@ fun Modifier.fadeInStaggered(
  * @param delayMs    Initial delay before the animation begins (default 0).
  * @param enabled    Whether the entrance animation plays.
  */
+@Composable
 fun Modifier.slideUp(
     distanceDp: Float = NeoFintechAnimations.SLIDE_UP_DISTANCE_DP,
     durationMs: Int = NeoFintechAnimations.SLIDE_UP_DURATION_MS,
     delayMs: Int = 0,
     enabled: Boolean = true,
-): Modifier = composed {
-    val density = LocalDensity.current
-    val distancePx = with(density) { distanceDp.dp.toPx() }
-    val offsetY = remember { Animatable(if (enabled) distancePx else 0f) }
-    val alpha = remember { Animatable(if (enabled) 0f else 1f) }
+): Modifier {
+    val shouldPlay = enabled && LocalAnimationsEnabled.current
+    val distancePx = with(LocalDensity.current) { distanceDp.dp.toPx() }
+    val progress = remember { Animatable(if (shouldPlay) 0f else 1f) }
 
-    LaunchedEffect(enabled) {
-        if (enabled) {
+    LaunchedEffect(shouldPlay) {
+        if (shouldPlay) {
             kotlinx.coroutines.delay(delayMs.toLong())
-            launch {
-                offsetY.animateTo(
-                    targetValue = 0f,
-                    animationSpec = tween(durationMillis = durationMs, easing = FastOutSlowInEasing),
-                )
-            }
-            launch {
-                alpha.animateTo(
-                    targetValue = 1f,
-                    animationSpec = tween(durationMillis = durationMs, easing = FastOutSlowInEasing),
-                )
-            }
+            progress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = durationMs, easing = NeoFintechMotion.emphasized),
+            )
         } else {
-            offsetY.snapTo(0f)
-            alpha.snapTo(1f)
+            progress.snapTo(1f)
         }
     }
-    graphicsLayer(
-        translationY = offsetY.value,
-        alpha = alpha.value,
-    )
+    // Un solo Animatable para desplazamiento y opacidad: van siempre acompasados,
+    // y así no hay dos corrutinas que puedan desincronizarse.
+    return this.graphicsLayer {
+        val p = progress.value
+        alpha = p
+        translationY = distancePx * (1f - p)
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // Existing helpers (preserved — used by other screens)
 // ═══════════════════════════════════════════════════════════════════
 
-/**
- * Applies a press-scale animation to a clickable composable.
- * Scales down to [NeoFintechAnimations.BUTTON_PRESS_SCALE] when pressed,
- * using the standard short duration.
- */
-fun Modifier.buttonPressAnimation(): Modifier = composed {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) NeoFintechAnimations.BUTTON_PRESS_SCALE else 1f,
-        animationSpec = tween(durationMillis = NeoFintechAnimations.DURATION_SHORT_MS),
-        label = "buttonPressScale",
-    )
-    this
-        .graphicsLayer(scaleX = scale, scaleY = scale)
-        .clickable(interactionSource = interactionSource, indication = null) {
-            // Click handled by parent
-        }
-}
+// `Modifier.buttonPressAnimation()` se ha retirado: no tenía ningún uso y añadía un
+// `clickable` vacío propio, de modo que se tragaba el clic del componente sobre el que
+// se aplicara. Su sustituto es `Modifier.pressable(onClick, shape)` en
+// EntranceAnimation.kt, que sí propaga el clic y recorta el ripple a la forma.
 
 /**
  * Remembers an animated double value that transitions smoothly from 0 to [targetValue]
@@ -368,7 +363,7 @@ fun rememberAnimatedDouble(targetValue: Double): Double {
         targetValue = targetValue.toFloat(),
         animationSpec = tween(
             durationMillis = NeoFintechAnimations.COUNT_UP_DURATION_MS,
-            easing = FastOutSlowInEasing,
+            easing = NeoFintechMotion.emphasized,
         ),
         label = "animatedDouble",
     )
@@ -393,6 +388,7 @@ fun AnimatedProportionBar(
         animationSpec = tween(
             durationMillis = NeoFintechAnimations.PROPORTION_BAR_DURATION_MS,
             delayMillis = delayMillis,
+            easing = NeoFintechMotion.emphasized,
         ),
         label = "proportionBar",
     )

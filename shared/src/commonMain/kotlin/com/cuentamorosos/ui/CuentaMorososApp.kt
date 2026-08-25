@@ -13,12 +13,16 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.SizeTransform
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
@@ -30,6 +34,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,6 +46,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -92,8 +99,12 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModelProvider.Factory
@@ -131,6 +142,7 @@ import com.cuentamorosos.model.EventAction
 import com.cuentamorosos.model.TransitionContext
 import com.cuentamorosos.model.resolveEventCreditor
 import com.cuentamorosos.data.LogSanitizer
+import kotlin.math.roundToInt
 
 /**
  * Consolidated dashboard aggregates computed in a single pass over allDebts/allExpenses.
@@ -203,6 +215,9 @@ fun CuentaMorososApp(
 
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
+    // Entradas de nivel app: la barra de navegación solo debe deslizarse al arrancar,
+    // no cada vez que se vuelve del detalle de un evento.
+    val appEntrance = rememberEntranceTracker()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // ── Deep link handler ──
@@ -390,27 +405,21 @@ fun CuentaMorososApp(
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .slideUp()
+                                    .appearOnce(appEntrance, key = "bottom-nav")
+                                    // Con enableEdgeToEdge() la barra del sistema se dibuja
+                                    // por debajo: sin esto la píldora se solapa con ella.
+                                    .navigationBarsPadding()
                                     .padding(horizontal = 8.dp, vertical = 8.dp),
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly,
-                                ) {
-                                    MainSection.entries.forEachIndexed { index, section ->
-                                        PillNavItem(
-                                            icon = section.icon,
-                                            label = section.title,
-                                            contentDescription = section.contentDescription,
-                                            selected = pagerState.currentPage == index,
-                                            onClick = {
-                                                coroutineScope.launch {
-                                                    pagerState.animateScrollToPage(index)
-                                                }
-                                            },
-                                        )
-                                    }
-                                }
+                                PillNavBar(
+                                    sections = MainSection.entries,
+                                    pagerState = pagerState,
+                                    onSelect = { index ->
+                                        coroutineScope.launch {
+                                            pagerState.animateScrollToPage(index)
+                                        }
+                                    },
+                                )
                             }
                         }
                     }
@@ -419,13 +428,24 @@ fun CuentaMorososApp(
                     AnimatedContent(
                         targetState = event,
                         transitionSpec = {
-                            if (targetState != null) {
-                                slideInHorizontally { it } + fadeIn(animationSpec = tween(200)) togetherWith
-                                slideOutHorizontally { -it } + fadeOut(animationSpec = tween(200))
+                            val slideSpec = tween<IntOffset>(
+                                durationMillis = NeoFintechMotion.LONG_MS,
+                                easing = NeoFintechMotion.emphasized,
+                            )
+                            val fadeSpec = tween<Float>(
+                                durationMillis = NeoFintechMotion.MEDIUM_MS,
+                                easing = NeoFintechMotion.standard,
+                            )
+                            val spec = if (targetState != null) {
+                                slideInHorizontally(slideSpec) { it } + fadeIn(fadeSpec) togetherWith
+                                    slideOutHorizontally(slideSpec) { -it } + fadeOut(fadeSpec)
                             } else {
-                                slideInHorizontally { -it } + fadeIn(animationSpec = tween(200)) togetherWith
-                                slideOutHorizontally { it } + fadeOut(animationSpec = tween(200))
+                                slideInHorizontally(slideSpec) { -it } + fadeIn(fadeSpec) togetherWith
+                                    slideOutHorizontally(slideSpec) { it } + fadeOut(fadeSpec)
                             }
+                            // Sin esto, el contenido se recorta al alto de la pantalla
+                            // saliente mientras dura la transición.
+                            spec.using(SizeTransform(clip = false))
                         },
                         label = "event-detail-transition"
                     ) { currentEvent ->
@@ -522,7 +542,12 @@ fun CuentaMorososApp(
                                         .drop(1) // Skip current value, wait for a fresh update
                                         .first { it > 0 }
                                     delay(50) // Small buffer
-                                    scrollState.animateScrollTo(scrollState.maxValue, tween(400))
+                                    // Muelle en lugar de tween: si el usuario toca la
+                                    // pantalla a mitad, el scroll empalma en vez de saltar.
+                                    scrollState.animateScrollTo(
+                                        scrollState.maxValue,
+                                        NeoFintechMotion.gentle(),
+                                    )
                                 }
                             },
                             onInviteMember = { email ->
@@ -824,6 +849,60 @@ private fun OfflineBanner() {
     }
 }
 
+/**
+ * Barra de navegación con **un solo** indicador que se desplaza entre pestañas y
+ * sigue el gesto del pager en tiempo real.
+ *
+ * Antes cada item dibujaba su propio indicador y lo hacía crecer de 0 a 16dp al ser
+ * seleccionado, así que durante un swipe a medias el indicador seguía quieto en la
+ * pestaña anterior hasta que el pager asentaba.
+ */
+@Composable
+private fun PillNavBar(
+    sections: List<MainSection>,
+    pagerState: PagerState,
+    onSelect: (Int) -> Unit,
+) {
+    val neoColors = LocalNeoFintechColors.current
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val slotWidthPx = constraints.maxWidth.toFloat() / sections.size
+        val indicatorWidth = 16.dp
+        val indicatorWidthPx = with(LocalDensity.current) { indicatorWidth.toPx() }
+
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                sections.forEachIndexed { index, section ->
+                    PillNavItem(
+                        modifier = Modifier.weight(1f),
+                        icon = section.icon,
+                        label = section.title,
+                        contentDescription = section.contentDescription,
+                        selected = pagerState.currentPage == index,
+                        onClick = { onSelect(index) },
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    // El margen inferior lo tenía antes por el padding vertical del item;
+                    // al sacar el indicador fuera hay que reponerlo o queda pegado al borde.
+                    .padding(top = 3.dp, bottom = 4.dp)
+                    // `offset {}` resuelve la posición en fase de layout: leer aquí el
+                    // desplazamiento del pager no recompone la barra en cada frame.
+                    .offset {
+                        val position = pagerState.currentPage + pagerState.currentPageOffsetFraction
+                        val x = slotWidthPx * position + (slotWidthPx - indicatorWidthPx) / 2f
+                        IntOffset(x.roundToInt(), 0)
+                    }
+                    .size(width = indicatorWidth, height = 3.dp)
+                    .background(neoColors.primaryContainer, RoundedCornerShape(2.dp)),
+            )
+        }
+    }
+}
+
 @Composable
 private fun PillNavItem(
     icon: ImageVector,
@@ -831,25 +910,39 @@ private fun PillNavItem(
     contentDescription: String,
     selected: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val neoColors = LocalNeoFintechColors.current
 
     val iconTint by animateColorAsState(
         targetValue = if (selected) neoColors.primaryContainer else neoColors.onSurfaceVariant,
-        animationSpec = tween(durationMillis = 250),
+        animationSpec = NeoFintechMotion.color,
         label = "navIconTint",
     )
     val textColor by animateColorAsState(
         targetValue = if (selected) neoColors.onSurface else neoColors.onSurfaceVariant,
-        animationSpec = tween(durationMillis = 250),
+        animationSpec = NeoFintechMotion.color,
         label = "navTextColor",
     )
 
+    val interactionSource = remember { MutableInteractionSource() }
+
     Column(
-        modifier = Modifier
-            .clickable(onClick = onClick)
+        modifier = modifier
             .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-            .padding(vertical = 4.dp, horizontal = 8.dp),
+            .pressScale(interactionSource)
+            .clickable(
+                interactionSource = interactionSource,
+                // Ripple circular sin límites, como en NavigationBar de Material.
+                // Recortarlo a la forma del slot daba un óvalo que desbordaba el icono.
+                indication = rememberRipple(bounded = false, radius = 28.dp),
+                role = Role.Tab,
+                onClick = onClick,
+            )
+            // Con slots de ancho igual (weight) el margen horizontal se reduce para
+            // que las etiquetas más largas ("Perfiles") quepan sin partirse en dos
+            // líneas, lo que cambiaría el alto de la barra.
+            .padding(vertical = 4.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
@@ -863,16 +956,9 @@ private fun PillNavItem(
             text = label,
             color = textColor,
             style = MaterialTheme.typography.labelSmall,
-        )
-        // Selected indicator
-        Box(
-            modifier = Modifier
-                .padding(top = 3.dp)
-                .size(width = if (selected) 16.dp else 0.dp, height = 3.dp)
-                .background(
-                    color = if (selected) neoColors.primaryContainer else Color.Transparent,
-                    shape = RoundedCornerShape(2.dp),
-                ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
         )
     }
 }

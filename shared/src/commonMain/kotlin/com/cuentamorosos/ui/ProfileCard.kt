@@ -1,7 +1,5 @@
 package com.cuentamorosos.ui
 
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,7 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,19 +52,13 @@ fun ProfileCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
-            .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg)
-            .clickable(onClick = onClick)
-            .then(
-                if (isOwnProfile) {
-                    Modifier.border(
-                        width = 2.dp,
-                        color = colors.primaryContainer,
-                        shape = NeoFintechShapes.lg,
-                    )
-                } else {
-                    Modifier
-                }
+            .pressableCard(
+                onClick = onClick,
+                shape = NeoFintechShapes.lg,
+                // El propio perfil se distingue con un borde más grueso en color primario.
+                borderColor = if (isOwnProfile) colors.primaryContainer else colors.outlineVariant,
+                borderWidth = if (isOwnProfile) 2.dp else 1.dp,
+                role = Role.Button,
             ),
         colors = CardDefaults.cardColors(containerColor = colors.surface),
         shape = NeoFintechShapes.lg,
