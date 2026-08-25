@@ -55,6 +55,10 @@ object NeoFintechAnimations {
     // Max simultaneous animations (performance guard)
     const val MAX_SIMULTANEOUS_ANIMATIONS = 4
 
+    // Shimmer del esqueleto de carga. Un barrido completo por ciclo: más rápido
+    // se lee como parpadeo, más lento parece que la pantalla se ha colgado.
+    const val SHIMMER_DURATION_MS = 1500
+
     // Money explosion celebration animation tokens
     const val EXPLOSION_DURATION_MS = 1500
     const val EXPLOSION_MAX_PARTICLES = 25

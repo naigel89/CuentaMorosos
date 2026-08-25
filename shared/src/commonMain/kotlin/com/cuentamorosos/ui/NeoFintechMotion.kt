@@ -45,6 +45,13 @@ object NeoFintechMotion {
     /** Entrada de superficies grandes: pantallas, hojas, paneles. */
     const val LONG_MS = 400
 
+    /**
+     * Separación entre columnas consecutivas de un importe que rueda
+     * ([AnimatedAmount]). Suficiente para leerse como cascada y no como
+     * desorden; por encima de ~80 ms el número tarda demasiado en asentarse.
+     */
+    const val DIGIT_STAGGER_MS = 55
+
     // ── Easings ───────────────────────────────────────────────────────────────
 
     /** Curva estándar: acelera y frena. Para cambios de estado. */

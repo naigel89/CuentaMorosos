@@ -1,9 +1,17 @@
 package com.cuentamorosos.ui
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,8 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,7 +38,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,7 +45,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,7 +69,8 @@ private val spanishMonthNames = listOf(
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 )
 
-private val MAX_VISIBLE_BADGES = 3
+/** Altura de cada barra o punto de evento bajo el número del día. */
+private val MARKER_HEIGHT = 5.dp
 
 @Composable
 fun CalendarScreen(
@@ -77,67 +84,19 @@ fun CalendarScreen(
     var displayYear by remember { mutableStateOf(todayFields.year) }
     var displayMonth by remember { mutableStateOf(todayFields.month) }
     var selectedDay by remember { mutableStateOf<Int?>(null) }
-    var calendarVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { calendarVisible = true }
+    // +1 avanza en el tiempo, -1 retrocede. Es lo que decide hacia qué lado
+    // entra el mes nuevo: sin esto, cambiar de mes era una sustitución sin
+    // dirección y no se sabía si ibas hacia delante o hacia atrás.
+    var monthDirection by remember { mutableStateOf(1) }
 
-    val dayRangeMillis by remember(displayYear, displayMonth) {
+    val selectedDayEvents by remember(events, selectedDay, displayYear, displayMonth) {
         derivedStateOf {
-            val fields = calendarFieldsForYearMonth(displayYear, displayMonth)
-            val startOfMonth = LocalDate(displayYear, displayMonth, 1).toEpochDays() * 86_400_000L
-            val endOfMonth = LocalDate(displayYear, displayMonth, fields.daysInMonth).toEpochDays() * 86_400_000L + 86_400_000L
-            startOfMonth to endOfMonth
-        }
-    }
-
-    val eventsByDay by remember(events, dayRangeMillis) {
-        derivedStateOf {
-            val (monthStart, monthEnd) = dayRangeMillis
-            val map = mutableMapOf<Int, MutableList<EventItem>>()
-            events.forEach { event ->
-                val start = event.startDateMillis.coerceAtLeast(monthStart)
-                val end = event.endDateMillis.coerceAtMost(monthEnd - 1)
-                if (start > end) return@forEach
-                var dayStart = start
-                while (dayStart <= end) {
-                    val dayOfMonth = LocalDate.fromEpochDays((dayStart / 86_400_000L).toInt()).dayOfMonth
-                    if (dayOfMonth > 0) {
-                        map.getOrPut(dayOfMonth) { mutableListOf() }.add(event)
-                    }
-                    dayStart += 86400000L
-                }
+            val day = selectedDay ?: return@derivedStateOf emptyList()
+            val epochDay = LocalDate(displayYear, displayMonth, day).toEpochDays()
+            events.filter { event ->
+                epochDay >= epochDayOf(event.startDateMillis) &&
+                    epochDay <= epochDayOf(event.endDateMillis)
             }
-            map.toMap()
-        }
-    }
-
-    val selectedDayEvents by remember(eventsByDay, selectedDay) {
-        derivedStateOf {
-            selectedDay?.let { eventsByDay[it] } ?: emptyList()
-        }
-    }
-
-    val calGrid: List<Int?> by remember(displayYear, displayMonth) {
-        derivedStateOf {
-            val fields = calendarFieldsForYearMonth(displayYear, displayMonth)
-            val firstDow = fields.firstWeekDayOffset
-            val daysInMonth = fields.daysInMonth
-            val cells = mutableListOf<Int?>()
-            repeat(firstDow) { cells.add(null) }
-            for (d in 1..daysInMonth) cells.add(d)
-            while (cells.size % 7 != 0) cells.add(null)
-            cells
-        }
-    }
-
-    val weekDayLabels = shortWeekDayNames()
-
-    val todayFieldsNow = remember { currentYearMonth() }
-    val todayDay by remember(displayYear, displayMonth) {
-        derivedStateOf {
-            if (todayFieldsNow.year == displayYear && todayFieldsNow.month == displayMonth) {
-                val todayMillis = currentTimeMillis()
-                LocalDate.fromEpochDays((todayMillis / 86_400_000L).toInt()).dayOfMonth
-            } else -1
         }
     }
 
@@ -148,7 +107,9 @@ fun CalendarScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Cerrar calendario") }
+            IconButton(onClick = onClose) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Cerrar calendario")
+            }
             Text(
                 text = "${spanishMonthNames[displayMonth - 1]} $displayYear",
                 style = MaterialTheme.typography.titleMedium,
@@ -157,141 +118,324 @@ fun CalendarScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 IconButton(onClick = {
                     val prev = previousMonth(displayYear, displayMonth)
+                    monthDirection = -1
                     displayYear = prev.year; displayMonth = prev.month; selectedDay = null
                 }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Mes anterior") }
                 IconButton(onClick = {
                     val next = nextMonth(displayYear, displayMonth)
+                    monthDirection = 1
                     displayYear = next.year; displayMonth = next.month; selectedDay = null
                 }) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Mes siguiente") }
             }
         }
 
-        AnimatedVisibility(
-            visible = calendarVisible,
-            enter = fadeIn() + slideInVertically { -it / 4 },
-        ) {
-            Column {
-                // ── Week day headers ─────────────────────────────────
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-                    weekDayLabels.forEach { label ->
-                        Text(
-                            text = label,
-                            modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
+        // ── Week day headers ─────────────────────────────────────────
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+            shortWeekDayNames().forEach { label ->
+                Text(
+                    text = label,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
 
-                // ── Day grid with badges ────────────────────────────
-                calGrid.chunked(7).forEach { week ->
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-                        week.forEach { day ->
-                            Box(
-                                modifier = Modifier.weight(1f).aspectRatio(0.9f).padding(1.dp)
-                                    .then(if (day != null) Modifier.clickable {
-                                        selectedDay = if (selectedDay == day) null else day
-                                    } else Modifier),
-                                contentAlignment = Alignment.TopCenter,
-                            ) {
+        // ── Day grid ─────────────────────────────────────────────────
+        AnimatedContent(
+            targetState = displayYear to displayMonth,
+            transitionSpec = {
+                val slide = tween<androidx.compose.ui.unit.IntOffset>(
+                    durationMillis = NeoFintechMotion.LONG_MS,
+                    easing = NeoFintechMotion.emphasized,
+                )
+                val fade = tween<Float>(
+                    durationMillis = NeoFintechMotion.MEDIUM_MS,
+                    easing = NeoFintechMotion.standard,
+                )
+                val direction = monthDirection
+                val enter = slideInHorizontally(slide) { width ->
+                    (width * 0.18f * direction).toInt()
+                } + fadeIn(fade)
+                val exit = slideOutHorizontally(slide) { width ->
+                    (-width * 0.18f * direction).toInt()
+                } + fadeOut(fade)
+                // Sin esto el contenido se recorta cuando dos meses tienen
+                // distinto número de semanas.
+                (enter togetherWith exit).using(SizeTransform(clip = false))
+            },
+            label = "calendarMonth",
+        ) { (year, month) ->
+            MonthGrid(
+                year = year,
+                month = month,
+                events = events,
+                todayYear = todayFields.year,
+                todayMonth = todayFields.month,
+                selectedDay = selectedDay,
+                onSelectDay = { day -> selectedDay = if (selectedDay == day) null else day },
+            )
+        }
+
+        // ── Day Detail Panel ────────────────────────────────────────
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+        Spacer(Modifier.height(4.dp))
+
+        DayDetailPanel(
+            selectedDay = selectedDay,
+            displayMonth = displayMonth,
+            displayYear = displayYear,
+            events = selectedDayEvents,
+            pendingTotalsByEvent = pendingTotalsByEvent,
+            onOpenEvent = onOpenEvent,
+        )
+    }
+}
+
+// ── Month grid ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun MonthGrid(
+    year: Int,
+    month: Int,
+    events: List<EventItem>,
+    todayYear: Int,
+    todayMonth: Int,
+    selectedDay: Int?,
+    onSelectDay: (Int) -> Unit,
+) {
+    val fields = remember(year, month) { calendarFieldsForYearMonth(year, month) }
+
+    val cells = remember(year, month) {
+        val list = mutableListOf<Int?>()
+        repeat(fields.firstWeekDayOffset) { list.add(null) }
+        for (day in 1..fields.daysInMonth) list.add(day)
+        while (list.size % 7 != 0) list.add(null)
+        list.toList()
+    }
+
+    // Eventos que tocan este mes, con su carril ya asignado. El carril se
+    // calcula una vez por mes y no por celda: es lo que mantiene recta la barra
+    // de un evento de varios días.
+    val monthEvents = remember(events, year, month) {
+        val first = LocalDate(year, month, 1).toEpochDays()
+        val last = LocalDate(year, month, fields.daysInMonth).toEpochDays()
+        events.filter { event ->
+            epochDayOf(event.startDateMillis) <= last && epochDayOf(event.endDateMillis) >= first
+        }
+    }
+    val lanes = remember(monthEvents) { assignEventLanes(monthEvents) }
+
+    val todayDay = remember(year, month) {
+        if (todayYear == year && todayMonth == month) {
+            LocalDate.fromEpochDays(epochDayOf(currentTimeMillis())).dayOfMonth
+        } else {
+            -1
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        cells.chunked(7).forEach { week ->
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                week.forEachIndexed { column, day ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(0.9f)
+                            .then(
                                 if (day != null) {
-                                    val isSelected = selectedDay == day
-                                    val isToday = day == todayDay
-                                    val dayEvents = eventsByDay[day] ?: emptyList()
-                                    val eventCount = dayEvents.size
-
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        // Day number circle
-                                        Box(
-                                            modifier = Modifier.size(28.dp).then(
-                                                when {
-                                                    isSelected -> Modifier.background(
-                                                        MaterialTheme.colorScheme.primary, CircleShape
-                                                    )
-                                                    isToday -> Modifier.background(
-                                                        MaterialTheme.colorScheme.primaryContainer, CircleShape
-                                                    )
-                                                    else -> Modifier
-                                                }
-                                            ),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Text(
-                                                text = day.toString(),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                color = when {
-                                                    isSelected -> MaterialTheme.colorScheme.onPrimary
-                                                    isToday -> MaterialTheme.colorScheme.onPrimaryContainer
-                                                    else -> MaterialTheme.colorScheme.onSurface
-                                                },
-                                            )
-                                        }
-
-                                        // Badge pills
-                                        Spacer(Modifier.height(2.dp))
-                                        dayEvents.take(MAX_VISIBLE_BADGES).forEach { event ->
-                                            EventBadge(event = event)
-                                        }
-                                        if (eventCount > MAX_VISIBLE_BADGES) {
-                                            Text(
-                                                text = "+${eventCount - MAX_VISIBLE_BADGES} más",
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontSize = 8.sp,
-                                                    lineHeight = 10.sp,
-                                                ),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                            )
-                                        }
-                                    }
+                                    Modifier.clickable { onSelectDay(day) }
+                                } else {
+                                    Modifier
                                 }
+                            ),
+                    ) {
+                        if (day != null) {
+                            val epochDay = LocalDate(year, month, day).toEpochDays()
+                            val dayEvents = monthEvents.filter { event ->
+                                epochDay >= epochDayOf(event.startDateMillis) &&
+                                    epochDay <= epochDayOf(event.endDateMillis)
                             }
+                            DayCell(
+                                day = day,
+                                isSelected = selectedDay == day,
+                                isToday = day == todayDay,
+                                markers = markersForDay(dayEvents, epochDay, lanes),
+                                isWeekStart = column == 0,
+                                isWeekEnd = column == 6,
+                            )
                         }
                     }
                 }
-
-                // ── Day Detail Panel ────────────────────────────────
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                Spacer(Modifier.height(4.dp))
-
-                DayDetailPanel(
-                    selectedDay = selectedDay,
-                    displayMonth = displayMonth,
-                    displayYear = displayYear,
-                    events = selectedDayEvents,
-                    pendingTotalsByEvent = pendingTotalsByEvent,
-                    onOpenEvent = onOpenEvent,
-                )
             }
         }
     }
 }
 
 @Composable
-private fun EventBadge(event: EventItem) {
-    val color = event.state.statusColor()
+private fun DayCell(
+    day: Int,
+    isSelected: Boolean,
+    isToday: Boolean,
+    markers: DayMarkers,
+    isWeekStart: Boolean,
+    isWeekEnd: Boolean,
+) {
+    val colors = LocalNeoFintechColors.current
+    val animationsEnabled = LocalAnimationsEnabled.current
+
+    // snappy(): la selección responde al dedo, y cualquier rebote aquí se leería
+    // como imprecisión sobre qué día has tocado.
+    val selection = animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = if (animationsEnabled) {
+            NeoFintechMotion.snappy()
+        } else {
+            androidx.compose.animation.core.snap()
+        },
+        label = "daySelection",
+    )
+
+    val numberColor = when {
+        isSelected -> colors.onPrimaryContainer
+        isToday -> colors.primaryContainer
+        else -> colors.onSurface
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(3.dp))
+
+        Box(
+            modifier = Modifier.size(30.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            // "Hoy" es un aro, no un relleno: así no compite con el día
+            // seleccionado, que sí va relleno.
+            if (isToday) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .border(1.5.dp, colors.primaryContainer, CircleShape),
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    // Lectura diferida: la escala se lee en fase de dibujo, así
+                    // que animar la selección no recompone las 42 celdas.
+                    .graphicsLayer {
+                        val value = selection.value
+                        scaleX = value
+                        scaleY = value
+                        alpha = value
+                    }
+                    .clip(CircleShape)
+                    .background(colors.primaryContainer),
+            )
+            Text(
+                text = day.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
+                color = numberColor,
+            )
+        }
+
+        Spacer(Modifier.height(3.dp))
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            markers.visible.forEach { marker ->
+                EventMarker(
+                    marker = marker,
+                    isWeekStart = isWeekStart,
+                    isWeekEnd = isWeekEnd,
+                )
+            }
+            if (markers.overflow > 0) {
+                Text(
+                    text = "+${markers.overflow}",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 9.sp,
+                        lineHeight = 11.sp,
+                    ),
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Barra de rango o punto suelto.
+ *
+ * Los días intermedios de un rango llegan a ras de celda para empalmar con la
+ * barra de al lado; los extremos reales se redondean y se separan un poco. Al
+ * cambiar de semana la barra se corta con un margen mínimo, porque ahí sí hay
+ * un salto de línea de verdad.
+ */
+@Composable
+private fun EventMarker(
+    marker: DayMarker,
+    isWeekStart: Boolean,
+    isWeekEnd: Boolean,
+) {
+    val color = marker.state.statusColor()
+
+    if (!marker.isRange) {
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(MARKER_HEIGHT)
+                    .clip(CircleShape)
+                    .background(color),
+            )
+        }
+        return
+    }
+
+    val startRadius = if (marker.roundedStart) 3.dp else 0.dp
+    val endRadius = if (marker.roundedEnd) 3.dp else 0.dp
+    val startPadding = when {
+        marker.roundedStart -> 5.dp
+        isWeekStart -> 2.dp
+        else -> 0.dp
+    }
+    val endPadding = when {
+        marker.roundedEnd -> 5.dp
+        isWeekEnd -> 2.dp
+        else -> 0.dp
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color.copy(alpha = 0.15f), RoundedCornerShape(3.dp))
-            .padding(horizontal = 2.dp, vertical = 1.dp),
-    ) {
-        Text(
-            text = event.name,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 8.sp,
-                lineHeight = 10.sp,
-            ),
-            color = color,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+            .padding(start = startPadding, end = endPadding)
+            .height(MARKER_HEIGHT)
+            .clip(
+                RoundedCornerShape(
+                    topStart = startRadius,
+                    bottomStart = startRadius,
+                    topEnd = endRadius,
+                    bottomEnd = endRadius,
+                )
+            )
+            .background(color),
+    )
 }
+
+// ── Day detail panel ─────────────────────────────────────────────────────────
 
 @Composable
 private fun DayDetailPanel(
@@ -304,124 +448,128 @@ private fun DayDetailPanel(
 ) {
     val colors = LocalNeoFintechColors.current
 
-    if (selectedDay == null) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            // El panel crece con muelle en lugar de dar el salto de altura que
+            // daba al elegir un día con eventos.
+            .animateContentSize(NeoFintechMotion.resize),
+    ) {
+        if (selectedDay == null) {
+            Text(
+                text = if (events.isEmpty()) "No hay eventos este mes" else "Toca un día para ver los eventos",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                textAlign = TextAlign.Center,
+            )
+            return@Column
+        }
+
         Text(
-            text = if (events.isEmpty()) "No hay eventos este mes" else "Tocá un día para ver los eventos",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            textAlign = TextAlign.Center,
+            text = "$selectedDay de ${spanishMonthNames[displayMonth - 1]} de $displayYear",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            color = colors.onSurface,
         )
-        return
-    }
+        Spacer(Modifier.height(4.dp))
 
-    Text(
-        text = "${selectedDay} de ${spanishMonthNames[displayMonth - 1]} de $displayYear",
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        color = MaterialTheme.colorScheme.onSurface,
-    )
-    Spacer(Modifier.height(4.dp))
+        if (events.isEmpty()) {
+            Text(
+                text = "Sin eventos este día",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                textAlign = TextAlign.Center,
+            )
+            return@Column
+        }
 
-    if (events.isEmpty()) {
-        Text(
-            text = "Sin eventos este día",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            textAlign = TextAlign.Center,
-        )
-        return
-    }
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            events.sortedBy { it.dateMillis }.forEach { event ->
+                val pending = pendingTotalsByEvent[event.id] ?: 0.0
+                val isRange = event.startDateMillis != event.endDateMillis
 
-    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        events.sortedBy { it.dateMillis }.forEach { event ->
-            val pending = pendingTotalsByEvent[event.id] ?: 0.0
-            val isRange = event.startDateMillis != event.endDateMillis
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 3.dp)
-                    .clickable { onOpenEvent(event) },
-                colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
-                shape = NeoFintechShapes.sm,
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp)
+                        .pressableCard(
+                            onClick = { onOpenEvent(event) },
+                            shape = NeoFintechShapes.sm,
+                        ),
+                    colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLowest),
+                    shape = NeoFintechShapes.sm,
                 ) {
-                    // State color strip
-                    Box(
-                        modifier = Modifier
-                            .width(4.dp)
-                            .height(40.dp)
-                            .background(event.state.statusColor(), RoundedCornerShape(2.dp)),
-                    )
-                    Spacer(Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = event.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(4.dp)
+                                .height(40.dp)
+                                .background(event.state.statusColor(), RoundedCornerShape(2.dp)),
                         )
-                        if (isRange) {
-                            Text(
-                                text = "Del ${formatDateMillis(event.startDateMillis)} al ${formatDateMillis(event.endDateMillis)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else {
-                            Text(
-                                text = formatDateMillis(event.dateMillis),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+                        Spacer(Modifier.width(12.dp))
 
-                    Spacer(Modifier.width(8.dp))
-                    Column(horizontalAlignment = Alignment.End) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(event.state.statusColor(), CircleShape)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = event.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = colors.onSurface,
                             )
                             Text(
-                                text = event.state.statusLabel(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = event.state.statusColor(),
+                                text = if (isRange) {
+                                    "Del ${formatDateMillis(event.startDateMillis)} al ${formatDateMillis(event.endDateMillis)}"
+                                } else {
+                                    formatDateMillis(event.dateMillis)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.onSurfaceVariant,
                             )
                         }
-                        if (pending > 0.0 && event.state != EventState.CLOSED) {
+
+                        Spacer(Modifier.width(8.dp))
+                        Column(horizontalAlignment = Alignment.End) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(event.state.statusColor(), CircleShape)
+                                )
+                                Text(
+                                    text = event.state.statusLabel(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = event.state.statusColor(),
+                                )
+                            }
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                text = "Pendiente: ${formatEuros(pending)}",
+                                text = when {
+                                    event.state == EventState.CLOSED -> "Saldado"
+                                    pending > 0.0 -> "Pendiente: ${formatEuros(pending)}"
+                                    else -> ""
+                                },
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        } else if (event.state == EventState.CLOSED) {
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = "Saldado",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (event.state == EventState.CLOSED) {
+                                    colors.onSurfaceVariant
+                                } else {
+                                    colors.error
+                                },
                             )
                         }
                     }
                 }
             }
         }
+        Spacer(Modifier.height(16.dp))
     }
-    Spacer(Modifier.height(16.dp))
 }
-
-

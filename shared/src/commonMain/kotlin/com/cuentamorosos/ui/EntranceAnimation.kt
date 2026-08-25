@@ -1,6 +1,11 @@
 package com.cuentamorosos.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.border
@@ -12,6 +17,10 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -248,4 +257,60 @@ fun Modifier.pressableCard(
             role = role,
             onClick = onClick,
         )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Shimmer — barrido de carga
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Barrido de brillo sobre un bloque de esqueleto, para que se lea como
+ * "cargando" y no como "roto".
+ *
+ * Es un degradado en movimiento dibujado encima del contenido, no un desenfoque:
+ * dentro de Compose Multiplatform 1.6.11 `Modifier.blur` solo existe en Android,
+ * la misma razón por la que existe [neonGlow].
+ *
+ * Va **después** del `background` en la cadena de modificadores, o el degradado
+ * quedaría debajo del relleno. Recorta con `clip(shape)` antes si el bloque
+ * tiene esquinas redondeadas.
+ *
+ * Respeta [LocalAnimationsEnabled]: desactivado devuelve el modificador intacto,
+ * sin dejar una animación infinita corriendo de fondo.
+ */
+@Composable
+fun Modifier.shimmer(
+    enabled: Boolean = true,
+    durationMs: Int = NeoFintechAnimations.SHIMMER_DURATION_MS,
+): Modifier {
+    if (!enabled || !LocalAnimationsEnabled.current) return this
+
+    val highlight = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val progress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMs, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "shimmerSweep",
+    )
+
+    return this.drawWithContent {
+        drawContent()
+        val width = size.width
+        if (width > 0f) {
+            // La banda recorre el ancho completo más su propio tamaño a cada
+            // lado, así que entra y sale por fuera en vez de aparecer de golpe.
+            val band = width * 0.45f
+            val center = (1f - progress) * (width + band * 2f) - band
+            val brush = Brush.linearGradient(
+                colors = listOf(Color.Transparent, highlight, Color.Transparent),
+                start = Offset(center - band, 0f),
+                end = Offset(center + band, 0f),
+            )
+            drawRect(brush = brush)
+        }
+    }
 }

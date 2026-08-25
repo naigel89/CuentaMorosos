@@ -1,5 +1,16 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,7 +28,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -91,6 +101,17 @@ internal fun computeMultiDebtToggleActions(
     val newPaid = !isAllPaid
     return snapshot.map { it.copy(paid = newPaid) }
 }
+
+/**
+ * Texto que resume el alcance de una marca: cuántas deudas abarca y por cuánto.
+ *
+ * Existe porque [computeMultiDebtToggleActions] marca **todas** las deudas del
+ * perfil de una sola vez. Un toque puede cambiar tres registros, y hasta ahora
+ * la pantalla no lo decía en ninguna parte.
+ */
+internal fun settlementScopeLabel(debtCount: Int, total: Double): String =
+    if (debtCount == 1) "1 deuda · ${formatEuros(total)}"
+    else "$debtCount deudas · ${formatEuros(total)}"
 
 /**
  * Formats a euro amount with comma as decimal separator (Spanish locale style).
@@ -324,14 +345,16 @@ fun SettlementPanel(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                // Checkbox (Fix 4: toggles ALL debts atomically)
+                                // La marca abarca TODAS las deudas del perfil
+                                // (computeMultiDebtToggleActions), no solo una.
+                                // El clic lo maneja la fila entera, así que la
+                                // casilla es aquí un indicador.
                                 if (showCheckbox) {
-                                    Checkbox(
+                                    CheckMark(
                                         checked = checkState.isPaid,
-                                        onCheckedChange = {
-                                            val toggled = computeMultiDebtToggleActions(profileDebts)
-                                            toggled.forEach { onTogglePaid(it) }
-                                        },
+                                        checkedColor = colors.primaryContainer,
+                                        uncheckedColor = themeColors.onSurfaceVariant,
+                                        markColor = colors.onPrimaryContainer,
                                     )
                                 }
 
@@ -340,7 +363,7 @@ fun SettlementPanel(
                                     photoUrl = profile.photoUrl,
                                     size = 32.dp,
                                 )
-                                Column {
+                                Column(modifier = Modifier.animateContentSize(NeoFintechMotion.resize)) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -369,22 +392,12 @@ fun SettlementPanel(
                                             themeColors = themeColors,
                                         )
                                     }
-                                    if (totalOwed > 0.0) {
-                                        Text(
-                                            text = "Debe: ${formatEuros(totalOwed)}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = colors.error,
-                                            fontWeight = FontWeight.Medium,
-                                            fontFamily = JetBrainsMonoFontFamily(),
-                                        )
-                                    } else if (checkState.isPaid) {
-                                        Text(
-                                            text = "Pagado ✓",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = colors.primaryContainer,
-                                            fontWeight = FontWeight.Medium,
-                                        )
-                                    }
+                                    ParticipantDebtStatus(
+                                        isPaid = checkState.isPaid,
+                                        totalOwed = totalOwed,
+                                        debtCount = profileDebts.size,
+                                        scopeTotal = profileDebts.sumOf { it.amountEuros },
+                                    )
                                 }
                             }
 
@@ -428,6 +441,14 @@ fun SettlementPanel(
                         style = MaterialTheme.typography.labelSmall,
                         color = themeColors.onSurfaceVariant,
                         fontWeight = FontWeight.Medium,
+                    )
+
+                    // El grafo no calcula nada: dibuja lo que ya decidió
+                    // SettlementEngine, para que se vea por qué las
+                    // transferencias son esas y no otras.
+                    SettlementGraph(
+                        transfers = snapshot.transfers,
+                        nameById = profileNameById,
                     )
 
                     debtorTransfers.forEach { (debtorId, pair) ->
@@ -508,6 +529,71 @@ private fun RoleBadge(
             fontWeight = FontWeight.Bold,
             color = containerColor,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+        )
+    }
+}
+
+
+/**
+ * Línea de estado de un participante dentro de la liquidación.
+ *
+ * "Debe: X" y "Pagado ✓" no se sustituyen: la que sale se va hacia arriba y la
+ * que entra llega por abajo, para que el cambio se lea como una transición y no
+ * como un texto distinto que apareció ahí.
+ *
+ * Debajo, cuando está marcado, aparece el alcance real de esa marca.
+ */
+@Composable
+private fun ParticipantDebtStatus(
+    isPaid: Boolean,
+    totalOwed: Double,
+    debtCount: Int,
+    scopeTotal: Double,
+) {
+    val colors = LocalNeoFintechColors.current
+
+    AnimatedContent(
+        targetState = isPaid,
+        transitionSpec = {
+            val fade = tween<Float>(NeoFintechMotion.SHORT_MS, easing = NeoFintechMotion.standard)
+            val enter = slideInVertically(NeoFintechMotion.placement) { it } + fadeIn(fade)
+            val exit = slideOutVertically(NeoFintechMotion.placement) { -it } + fadeOut(fade)
+            enter togetherWith exit
+        },
+        label = "participantDebtStatus",
+    ) { paid ->
+        when {
+            paid -> Text(
+                text = "Pagado ✓",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.primaryContainer,
+                fontWeight = FontWeight.Medium,
+            )
+            totalOwed > 0.0 -> Text(
+                text = "Debe: ${formatEuros(totalOwed)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.error,
+                fontWeight = FontWeight.Medium,
+                fontFamily = JetBrainsMonoFontFamily(),
+            )
+            else -> Box(modifier = Modifier)
+        }
+    }
+
+    AnimatedVisibility(
+        visible = isPaid && debtCount > 0,
+        enter = expandVertically(NeoFintechMotion.resize) + fadeIn(
+            tween(NeoFintechMotion.SHORT_MS, easing = NeoFintechMotion.standard),
+        ),
+        exit = shrinkVertically(NeoFintechMotion.resize) + fadeOut(
+            tween(NeoFintechMotion.QUICK_MS, easing = NeoFintechMotion.standard),
+        ),
+    ) {
+        Text(
+            text = settlementScopeLabel(debtCount, scopeTotal),
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.onSurfaceVariant,
+            fontFamily = JetBrainsMonoFontFamily(),
         )
     }
 }

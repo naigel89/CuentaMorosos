@@ -584,6 +584,9 @@ private fun HeaderSection(
                 color = themeColors.onSurfaceVariant,
             )
         }
+
+        // Fuera del if/else: el raíl ocupa el ancho completo en ambos layouts.
+        EventStateRail(state = event.state)
     }
 }
 

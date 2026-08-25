@@ -59,8 +59,6 @@ fun EventCard(
     val neoColors = LocalNeoFintechColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val stateBadgeColor = event.state.stateBadgeColor(neoColors)
-    val stateLabelText = event.state.stateBadgeLabel()
 
     // Antes esto colgaba de `hoverable`, que en un móvil no se dispara nunca: el estado
     // interactivo de la tarjeta era invisible en el dispositivo real. El peso de la
@@ -109,19 +107,9 @@ fun EventCard(
                         fontSize = 24.sp,
                     )
                 }
-                // State badge (pill shape)
-                Surface(
-                    color = stateBadgeColor,
-                    shape = NeoFintechShapes.full,
-                ) {
-                    Text(
-                        text = stateLabelText,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                        color = colors.onSurface,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
+                // Copia local retirada: StateBadge ya hace lo mismo y además
+                // interpola color, ancho y etiqueta al cambiar de estado.
+                StateBadge(state = event.state)
             }
 
             // Event name + date

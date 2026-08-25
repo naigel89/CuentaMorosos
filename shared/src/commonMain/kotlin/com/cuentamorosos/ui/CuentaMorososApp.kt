@@ -233,6 +233,10 @@ fun CuentaMorososApp(
     }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     var showCalendar by remember { mutableStateOf(false) }
+    // El overlay sigue compuesto mientras dura el repliegue; showCalendar solo
+    // dice hacia dónde va la animación.
+    var calendarOverlayVisible by remember { mutableStateOf(false) }
+    var calendarOrigin by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var showAccountScreen by remember { mutableStateOf(false) }
     var showCelebration by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
@@ -640,7 +644,9 @@ fun CuentaMorososApp(
                                     .fillMaxSize()
                                     .padding(innerPadding),
                                 state = dashboardState,
-                                onOpenCalendar = {
+                                onOpenCalendar = { bounds ->
+                                    calendarOrigin = bounds
+                                    calendarOverlayVisible = true
                                     showCalendar = true
                                 },
                             )
@@ -771,23 +777,31 @@ fun CuentaMorososApp(
                 showAccountScreen = false
             }
 
-            if (showCalendar) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                        .background(MaterialTheme.colorScheme.background),
+            if (calendarOverlayVisible) {
+                ExpandFromBounds(
+                    origin = calendarOrigin,
+                    expanded = showCalendar,
+                    onCollapsed = { calendarOverlayVisible = false },
+                    containerColor = MaterialTheme.colorScheme.background,
+                    originColor = MaterialTheme.colorScheme.primary,
+                    originCornerRadius = 12.dp,
                 ) {
-                    CalendarScreen(
-                        modifier = Modifier.fillMaxSize(),
-                        events = events,
-                        pendingTotalsByEvent = pendingTotalsByEvent,
-                        onOpenEvent = { event ->
-                            showCalendar = false
-                            eventDetailViewModel.setEventId(event.id)
-                        },
-                        onClose = { showCalendar = false },
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding(),
+                    ) {
+                        CalendarScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            events = events,
+                            pendingTotalsByEvent = pendingTotalsByEvent,
+                            onOpenEvent = { event ->
+                                showCalendar = false
+                                eventDetailViewModel.setEventId(event.id)
+                            },
+                            onClose = { showCalendar = false },
+                        )
+                    }
                 }
             }
 
