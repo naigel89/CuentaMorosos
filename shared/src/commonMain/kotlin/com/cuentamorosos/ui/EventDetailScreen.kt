@@ -414,9 +414,13 @@ fun EventDetailScreen(
     }
 
     // Dialog 6: ReceiptPanel — full breakdown of calculated event
-    if (showReceiptDialog && event.state == EventState.CALCULATED) {
+    //
+    // La condición sale de canShowReceipt, la misma que decide si el botón está
+    // habilitado. Antes estaba escrita a mano aquí y exigía CALCULATED, de modo
+    // que en un evento cerrado el botón se encendía y no abría nada.
+    if (showReceiptDialog) {
         val snapshot = event.lastCalculationSummary?.toCalculationSnapshot()
-        if (snapshot != null) {
+        if (snapshot != null && canShowReceipt(event.state, hasSnapshot = true)) {
             ReceiptPanel(
                 event = event,
                 snapshot = snapshot,

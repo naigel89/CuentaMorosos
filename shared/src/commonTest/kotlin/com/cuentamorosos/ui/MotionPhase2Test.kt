@@ -2,7 +2,6 @@ package com.cuentamorosos.ui
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.SettlementTransfer
@@ -183,41 +182,42 @@ class MotionPhase2Test {
     // ── 04 · El cálculo se resuelve ───────────────────────────────────
 
     @Test
-    fun `los nodos se reparten sobre la elipse sin salirse`() {
-        val size = Size(400f, 200f)
-        val nodes = ringPositions(5, size, inset = 40f)
-        assertEquals(5, nodes.size)
-        nodes.forEach { node ->
-            assertTrue(node.x in 0f..size.width, "x fuera del lienzo: ${node.x}")
-            assertTrue(node.y in 0f..size.height, "y fuera del lienzo: ${node.y}")
-        }
-        // El primero arranca arriba, en el centro horizontal.
-        assertTrue(abs(nodes[0].x - size.width / 2f) < 0.01f)
-        assertTrue(nodes[0].y < size.height / 2f)
+    fun `los roles salen de las transferencias, no de los saldos`() {
+        val transfers = listOf(
+            SettlementTransfer("marta", "ana", 90.0),
+            SettlementTransfer("iker", "luis", 40.0),
+            SettlementTransfer("sofia", "luis", 20.0),
+        )
+        val (debtors, creditors) = settlementRoles(transfers)
+        assertEquals(listOf("marta", "iker", "sofia"), debtors)
+        assertEquals(listOf("ana", "luis"), creditors)
     }
 
     @Test
-    fun `un segmento más corto que el recorte se deja intacto`() {
-        val a = Offset(0f, 0f)
-        val b = Offset(10f, 0f)
-        val (start, end) = trimSegment(a, b, pad = 20f)
-        assertEquals(a, start)
-        assertEquals(b, end)
+    fun `un acreedor que recibe varias veces aparece una sola vez`() {
+        val transfers = listOf(
+            SettlementTransfer("a", "natalia", 16.81),
+            SettlementTransfer("b", "natalia", 4.49),
+            SettlementTransfer("c", "natalia", 16.81),
+        )
+        val (debtors, creditors) = settlementRoles(transfers)
+        assertEquals(3, debtors.size)
+        assertEquals(listOf("natalia"), creditors)
     }
 
     @Test
-    fun `el recorte acorta el segmento por los dos extremos`() {
-        val (start, end) = trimSegment(Offset(0f, 0f), Offset(100f, 0f), pad = 20f)
-        assertEquals(20f, start.x)
-        assertEquals(80f, end.x)
+    fun `la columna corta se centra frente a la larga`() {
+        // Tres deudores y un acreedor: el acreedor cae a la altura del bloque,
+        // no pegado arriba.
+        val debtors = columnRowCenters(count = 3, totalRows = 3, rowHeight = 100f)
+        val creditors = columnRowCenters(count = 1, totalRows = 3, rowHeight = 100f)
+        assertEquals(listOf(50f, 150f, 250f), debtors)
+        assertEquals(listOf(150f), creditors)
     }
 
     @Test
-    fun `la maraña se ha retirado antes de que empiecen las flechas`() {
-        assertEquals(0f, webAlpha(0f))
-        assertTrue(webAlpha(0.35f) > 0.9f)
-        assertEquals(0f, webAlpha(ARROW_WINDOW_START))
-        assertEquals(0f, webAlpha(1f))
+    fun `una columna vacía no produce filas`() {
+        assertTrue(columnRowCenters(count = 0, totalRows = 3, rowHeight = 100f).isEmpty())
     }
 
     @Test
@@ -231,25 +231,12 @@ class MotionPhase2Test {
     @Test
     fun `las flechas se trazan en cascada`() {
         val count = 3
-        val mid = 0.75f
+        val mid = 0.5f
         val first = arrowProgress(mid, 0, count)
         val second = arrowProgress(mid, 1, count)
         val third = arrowProgress(mid, 2, count)
         assertTrue(first > second, "la primera va por delante de la segunda")
         assertTrue(second > third, "la segunda va por delante de la tercera")
-    }
-
-    @Test
-    fun `los participantes salen de las transferencias en orden estable`() {
-        val transfers = listOf(
-            SettlementTransfer("marta", "ana", 90.0),
-            SettlementTransfer("iker", "luis", 40.0),
-            SettlementTransfer("sofia", "luis", 20.0),
-        )
-        assertEquals(listOf("marta", "ana", "iker", "luis", "sofia"), graphParticipants(transfers))
-        assertTrue(isDebtor("marta", transfers))
-        assertFalse(isDebtor("ana", transfers))
-        assertFalse(isDebtor("luis", transfers))
     }
 
     @Test

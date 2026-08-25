@@ -59,6 +59,13 @@ jobs:
 
       # ── 6. Build release APK (firmado con keystore del repo) ─────────────
       - name: Build release APK
+        # El .jks vive en el repo (ver .gitignore), pero las credenciales no.
+        # Sin este env, getRequiredProperty en app/build.gradle.kts aborta con
+        # "Missing keystore credential" y la release nunca llega a firmarse.
+        env:
+          CM_KEYSTORE_PASSWORD: ${{ secrets.CM_KEYSTORE_PASSWORD }}
+          CM_KEY_ALIAS: ${{ secrets.CM_KEY_ALIAS }}
+          CM_KEY_PASSWORD: ${{ secrets.CM_KEY_PASSWORD }}
         run: ./gradlew :app:assembleRelease --stacktrace
 
       # ── 7. Upload to Firebase App Distribution ───────────────────────────

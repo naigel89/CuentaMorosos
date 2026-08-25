@@ -83,6 +83,19 @@ internal fun computeShouldShowCheckbox(
 }
 
 /**
+ * Si el recibo del evento puede mostrarse.
+ *
+ * Fuente única para el botón y para el diálogo. Estaban duplicadas y habían
+ * divergido: el botón se habilitaba con CALCULATED **o** CLOSED, y el diálogo
+ * exigía CALCULATED. Resultado: en un evento cerrado el botón se veía
+ * encendido, era pulsable y no abría nada — justo cuando más sentido tiene
+ * mirar el recibo. "Cómo se calculó" nunca tuvo esa guardia, que es lo que
+ * delataba que se trataba de un olvido y no de una regla.
+ */
+internal fun canShowReceipt(eventState: EventState, hasSnapshot: Boolean): Boolean =
+    hasSnapshot && (eventState == EventState.CALCULATED || eventState == EventState.CLOSED)
+
+/**
  * Computes the list of debts after toggling ALL profile debts atomically.
  * Uses an immutable snapshot of the list to prevent concurrent modification issues.
  *
@@ -224,7 +237,7 @@ fun SettlementPanel(
                     }
 
                     // Receipt button — circular, visible only when event is CALCULATED or CLOSED
-                    val receiptEnabled = (eventState == EventState.CALCULATED || eventState == EventState.CLOSED) && snapshot != null
+                    val receiptEnabled = canShowReceipt(eventState, hasSnapshot = snapshot != null)
                     Box(
                         modifier = Modifier
                             .size(40.dp)
