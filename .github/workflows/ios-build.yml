@@ -14,7 +14,6 @@ jobs:
     runs-on: macos-15
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
-      SIMULATOR: iPhone 16
 
     steps:
       - name: Checkout repository
@@ -104,7 +103,7 @@ jobs:
             -workspace iosApp.xcworkspace \
             -scheme iosApp \
             -configuration Debug \
-            -destination "platform=iOS Simulator,name=${SIMULATOR}" \
+            -destination "generic/platform=iOS Simulator" \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             build
@@ -126,8 +125,12 @@ jobs:
         run: |
           APP_PATH=$(find iosApp/build/Build/Products -name "iosApp.app" -maxdepth 3 | head -1)
           echo "App: $APP_PATH"
-          xcrun simctl boot "${SIMULATOR}" || true
-          xcrun simctl bootstatus "${SIMULATOR}" -b
+          # El modelo disponible cambia con cada Xcode; se elige en caliente.
+          DEVICE=$(xcrun simctl list devices available --json \
+            | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for v in d.values() for x in v if 'iPhone' in x['name']))")
+          echo "Simulador: $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install booted "$APP_PATH"
           xcrun simctl launch booted com.cuentamorosos
           # Dar tiempo a que Compose pinte el primer frame.

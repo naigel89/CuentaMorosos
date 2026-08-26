@@ -56,3 +56,13 @@ targets:
           cd "$SRCROOT/.."
           ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
         basedOnDependencyAnalysis: false
+
+schemes:
+  iosApp:
+    build:
+      targets:
+        iosApp: all
+    run:
+      config: Debug
+    archive:
+      config: Debug
