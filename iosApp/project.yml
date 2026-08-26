@@ -67,15 +67,26 @@ targets:
       - name: Copy Compose resources
         script: |
           set -eu
-          SRC=$(find "$SRCROOT/../shared/build" -type d -name "compose-resources" 2>/dev/null | head -1)
-          if [ -z "$SRC" ]; then
-            echo "error: no se encontró compose-resources bajo shared/build" >&2
+          ROOT="$SRCROOT/.."
+          # Compose no deja un directorio llamado "compose-resources" en ningún
+          # sitio: los prepara aquí, con el nombre del source set.
+          SRC=$(find "$ROOT/shared/build/generated/compose/resourceGenerator/preparedResources" \
+                  -type d -name composeResources 2>/dev/null | head -1)
+          # Si el build aún no los ha preparado, la fuente vale: mismo layout.
+          if [ -z "${SRC:-}" ]; then
+            SRC="$ROOT/shared/src/commonMain/composeResources"
+          fi
+          if [ ! -d "$SRC" ]; then
+            echo "error: no se encontraron los recursos de Compose" >&2
             exit 1
           fi
+          # Ojo al guion: el runtime los busca en "compose-resources", no en
+          # "composeResources".
           DEST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/compose-resources"
-          echo "Copiando recursos de Compose: $SRC -> $DEST"
+          echo "Recursos de Compose: $SRC -> $DEST"
           mkdir -p "$DEST"
           rsync -a --delete "$SRC/" "$DEST/"
+          find "$DEST" -type f | head -10
         basedOnDependencyAnalysis: false
 
     preBuildScripts:
