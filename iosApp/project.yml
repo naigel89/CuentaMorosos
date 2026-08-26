@@ -47,10 +47,6 @@ targets:
         # que no la requiere.
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGNING_ALLOWED: "NO"
-        OTHER_LDFLAGS:
-          - "$(inherited)"
-          - "-framework"
-          - "shared"
     dependencies:
       - framework: ../shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework
         embed: false

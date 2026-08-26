@@ -58,9 +58,6 @@ jobs:
       - name: Link debug framework for iOS Simulator (arm64)
         run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace
 
-      - name: Run shared tests on iOS Simulator (arm64)
-        run: ./gradlew :shared:iosSimulatorArm64Test --stacktrace
-
       # ── Host iOS ─────────────────────────────────────────────────────────
 
       # El archivo real lleva las claves del proyecto Firebase y no se versiona.
@@ -94,6 +91,9 @@ jobs:
 
       - name: Install CocoaPods dependencies
         working-directory: iosApp
+        # El Gemfile está en la raíz y este paso corre desde iosApp/.
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/Gemfile
         run: bundle exec pod install
 
       - name: Build iOS app for simulator
@@ -108,6 +108,15 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      # Solo compilación, no ejecución. El ejecutable de test lo linka Gradle,
+      # que no conoce los pods de CocoaPods —esos se integran en el target de
+      # Xcode—, así que los símbolos de FirebaseCore no están disponibles.
+      # Ejecutarlos de verdad requiere el plugin de CocoaPods de KMP, que es
+      # trabajo aparte. Compilar ya atrapa las fugas de commonTest hacia APIs
+      # que no existen en Native, que es el fallo que rompió main en 84dfe55.
+      - name: Compile shared tests for iOS Simulator (arm64)
+        run: ./gradlew :shared:compileTestKotlinIosSimulatorArm64 --stacktrace
 
       # ── Prueba visual ────────────────────────────────────────────────────
       # Sin un Mac a mano, la captura del simulador es la única evidencia de que

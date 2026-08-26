@@ -92,8 +92,10 @@ class IosNotificationPresenter(
             setCategoryIdentifier(content.type.name)
             setSound(UNNotificationSound.defaultSound)
             // El host lee esto al pulsar para reconstruir el DeepLinkTarget.
+            // Map<K, V> es invariante en K, así que un Map<String, String> no
+            // encaja donde la interop espera Map<Any?, *>: hay que tiparlo así.
             setUserInfo(
-                buildMap {
+                buildMap<Any?, Any?> {
                     put(USER_INFO_NOTIFICATION_TYPE, content.deepLink.notificationType)
                     put(USER_INFO_PAGER_PAGE, content.deepLink.pagerPage.toString())
                     content.deepLink.eventId?.let { put(USER_INFO_EVENT_ID, it) }
