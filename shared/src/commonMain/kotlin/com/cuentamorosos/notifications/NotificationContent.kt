@@ -180,12 +180,24 @@ object NotificationContentFactory {
         else -> PAGE_DASHBOARD
     }
 
-    fun actionsFor(event: NotificationEvent): List<NotificationAction> = when (event) {
-        is NotificationEvent.InvitationReceived -> listOf(
+    fun actionsFor(event: NotificationEvent): List<NotificationAction> =
+        actionsForType(typeFor(event))
+
+    /**
+     * Las acciones dependen solo del tipo, no de los datos del evento.
+     *
+     * iOS lo necesita así: sus `UNNotificationCategory` se registran por
+     * adelantado, cuando todavía no hay ningún evento del que derivarlas.
+     */
+    fun actionsForType(type: NotificationType): List<NotificationAction> = when (type) {
+        NotificationType.INVITATION -> listOf(
             NotificationAction(ACTION_ACCEPT_INVITATION, "Aceptar"),
             NotificationAction(ACTION_REJECT_INVITATION, "Rechazar"),
         )
-        else -> listOf(NotificationAction(ACTION_VIEW_DETAILS, "Ver detalles"))
+        NotificationType.INVITATION_ACCEPTED,
+        NotificationType.CALCULATION,
+        NotificationType.PAYMENT_REMINDER,
+        -> listOf(NotificationAction(ACTION_VIEW_DETAILS, "Ver detalles"))
     }
 
     /**

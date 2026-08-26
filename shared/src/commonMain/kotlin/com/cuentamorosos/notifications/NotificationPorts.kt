@@ -36,6 +36,20 @@ interface NotificationDedupStore {
 interface ReminderScheduler {
     fun schedule()
     fun cancel()
+
+    companion object {
+        /**
+         * Texto del recordatorio genérico que usa iOS.
+         *
+         * Android calcula el contenido al dispararse y puede nombrar deudor e
+         * importe. iOS programa la notificación por adelantado, así que su
+         * contenido se congela al programarla: prometer una cifra ahí sería
+         * mostrar un dato potencialmente caduco. Por eso solo invita a abrir la
+         * app, donde el detalle se calcula con datos frescos.
+         */
+        const val GENERIC_REMINDER_TITLE = "Recordatorio de pago"
+        const val GENERIC_REMINDER_BODY = "Revisa tus deudas pendientes en CuentaMorosos"
+    }
 }
 
 /**
