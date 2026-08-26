@@ -146,8 +146,22 @@ jobs:
           # simulador y nadie lo notaría.
           if ! xcrun simctl spawn booted launchctl list 2>/dev/null | grep -q "com.cuentamorosos"; then
             echo "::error::La app arrancó (pid $PID) pero ya no está viva: crasheó durante el arranque."
-            echo "--- crash logs ---"
-            find ~/Library/Logs/DiagnosticReports -name "*uentaMorosos*" -o -name "*iosApp*" 2>/dev/null | head -3 | xargs -r cat | head -60
+
+            # El log unificado del simulador recoge el motivo del crash,
+            # incluida la excepción de Kotlin/Native con su traza.
+            echo "─── log unificado del simulador ───"
+            xcrun simctl spawn booted log show \
+              --last 3m \
+              --predicate 'processImagePath CONTAINS "iosApp" OR senderImagePath CONTAINS "iosApp"' \
+              --style compact 2>/dev/null | tail -80 || echo "(sin entradas)"
+
+            # Los informes de crash del simulador van al host, no al dispositivo.
+            echo "─── informes de crash ───"
+            find ~/Library/Logs/DiagnosticReports -name "*.ips" -mmin -10 2>/dev/null | head -3 | while read -r f; do
+              echo "=== $f ==="
+              head -60 "$f"
+            done
+
             xcrun simctl io booted screenshot ios-crash.png || true
             exit 1
           fi
@@ -164,6 +178,8 @@ jobs:
           path: |
             ios-login-screen.png
             ios-crash.png
-            shared/build/bin/iosSimulatorArm64/debugFramework/
+            # Solo las cabeceras: dan los nombres exactos que ve Swift y pesan
+            # nada. El framework entero son ~100 MB por run.
+            shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework/Headers/
           retention-days: 14
           if-no-files-found: warn
