@@ -2,18 +2,19 @@ name: iOS Build & Test
 
 on:
   push:
-    branches: [ main, develop, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build-ios:
-    name: Build and test iOS framework
+    name: Build and test iOS app
     # Pin both the image and Xcode; runner defaults change over time.
     runs-on: macos-15
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+      SIMULATOR: iPhone 16
 
     steps:
       - name: Checkout repository
@@ -25,12 +26,14 @@ jobs:
           ruby-version: '3.3.12'
           bundler-cache: true
 
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
       - name: Report pinned Apple toolchain
         run: |
           sw_vers
           xcodebuild -version
-          ruby --version
-          bundle --version
+          xcodegen --version
           bundle exec pod --version
 
       - name: Set up JDK 17
@@ -50,18 +53,86 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-konan-
 
+      # ── Módulo compartido ────────────────────────────────────────────────
+
       - name: Link debug framework for iOS Simulator (arm64)
         run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace
 
-      # The test executable needs FirebaseCore from the future CocoaPods host
-      # integration. Until then, compile Native tests to catch source-set leaks.
-      - name: Compile shared tests for iOS Simulator (arm64)
-        run: ./gradlew :shared:compileTestKotlinIosSimulatorArm64 --stacktrace
+      - name: Run shared tests on iOS Simulator (arm64)
+        run: ./gradlew :shared:iosSimulatorArm64Test --stacktrace
 
-      - name: Upload iOS simulator framework
-        if: success()
+      # ── Host iOS ─────────────────────────────────────────────────────────
+
+      # El archivo real lleva las claves del proyecto Firebase y no se versiona.
+      # Para compilar y arrancar en simulador basta un marcador bien formado.
+      - name: Seed placeholder GoogleService-Info.plist
+        run: |
+          cat > iosApp/Sources/GoogleService-Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>API_KEY</key><string>ci-placeholder-api-key</string>
+            <key>GCM_SENDER_ID</key><string>000000000000</string>
+            <key>PROJECT_ID</key><string>cuentamorosos-ci</string>
+            <key>STORAGE_BUCKET</key><string>cuentamorosos-ci.appspot.com</string>
+            <key>GOOGLE_APP_ID</key><string>1:000000000000:ios:0000000000000000000000</string>
+            <key>BUNDLE_ID</key><string>com.cuentamorosos</string>
+            <key>IS_ADS_ENABLED</key><false/>
+            <key>IS_ANALYTICS_ENABLED</key><false/>
+            <key>IS_APPINVITE_ENABLED</key><false/>
+            <key>IS_GCM_ENABLED</key><true/>
+            <key>IS_SIGNIN_ENABLED</key><true/>
+            <key>PLIST_VERSION</key><string>1</string>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Generate Xcode project
+        working-directory: iosApp
+        run: xcodegen generate
+
+      - name: Install CocoaPods dependencies
+        working-directory: iosApp
+        run: bundle exec pod install
+
+      - name: Build iOS app for simulator
+        working-directory: iosApp
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace iosApp.xcworkspace \
+            -scheme iosApp \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=${SIMULATOR}" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      # ── Prueba visual ────────────────────────────────────────────────────
+      # Sin un Mac a mano, la captura del simulador es la única evidencia de que
+      # Compose realmente renderiza y no se queda en una pantalla en blanco.
+
+      - name: Launch app in simulator and capture screenshot
+        run: |
+          APP_PATH=$(find iosApp/build/Build/Products -name "iosApp.app" -maxdepth 3 | head -1)
+          echo "App: $APP_PATH"
+          xcrun simctl boot "${SIMULATOR}" || true
+          xcrun simctl bootstatus "${SIMULATOR}" -b
+          xcrun simctl install booted "$APP_PATH"
+          xcrun simctl launch booted com.cuentamorosos
+          # Dar tiempo a que Compose pinte el primer frame.
+          sleep 15
+          xcrun simctl io booted screenshot ios-login-screen.png
+          ls -la ios-login-screen.png
+
+      - name: Upload build artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: shared-framework-ios-simulator
-          path: shared/build/bin/iosSimulatorArm64/debugFramework/
+          name: ios-app-and-screenshot
+          path: |
+            ios-login-screen.png
+            shared/build/bin/iosSimulatorArm64/debugFramework/
           retention-days: 14
+          if-no-files-found: warn

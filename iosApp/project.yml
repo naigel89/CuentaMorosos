@@ -1,0 +1,62 @@
+# Proyecto Xcode generado con XcodeGen.
+#
+# El .xcodeproj NO se versiona: es un project.pbxproj de cientos de líneas de
+# UUIDs que no se puede revisar en un diff ni regenerar sin abrir Xcode. Se
+# versiona este YAML y el proyecto se materializa con `xcodegen generate`, como
+# cualquier otro artefacto de build.
+
+name: iosApp
+options:
+  bundleIdPrefix: com.cuentamorosos
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    # El framework de Kotlin/Native es estático (isStatic = true en
+    # shared/build.gradle.kts), así que se linka, no se embebe: basta con
+    # apuntar la búsqueda a la salida de linkDebugFrameworkIosSimulatorArm64.
+    FRAMEWORK_SEARCH_PATHS:
+      - "$(inherited)"
+      - "$(SRCROOT)/../shared/build/bin/iosSimulatorArm64/debugFramework"
+    ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+
+targets:
+  iosApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: CuentaMorosos
+        CFBundleShortVersionString: "1.2.1"
+        CFBundleVersion: "10"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - remote-notification
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cuentamorosos
+        # Sin cuenta Apple Developer no hay firma; CI construye para simulador,
+        # que no la requiere.
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        OTHER_LDFLAGS:
+          - "$(inherited)"
+          - "-framework"
+          - "shared"
+    dependencies:
+      - framework: ../shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework
+        embed: false
+    preBuildScripts:
+      - name: Link Kotlin framework
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
+        basedOnDependencyAnalysis: false
