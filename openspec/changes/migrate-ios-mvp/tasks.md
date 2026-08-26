@@ -11,6 +11,12 @@
 | Estrategia de entrega | ask-on-risk |
 | Estrategia de encadenado | stacked-to-main |
 
+> **Hallazgo (2026-08-26)**: al empezar la Fase 1 se descubrió que el workflow de iOS
+> llevaba roto en `main` desde `84dfe55`. El framework compilaba; fallaba la compilación de
+> los tests por un nombre entre backticks con una coma, que Kotlin/Native rechaza. Corregido
+> en `aec371f`. Conviene mirar el estado de `ios-build.yml` antes de dar por bueno cualquier
+> supuesto sobre iOS.
+
 **Ciclo de verificación**: sin Mac, cada tarea de las fases 1–4 solo se valida en el runner
 `macos-15`. Agrupa los cambios: un ciclo de CI por tarea es caro y lento. Antes de cada push,
 agota `:shared:compileKotlinJvm` y `:shared:jvmTest` en local — atrapan casi todas las fugas
@@ -45,18 +51,21 @@ Rama `refactor/ios-shell-ports`, 5 commits, 897 tests en verde.
 - [x] 0.7 Crear `data/AvatarStorage.kt` con ruta, tamaño y calidad; `MainActivity` los consume.
 - [x] 0.8 Corregir las notas obsoletas de `CLAUDE.md` sobre el estado de iOS.
 
-## Fase 1: Los tres puertos en iosMain
+## Fase 1: Los tres puertos en iosMain — HECHA (pendiente de validar en CI)
 
-- [ ] 1.1 `shared/src/iosMain/.../notifications/IosNotificationPresenter.kt` — implementa
+- [x] 1.1 `shared/src/iosMain/.../notifications/IosNotificationPresenter.kt` — implementa
       `NotificationPresenter` sobre `UNUserNotificationCenter`. `ensureChannels()` registra una
-      `UNNotificationCategory` por `NotificationChannel` con las acciones de `content.actions`.
+      `UNNotificationCategory` por `NotificationType` (no por canal: las acciones dependen del
+      tipo) usando `NotificationContentFactory.actionsForType`.
       **Files**: `IosNotificationPresenter.kt`. **Acceptance**: R101, R102; `linkDebugFrameworkIosSimulatorArm64` en verde.
-- [ ] 1.2 `shared/src/iosMain/.../notifications/IosNotificationDedupStore.kt` — `NSUserDefaults`.
-      **Acceptance**: R103.
-- [ ] 1.3 `shared/src/iosMain/.../notifications/IosReminderScheduler.kt` — notificación diaria
+- [x] 1.2 `shared/src/iosMain/.../notifications/IosNotificationDedupStore.kt` — `NSUserDefaults`.
+      La codificación de entradas sube a `NotificationDedupEntries` en `commonMain` y
+      **Android la adopta también**, para que compartirla no sea solo aspiracional.
+      **Acceptance**: R103; los 114 tests de Android pasan sin tocar aserciones.
+- [x] 1.3 `shared/src/iosMain/.../notifications/IosReminderScheduler.kt` — notificación diaria
       genérica con `UNCalendarNotificationTrigger`. Documentar en KDoc por qué el contenido es
       genérico y no por deuda. **Acceptance**: R105.
-- [ ] 1.4 Añadir `coil-network-ktor3:3.0.4` y el motor Ktor Darwin al source set `iosMain` de
+- [x] 1.4 Añadir `coil-network-ktor3:3.0.4` y el motor Ktor Darwin al source set `iosMain` de
       `shared/build.gradle.kts`, dentro de la guarda `isMac`. **Files**: `shared/build.gradle.kts`.
       **Acceptance**: R004; el framework linka con Coil resoluble.
 

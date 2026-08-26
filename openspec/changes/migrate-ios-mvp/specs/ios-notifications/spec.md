@@ -32,9 +32,13 @@ SHALL tomarse de `NotificationContent`, nunca construirse en iOS.
 
 ### R102: Las acciones se derivan del contenido compartido
 
-`ensureChannels()` SHALL registrar una `UNNotificationCategory` por cada `NotificationChannel`,
-con las acciones que `content.actions` declare. Los identificadores SHALL ser los de
-`NotificationContentFactory` (`ACTION_ACCEPT_INVITATION`, etc.).
+`ensureChannels()` SHALL registrar una `UNNotificationCategory` por cada `NotificationType`, con
+las acciones que devuelva `NotificationContentFactory.actionsForType`. Los identificadores SHALL
+ser los de `NotificationContentFactory` (`ACTION_ACCEPT_INVITATION`, etc.).
+
+Se agrupa por tipo y **no** por canal porque las acciones dependen del tipo: una invitación
+recibida ofrece aceptar/rechazar y una aceptada solo ver detalles, aunque ambas caigan en el
+canal `ch_invitations`. Agrupar por canal daría a una de las dos las acciones de la otra.
 
 #### Scenario: aceptar y rechazar en una invitación
 
