@@ -132,9 +132,27 @@ jobs:
           xcrun simctl boot "$DEVICE" || true
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install booted "$APP_PATH"
-          xcrun simctl launch booted com.cuentamorosos
+
+          # launch imprime "com.cuentamorosos: <pid>"; nos quedamos el pid.
+          LAUNCH=$(xcrun simctl launch booted com.cuentamorosos)
+          echo "$LAUNCH"
+          PID=$(echo "$LAUNCH" | awk -F': ' '{print $2}' | tr -d ' ')
+
           # Dar tiempo a que Compose pinte el primer frame.
           sleep 15
+
+          # Sin esta comprobación el paso daría verde aunque la app hubiera
+          # crasheado al arrancar: la captura saldría del escritorio del
+          # simulador y nadie lo notaría.
+          if ! xcrun simctl spawn booted launchctl list 2>/dev/null | grep -q "com.cuentamorosos"; then
+            echo "::error::La app arrancó (pid $PID) pero ya no está viva: crasheó durante el arranque."
+            echo "--- crash logs ---"
+            find ~/Library/Logs/DiagnosticReports -name "*uentaMorosos*" -o -name "*iosApp*" 2>/dev/null | head -3 | xargs -r cat | head -60
+            xcrun simctl io booted screenshot ios-crash.png || true
+            exit 1
+          fi
+
+          echo "La app sigue viva tras 15s."
           xcrun simctl io booted screenshot ios-login-screen.png
           ls -la ios-login-screen.png
 
@@ -145,6 +163,7 @@ jobs:
           name: ios-app-and-screenshot
           path: |
             ios-login-screen.png
+            ios-crash.png
             shared/build/bin/iosSimulatorArm64/debugFramework/
           retention-days: 14
           if-no-files-found: warn
