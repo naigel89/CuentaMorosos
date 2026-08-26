@@ -83,6 +83,27 @@ además lo expone entero vía `LocalNeoFintechColors`, porque varios tokens
 Regla práctica: usa `MaterialTheme.colorScheme` para lo que M3 ya cubre y
 `LocalNeoFintechColors.current` para el resto. No metas `Color(0xFF…)` en pantallas.
 
+### Portabilidad iOS: qué es común y qué no
+
+Los targets iOS solo se configuran cuando el host es macOS, así que en Linux **no se puede
+compilar ni ejecutar nada de iOS**: la única validación es el workflow `ios-build.yml`
+(runner `macos-15`), que linka el framework y compila los tests Native. El target `jvm()` es
+el sustituto local: si `:shared:compileKotlinJvm` pasa, `commonMain` no tiene fugas de Android.
+
+Todo el cableado (`RepositoryProvider`, `AppViewModelFactory`), la UI, los ViewModels y las
+reglas de notificación viven en `commonMain`. Lo que un host debe aportar son los puertos de
+`notifications/NotificationPorts.kt`: `NotificationPresenter`, `NotificationDedupStore` y
+`ReminderScheduler`. `NotificationContentFactory` y `PushPayloadParser` resuelven textos,
+canales, huellas de deduplicación y payloads push, y son comunes a propósito: si el host los
+reimplementara, las dos plataformas divergirían en silencio.
+
+Dos cosas **no** pueden subir a `commonMain`, y no por descuido:
+- La subida de la foto de perfil — `dev.gitlive.firebase.storage.Data` es una `expect class`
+  por plataforma y su actual de JVM es un stub vacío. Solo se comparten las convenciones, en
+  `data/AvatarStorage.kt`.
+- El propio host: no existe todavía `iosApp/` (ni proyecto Xcode, ni Podfile, ni
+  `GoogleService-Info.plist`). El framework se compila pero nadie lo consume.
+
 ### Restricciones de la versión de Compose
 
 Compose Multiplatform **1.6.11** / Kotlin 1.9.24. Esto excluye APIs que sí existen en 1.7+:
@@ -95,11 +116,12 @@ precisamente porque `RenderEffect.createBlurEffect` no está disponible aquí.
 El repo usa OpenSpec (`openspec/config.yaml`, `strict_tdd: true`). Las propuestas vivas están en
 `openspec/changes/<nombre>/` (proposal → spec → design → tasks) y al terminar se sincronizan a
 `openspec/specs/` y se archivan en `openspec/changes/archive/`. Si trabajas sobre un cambio
-existente, lee primero su carpeta: `migrate-ios-mvp` está en curso ahora mismo.
+existente, lee primero su carpeta. No hay ninguna propuesta de iOS abierta: el trabajo de
+portabilidad va por commits directos en ramas `refactor/ios-*`.
 
 ## Notas de estado
 
-- La app está en producción (v1.1.5, `applicationId com.cuentamorosos`); `main` es la rama de
+- La app está en producción (v1.2.1, `applicationId com.cuentamorosos`); `main` es la rama de
   release y CI compila y testea en cada push.
 - `derivedStateOf` se usa mucho para agregados del panel. Con el delegado `by` **no** accedas a
   `.value`.
