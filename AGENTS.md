@@ -41,7 +41,8 @@ incluida la UI Compose**: si vas a tocar una pantalla, el archivo está en
 ./gradlew :app:assembleDebug                 # APK debug (lo que corre CI)
 ./gradlew :shared:jvmTest                    # tests del módulo shared — lo más rápido
 ./gradlew :app:testDebugUnitTest --continue  # tests del módulo app
-./gradlew :shared:compileKotlinJvm           # proxy barato: detecta fugas de Android en commonMain
+./gradlew :shared:compileCommonMainKotlinMetadata  # type-check contra la API común (la que ve iOS)
+./gradlew :shared:compileKotlinJvm           # proxy más laxo: solo detecta fugas de Android
 ```
 
 No hay linter ni formatter: la única puerta de calidad es el compilador de Kotlin

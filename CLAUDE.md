@@ -87,8 +87,17 @@ Regla práctica: usa `MaterialTheme.colorScheme` para lo que M3 ya cubre y
 
 Los targets iOS solo se configuran cuando el host es macOS, así que en Linux **no se puede
 compilar ni ejecutar nada de iOS**: la única validación es el workflow `ios-build.yml`
-(runner `macos-15`), que linka el framework y compila los tests Native. El target `jvm()` es
-el sustituto local: si `:shared:compileKotlinJvm` pasa, `commonMain` no tiene fugas de Android.
+(runner `macos-15`), que linka el framework y compila los tests Native. Hay dos sustitutos locales, y
+conviene usar el segundo:
+
+```bash
+./gradlew :shared:compileKotlinJvm              # detecta fugas de Android en commonMain
+./gradlew :shared:compileCommonMainKotlinMetadata   # ← más estricto
+```
+
+El primero compila `commonMain` contra la API **del JVM**, así que deja pasar cualquier `java.*`.
+El segundo la compila contra la API **común** de las dependencias, que es la que verá iOS: si una
+firma solo existe en el variante JVM de una librería, este falla y el otro no.
 
 Todo el cableado (`RepositoryProvider`, `AppViewModelFactory`), la UI, los ViewModels y las
 reglas de notificación viven en `commonMain`. Lo que un host debe aportar son los puertos de
