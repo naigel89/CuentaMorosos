@@ -133,13 +133,15 @@ jobs:
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install booted "$APP_PATH"
 
-          # --console-pty engancha la salida de la app. Es la única forma de ver
-          # una excepción de Kotlin/Native: muere por señal, así que no aparece
-          # como excepción de ObjC en el log unificado y su traza solo va a
-          # stderr. Se lanza en segundo plano para poder capturar la pantalla
-          # mientras sigue viva.
-          ( timeout 90 xcrun simctl launch --console-pty booted com.cuentamorosos \
-              > app-console.log 2>&1 ) &
+          # --console engancha la salida de la app. Es la única forma de ver una
+          # excepción de Kotlin/Native: muere por señal, así que no aparece como
+          # excepción de ObjC en el log unificado y su traza solo va a stderr.
+          # En segundo plano para poder capturar la pantalla mientras sigue viva.
+          #
+          # Sin `timeout`: no existe en macOS, es de GNU coreutils. Se guarda el
+          # pid y se mata al final.
+          xcrun simctl launch --console booted com.cuentamorosos > app-console.log 2>&1 &
+          LAUNCH_PID=$!
 
           # Dar tiempo a que Compose pinte el primer frame.
           sleep 20
@@ -159,21 +161,24 @@ jobs:
               --predicate 'processImagePath CONTAINS "iosApp"' \
               --style compact 2>/dev/null | tail -40 || echo "(sin entradas)"
 
+            # Solo los nuestros: el simulador deja informes de todo tipo de
+            # procesos del sistema y listarlos todos es ruido.
             echo "─── informes de crash ───"
-            find ~/Library/Logs/DiagnosticReports \
-                 "$HOME/Library/Developer/CoreSimulator/Devices/$DEVICE/data/Library/Logs" \
-                 -name "*.ips" -mmin -10 2>/dev/null | head -3 | while read -r f; do
+            find ~/Library/Logs/DiagnosticReports -name "iosApp*.ips" -mmin -10 2>/dev/null \
+              | head -2 | while read -r f; do
               echo "=== $f ==="
               head -60 "$f"
             done
 
             xcrun simctl io booted screenshot ios-crash.png || true
+            kill $LAUNCH_PID 2>/dev/null || true
             exit 1
           fi
 
           echo "La app sigue viva tras 20s."
           xcrun simctl io booted screenshot ios-login-screen.png
           ls -la ios-login-screen.png
+          kill $LAUNCH_PID 2>/dev/null || true
 
       - name: Upload build artifacts
         if: always()
