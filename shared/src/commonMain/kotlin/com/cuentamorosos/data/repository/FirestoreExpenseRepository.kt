@@ -1,7 +1,6 @@
 package com.cuentamorosos.data.repository
 
 import com.cuentamorosos.model.EventExpenseItem
-import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.flow.Flow
@@ -11,8 +10,8 @@ import kotlinx.coroutines.flow.map
 import com.cuentamorosos.data.LogSanitizer
 class FirestoreExpenseRepository : ExpenseRepository {
 
-    private val db = Firebase.firestore
-    private val auth = Firebase.auth
+    private val db = FirebaseClients.firestore
+    private val auth = FirebaseClients.auth
 
     override fun observeExpenses(eventId: String): Flow<List<EventExpenseItem>> =
         db.collection("events")

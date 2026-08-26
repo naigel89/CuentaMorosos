@@ -6,7 +6,6 @@ import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.InvitationStatus
 import com.cuentamorosos.model.PermissionEngine
 import com.cuentamorosos.notifications.NotificationEvent
-import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.flow.Flow
@@ -19,8 +18,8 @@ class FirestoreInvitationRepository(
     private val profileRepository: ProfileRepository? = null,
 ) : InvitationRepository {
 
-    private val db = Firebase.firestore
-    private val auth = Firebase.auth
+    private val db = FirebaseClients.firestore
+    private val auth = FirebaseClients.auth
     private val invitationsCollection = db.collection("invitations")
 
     override fun observePendingInvitations(): Flow<List<EventInvitation>> {

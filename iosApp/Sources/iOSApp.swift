@@ -51,7 +51,14 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         ) { _, _ in
             // El puerto cachea el permiso: sin refrescar seguiría con el valor
             // optimista del arranque.
-            MainViewControllerKt.appBridge().refreshNotificationPermission()
+            //
+            // Al hilo principal a propósito: este callback llega en uno de
+            // fondo, y appBridge() inicializa de forma perezosa la base de datos
+            // y los repositorios. Dejarlo aquí los construiría en paralelo con
+            // el hilo que monta la UI.
+            DispatchQueue.main.async {
+                MainViewControllerKt.appBridge().refreshNotificationPermission()
+            }
         }
 
         return true

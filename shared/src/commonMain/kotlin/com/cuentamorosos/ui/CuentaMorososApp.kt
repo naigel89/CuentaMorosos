@@ -126,6 +126,7 @@ import com.cuentamorosos.model.toJson
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.ProfileVisibilityResolver
 import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.EventState
@@ -349,23 +350,13 @@ fun CuentaMorososApp(
         }
     }
 
-    // Only show profiles the current user is allowed to see:
-    // VIS-001: own real profile always visible (profile.id == uid)
-    // VIS-002: own ghost profiles visible (isGhost && ownerId == uid)
-    // VIS-003: co-participants in shared events visible (profile in event's participant set)
-    // VIS-004: everything else hidden
+    // VIS-001..004 live in ProfileVisibilityResolver, which is also what scopes the
+    // remote query in FirestoreProfileRepository. Keeping the filter here as well is
+    // deliberate: the local SQLDelight cache can still hold profiles from an event
+    // the user has since left.
     val visibleProfiles by remember(profiles, events, currentUserUid) {
         derivedStateOf {
-            val uid = currentUserUid ?: ""
-            val eventProfileIds = events.flatMap { event ->
-                listOfNotNull(event.ownerId) + event.effectiveMemberIds
-            }.toSet()
-
-            profiles.filter { profile ->
-                profile.id == uid
-                        || (profile.isGhost && profile.ownerId == uid)
-                        || profile.id in eventProfileIds
-            }
+            ProfileVisibilityResolver.filterVisible(profiles, currentUserUid ?: "", events)
         }
     }
 

@@ -9,6 +9,7 @@ import com.cuentamorosos.model.ProfileItem
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -23,7 +24,14 @@ class OfflineFirstProfileRepository(
     private val database: CuentaMorososDatabase,
     private val networkMonitor: NetworkMonitor,
     private val syncScope: CoroutineScope,
-    private val pendingQueue: PendingOperationQueue
+    private val pendingQueue: PendingOperationQueue,
+    /**
+     * Which profiles the signed-in user may see, from
+     * `ProfileVisibilityResolver.visibleProfileIds`. Drives the scope of the remote
+     * subscription; the default keeps test fakes and callers that predate this
+     * parameter working, since the remote falls back to its own-profiles query.
+     */
+    private val visibleProfileIds: Flow<Set<String>> = flowOf(emptySet())
 ) : ProfileRepository {
 
     private val queries = database.cachedProfileQueries
@@ -45,7 +53,10 @@ class OfflineFirstProfileRepository(
             if (local != null) {
                 remoteRepository.saveProfile(local)
             } else {
-                // Fallback: try from remote snapshot
+                // Fallback: read it back from the remote. Only ever reached for a
+                // profile this user saved — their own or one of their ghosts — and
+                // observeProfiles() now returns exactly that set (ownerId == uid),
+                // so this is a handful of documents rather than the whole collection.
                 val profiles = remoteRepository.observeProfiles().first()
                 profiles.find { it.id == entityId }?.let { remoteRepository.saveProfile(it) }
             }
@@ -101,6 +112,7 @@ class OfflineFirstProfileRepository(
         return allProfiles.firstOrNull { it.id.isNotBlank() && it.id == it.ownerId }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun startSyncLoop() {
         syncJob?.cancel()
         syncJob = syncScope.launch(Dispatchers.Default) {
@@ -111,8 +123,13 @@ class OfflineFirstProfileRepository(
                     // 1. Drain pending operations FIRST
                     pendingQueue.drainAll(profileRemoteOps)
 
-                    // 2. Single subscription to remote
-                    remoteRepository.observeProfiles()
+                    // 2. Single subscription to remote, rescoped whenever the set of
+                    //    visible profiles changes — a new event, a new participant.
+                    //    flatMapLatest cancels the previous subscription, so there is
+                    //    never more than one generation of listeners open at a time.
+                    visibleProfileIds
+                        .distinctUntilChanged()
+                        .flatMapLatest { ids -> remoteRepository.observeVisibleProfiles(ids) }
                         .onEach { remoteProfiles ->
                             LogSanitizer.log("OfflineFirstProfileRepo", "Sync update: ${remoteProfiles.size} profiles")
                             upsertProfiles(remoteProfiles)

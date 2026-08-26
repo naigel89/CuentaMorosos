@@ -9,39 +9,64 @@ import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import com.cuentamorosos.data.LogSanitizer
 
 class FirestoreProfileRepository : ProfileRepository {
 
-    private val db = Firebase.firestore
-    private val auth = Firebase.auth
+    private val db = FirebaseClients.firestore
+    private val auth = FirebaseClients.auth
     private val collection = db.collection("profiles")
 
-    override fun observeProfiles(): Flow<List<ProfileItem>> {
+    /**
+     * Kept for the callers that only need the signed-in user's own profiles.
+     *
+     * This used to be `collection.snapshots` — the whole `profiles` collection,
+     * once per session, for every user. Global reads therefore grew with the
+     * square of the user count, which capped the app at a few thousand users
+     * regardless of billing. See [observeVisibleProfiles].
+     */
+    override fun observeProfiles(): Flow<List<ProfileItem>> = observeVisibleProfiles(emptySet())
+
+    override fun observeVisibleProfiles(coParticipantIds: Set<String>): Flow<List<ProfileItem>> {
         val uid = auth.currentUser?.uid ?: return flowOf(emptyList())
-        LogSanitizer.log("FirestoreProfileRepo", "observeProfiles called, uid=$uid")
-        // NOTE: intentionally no ownerId filter — users need to see other participants'
-        // profiles in shared events. The UI (ProfilesScreen) already separates own vs others
-        // by matching currentUid, and Firestore rules allow any authenticated read.
-        return collection.snapshots
-            .map { snapshot ->
-                val items = snapshot.documents
-                    .mapNotNull { doc ->
-                        val item = doc.toProfileItem()
-                        if (item == null) LogSanitizer.log("FirestoreProfileRepo", "Failed to parse doc ${doc.id}")
-                        item
-                    }
-                    .sortedBy { it.name }
+
+        // VIS-001 + VIS-002 in one indexed query: the user's own profile and every
+        // ghost they created all carry ownerId == uid (see toMap).
+        val ownFlow = collection.where { "ownerId" equalTo uid }.snapshots
+
+        // VIS-003. Profile documents mirror their document id into an `id` field,
+        // so this needs no FieldPath.documentId — whose gitlive 1.13.0 shape is
+        // awkward. Sorted before chunking so that chunk membership stays stable
+        // when a single participant joins; otherwise every chunk would resubscribe
+        // on each event change. uid is deliberately left in: should an older own
+        // profile document predate the ownerId field, this is what still finds it,
+        // at the cost of one duplicate read.
+        val chunks = coParticipantIds.filter { it.isNotBlank() }.sorted().chunked(IN_ARRAY_LIMIT)
+        val chunkFlows = chunks.map { chunk ->
+            collection.where { "id" inArray chunk }.snapshots
+        }
+        LogSanitizer.log(
+            "FirestoreProfileRepo",
+            "observeVisibleProfiles: uid=$uid, ${coParticipantIds.size} co-participants in ${chunks.size} chunk(s)"
+        )
+
+        // Merged pairwise on purpose. The `combine(Iterable<Flow<T>>)` overload is
+        // `reified`, and reifying gitlive's QuerySnapshot — an expect class — makes
+        // the common metadata compile emit a klib that cannot resolve the model
+        // package from commonTest, with no error reported against this file.
+        return (listOf(ownFlow) + chunkFlows)
+            .map { snapshots -> snapshots.map { it.documents.mapNotNull { doc -> doc.toProfileItem() } } }
+            .reduce { acc, next -> acc.combine(next) { a, b -> a + b } }
+            .map { profiles ->
+                val items = profiles.distinctBy { it.id }.sortedBy { it.name }
                 LogSanitizer.log("FirestoreProfileRepo", "Snapshot emitted: ${items.size} profiles")
-                items.forEach { p ->
-                    LogSanitizer.log("FirestoreProfileRepo", "id=${p.id} name='${p.name}' username='${p.username}' isGhost=${p.isGhost} linkedEmail=${p.linkedEmail}")
-                }
                 items
             }
             .catch { e ->
-                LogSanitizer.log("FirestoreProfileRepo", "Error in snapshot: ${e.message}")
+                LogSanitizer.log("FirestoreProfileRepo", "Error in profile snapshot: ${e.message}")
                 emit(emptyList())
             }
     }
@@ -606,6 +631,11 @@ class FirestoreProfileRepository : ProfileRepository {
     }
 
     // ── Mapping Helpers ─────────────────────────────────────────────────────
+
+    private companion object {
+        /** Firestore rejects more than 30 values in an `inArray` filter. */
+        const val IN_ARRAY_LIMIT = 30
+    }
 
     private fun ProfileItem.toMap(uid: String): Map<String, Any?> = mapOf(
         "id" to id,
