@@ -33,6 +33,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.cuentamorosos.SystemBackHandler
 import com.cuentamorosos.auth.SignInResult
 import com.cuentamorosos.auth.SignInWithRetry
+import com.cuentamorosos.data.AvatarStorage
 import com.cuentamorosos.data.CuentaMorososLocalStore
 import com.cuentamorosos.data.FirebaseUserSyncManager
 import com.cuentamorosos.data.NetworkMonitorFactory
@@ -341,9 +342,9 @@ private fun MainAppContent(
 
                 // 2. Upload to Firebase Storage
                 val storageRef = FirebaseStorage.getInstance().reference
-                    .child("avatars/$currentUid/profile.jpg")
+                    .child(AvatarStorage.pathFor(currentUid))
                 val metadata = StorageMetadata.Builder()
-                    .setContentType("image/jpeg")
+                    .setContentType(AvatarStorage.CONTENT_TYPE)
                     .build()
 
                 storageRef.putBytes(imageBytes, metadata)
@@ -552,11 +553,16 @@ private fun compressImageToBytes(context: android.content.Context, uri: Uri): By
     return try {
         val bitmap = BitmapFactory.decodeStream(context.contentResolver.openInputStream(uri))
             ?: return null
-        val scaled = Bitmap.createScaledBitmap(bitmap, MAX_PHOTO_SIZE, MAX_PHOTO_SIZE, true)
+        val scaled = Bitmap.createScaledBitmap(
+            bitmap,
+            AvatarStorage.TARGET_SIZE_PX,
+            AvatarStorage.TARGET_SIZE_PX,
+            true,
+        )
         if (scaled != bitmap) bitmap.recycle()
 
         val output = java.io.ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 85, output)
+        scaled.compress(Bitmap.CompressFormat.JPEG, AvatarStorage.JPEG_QUALITY, output)
         scaled.recycle()
 
         output.toByteArray()
@@ -566,4 +572,3 @@ private fun compressImageToBytes(context: android.content.Context, uri: Uri): By
     }
 }
 
-private const val MAX_PHOTO_SIZE = 256
