@@ -9,7 +9,7 @@ name: iosApp
 options:
   bundleIdPrefix: com.cuentamorosos
   deploymentTarget:
-    iOS: "15.0"
+    iOS: "15.2"
   createIntermediateGroups: true
 
 settings:
@@ -52,6 +52,10 @@ targets:
     dependencies:
       - framework: ../shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework
         embed: false
+      # El driver nativo de SQLDelight (SQLiter) hace cinterop con SQLite y deja
+      # los símbolos sin resolver: _sqlite3_bind_blob y compañía los tiene que
+      # aportar el binario final.
+      - sdk: libsqlite3.tbd
     preBuildScripts:
       - name: Link Kotlin framework
         script: |
