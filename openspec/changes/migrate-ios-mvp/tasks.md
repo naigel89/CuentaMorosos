@@ -11,6 +11,19 @@
 | Estrategia de entrega | ask-on-risk |
 | Estrategia de encadenado | stacked-to-main |
 
+> **Resultado (2026-08-26)**: el run `33008492983` termina en verde de principio a fin: el
+> framework linka, XcodeGen genera el proyecto, CocoaPods instala Firebase, `xcodebuild`
+> construye la app, y el simulador la arranca y captura la pantalla de login renderizada por
+> Compose. Los cinco fallos que hubo por el camino y su causa quedan en la tabla de abajo.
+>
+> | Fallo | Causa | Dónde estaba |
+> |---|---|---|
+> | `unsupported option '-G'` | BoringSSL-GRPC mete un build setting entre los compiler flags | pod de Firebase |
+> | `template argument list expected` | el gRPC de Firestore 10.x no compila con el clang de Xcode 26 | pod de Firebase |
+> | `_sqlite3_bind_blob` sin resolver | SQLiter hace cinterop con SQLite y el binario final debe aportarlo | proyecto Xcode |
+> | `FIRIllegalStateException` | cinco `Firebase.firestore` distintos; Android lo tolera, iOS no | **código compartido** |
+> | `MissingResourceException` | las tipografías de Compose no viajan dentro del `.framework` | proyecto Xcode |
+>
 > **Hallazgo (2026-08-26)**: al empezar la Fase 1 se descubrió que el workflow de iOS
 > llevaba roto en `main` desde `84dfe55`. El framework compilaba; fallaba la compilación de
 > los tests por un nombre entre backticks con una coma, que Kotlin/Native rechaza. Corregido
@@ -51,7 +64,7 @@ Rama `refactor/ios-shell-ports`, 5 commits, 897 tests en verde.
 - [x] 0.7 Crear `data/AvatarStorage.kt` con ruta, tamaño y calidad; `MainActivity` los consume.
 - [x] 0.8 Corregir las notas obsoletas de `CLAUDE.md` sobre el estado de iOS.
 
-## Fase 1: Los tres puertos en iosMain — HECHA (pendiente de validar en CI)
+## Fase 1: Los tres puertos en iosMain — HECHA y validada en CI
 
 - [x] 1.1 `shared/src/iosMain/.../notifications/IosNotificationPresenter.kt` — implementa
       `NotificationPresenter` sobre `UNUserNotificationCenter`. `ensureChannels()` registra una
@@ -69,7 +82,7 @@ Rama `refactor/ios-shell-ports`, 5 commits, 897 tests en verde.
       `shared/build.gradle.kts`, dentro de la guarda `isMac`. **Files**: `shared/build.gradle.kts`.
       **Acceptance**: R004; el framework linka con Coil resoluble.
 
-## Fase 2: Host Xcode — ESCRITA (pendiente de validar en CI)
+## Fase 2: Host Xcode — HECHA y validada en CI
 
 - [x] 2.1 `iosApp/project.yml` — target `iosApp`, bundle ID `com.cuentamorosos`, despliegue iOS 15+,
       `FRAMEWORK_SEARCH_PATHS` a la salida de `linkDebugFrameworkIosSimulatorArm64`, capability de
@@ -88,7 +101,7 @@ Rama `refactor/ios-shell-ports`, 5 commits, 897 tests en verde.
 - [x] 2.5 Plist de marcador para `GoogleService-Info.plist`, inyectado por el workflow. El real
       **no** se versiona. **Acceptance**: R003, escenario de archivo ausente.
 
-## Fase 3: CI y prueba visual — ESCRITA (pendiente de validar en CI)
+## Fase 3: CI y prueba visual — HECHA y validada en CI
 
 - [x] 3.1 Ampliar `.github/workflows/ios-build.yml`: instalar XcodeGen, `xcodegen generate`,
       `pod install`, `xcodebuild` del esquema para simulador. Limitar el disparo a `main` y

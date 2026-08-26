@@ -68,8 +68,10 @@ Es la diferencia entre poder revisar un diff y no poder.
 
 ## Success Criteria
 
-1. `ios-build.yml` termina en verde con `xcodebuild` construyendo el esquema `iosApp`
-2. Los tests Native de `shared` vuelven a ejecutarse (hoy solo se compilan) con Firebase linkado
-3. CI publica una captura del simulador mostrando la pantalla de login renderizada por Compose
-4. Los 897 tests existentes siguen en verde; los de `commonTest` corren también en el target iOS
-5. `project.yml` y `Podfile` son legibles y revisables en un diff; no hay `.pbxproj` versionado
+1. ✅ `ios-build.yml` termina en verde con `xcodebuild` construyendo el esquema `iosApp`
+2. ⚠️ Los tests Native se **compilan**, no se ejecutan. Los pods se integran en el target de
+   Xcode, no en el ejecutable que linka Gradle, así que faltan los símbolos de FirebaseCore.
+   Hacerlo requiere el plugin de CocoaPods de KMP — alcance propio (ver tasks.md 3.2)
+3. ✅ CI publica una captura del simulador con la pantalla de login renderizada por Compose
+4. ✅ 911 tests en verde; los de `commonTest` compilan también para el target iOS
+5. ✅ `project.yml` y `Podfile` son legibles en un diff; no hay `.pbxproj` versionado
