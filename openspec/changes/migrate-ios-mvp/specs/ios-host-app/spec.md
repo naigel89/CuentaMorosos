@@ -32,9 +32,18 @@ El repositorio SHALL versionar un `iosApp/project.yml` de XcodeGen y NO SHALL ve
 
 ### R002: Entry point y superficie del framework
 
-`iosMain` SHALL exponer exactamente una función de entrada, `MainViewController()`, que devuelve
-un `UIViewController` con la app Compose montada. El código Swift NO SHALL referenciar ningún
-otro símbolo del módulo compartido.
+`iosMain` SHALL exponer exactamente **dos** funciones a Swift:
+
+- `MainViewController()`, que devuelve un `UIViewController` con la app Compose montada
+- `appBridge()`, que devuelve el `IosAppBridge` para que los delegados de UIKit le empujen push
+  y pulsaciones de notificación
+
+El código Swift NO SHALL referenciar ningún otro símbolo del módulo compartido.
+
+> Originalmente este requisito pedía **un** símbolo. Se amplió a dos al implementarlo: sin
+> `appBridge()`, R104 es inalcanzable — `MainViewController()` solo devuelve el controller y el
+> bridge queda encerrado dentro, de modo que las push y los deep links no tendrían por dónde
+> entrar. Dos es el mínimo que deja la app funcional.
 
 #### Scenario: Swift arranca la app
 
@@ -45,7 +54,7 @@ otro símbolo del módulo compartido.
 
 #### Scenario: la superficie no se ensancha por descuido
 
-- GIVEN un PR que añade una llamada de Swift a otro símbolo de `shared`
+- GIVEN un PR que añade una llamada de Swift a un tercer símbolo de `shared`
 - WHEN se revisa
 - THEN SHALL rechazarse o justificarse explícitamente, por ser superficie que solo CI valida
 

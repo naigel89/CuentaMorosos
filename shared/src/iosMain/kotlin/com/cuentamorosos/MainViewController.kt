@@ -53,10 +53,25 @@ import platform.UIKit.UIViewController
  * los repositorios de gitlive resuelven `Firebase.auth` y `Firebase.firestore`
  * en cuanto se construye el [RepositoryProvider].
  */
-fun MainViewController(): UIViewController {
-    val bridge = IosAppBridge()
-    return ComposeUIViewController { bridge.Content() }
-}
+fun MainViewController(): UIViewController =
+    ComposeUIViewController { sharedBridge.Content() }
+
+/**
+ * El bridge de la app, para que los delegados de UIKit puedan empujarle push y
+ * pulsaciones de notificación.
+ *
+ * Es el segundo —y último— símbolo que Swift referencia. R002 pedía uno solo,
+ * pero sin este el deep link al abrir una notificación (R104) es inalcanzable:
+ * `MainViewController()` solo devuelve el controller y el bridge queda dentro.
+ */
+fun appBridge(): IosAppBridge = sharedBridge
+
+/**
+ * Instancia única. Antes se creaba una nueva por llamada a [MainViewController],
+ * lo que habría abierto un segundo driver de SQLDelight sobre el mismo archivo
+ * si UIKit reconstruía la vista.
+ */
+private val sharedBridge = IosAppBridge()
 
 /**
  * Estado del host que debe sobrevivir a las recomposiciones: driver de base de
