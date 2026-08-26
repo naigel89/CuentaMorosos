@@ -116,8 +116,8 @@ precisamente porque `RenderEffect.createBlurEffect` no está disponible aquí.
 El repo usa OpenSpec (`openspec/config.yaml`, `strict_tdd: true`). Las propuestas vivas están en
 `openspec/changes/<nombre>/` (proposal → spec → design → tasks) y al terminar se sincronizan a
 `openspec/specs/` y se archivan en `openspec/changes/archive/`. Si trabajas sobre un cambio
-existente, lee primero su carpeta. No hay ninguna propuesta de iOS abierta: el trabajo de
-portabilidad va por commits directos en ramas `refactor/ios-*`.
+existente, lee primero su carpeta: `migrate-ios-mvp` recoge el plan de portabilidad a iOS
+(su Fase 0 ya está aplicada; las fases 1-4 requieren el runner macOS de CI).
 
 ## Notas de estado
 
