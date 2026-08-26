@@ -69,39 +69,45 @@ Rama `refactor/ios-shell-ports`, 5 commits, 897 tests en verde.
       `shared/build.gradle.kts`, dentro de la guarda `isMac`. **Files**: `shared/build.gradle.kts`.
       **Acceptance**: R004; el framework linka con Coil resoluble.
 
-## Fase 2: Host Xcode
+## Fase 2: Host Xcode — ESCRITA (pendiente de validar en CI)
 
-- [ ] 2.1 `iosApp/project.yml` — target `iosApp`, bundle ID `com.cuentamorosos`, despliegue iOS 15+,
+- [x] 2.1 `iosApp/project.yml` — target `iosApp`, bundle ID `com.cuentamorosos`, despliegue iOS 15+,
       `FRAMEWORK_SEARCH_PATHS` a la salida de `linkDebugFrameworkIosSimulatorArm64`, capability de
       notificaciones. Añadir `iosApp/*.xcodeproj` y `*.xcworkspace` al `.gitignore`.
       **Acceptance**: R001; `xcodegen generate` produce el proyecto en CI.
-- [ ] 2.2 `iosApp/Podfile` — `FirebaseCore`, `FirebaseAuth`, `FirebaseFirestore` con versión
+- [x] 2.2 `iosApp/Podfile` — `FirebaseCore`, `FirebaseAuth`, `FirebaseFirestore` con versión
       exacta compatible con gitlive 1.13.0. Generar y versionar `Gemfile.lock` desde CI.
       **Acceptance**: R003; `pod install` en verde.
-- [ ] 2.3 `shared/src/iosMain/.../MainViewController.kt` — única función exportada. Construye
+- [x] 2.3 `shared/src/iosMain/.../MainViewController.kt` — única función exportada. Construye
       `DriverFactory`, `RepositoryProvider`, `AppViewModelFactory` y los tres puertos; devuelve un
       `UIViewController` con `ComposeUIViewController { CuentaMorososTheme { CuentaMorososApp(...) } }`.
       Pasar `onPickPhoto = null` (fuera de alcance). **Acceptance**: R002.
-- [ ] 2.4 `iosApp/Sources/iOSApp.swift` — `@main`, `FirebaseApp.configure()`, monta
+- [x] 2.4 `iosApp/Sources/iOSApp.swift` — `@main`, `FirebaseApp.configure()`, monta
       `MainViewController()`. `UNUserNotificationCenterDelegate` que enruta `userInfo` a
       `PushPayloadParser` y emite el `DeepLinkTarget` al pulsar. **Acceptance**: R002, R104.
-- [ ] 2.5 Plist de marcador para `GoogleService-Info.plist`, inyectado por el workflow. El real
+- [x] 2.5 Plist de marcador para `GoogleService-Info.plist`, inyectado por el workflow. El real
       **no** se versiona. **Acceptance**: R003, escenario de archivo ausente.
 
-## Fase 3: CI y prueba visual
+## Fase 3: CI y prueba visual — ESCRITA (pendiente de validar en CI)
 
-- [ ] 3.1 Ampliar `.github/workflows/ios-build.yml`: instalar XcodeGen, `xcodegen generate`,
+- [x] 3.1 Ampliar `.github/workflows/ios-build.yml`: instalar XcodeGen, `xcodegen generate`,
       `pod install`, `xcodebuild` del esquema para simulador. Limitar el disparo a `main` y
       `workflow_dispatch` mientras se itera, por cuota de runners macOS.
       **Acceptance**: R005.
-- [ ] 3.2 Sustituir `compileTestKotlinIosSimulatorArm64` por la tarea de test real, ya con
-      Firebase linkado. **Acceptance**: R003; los tests de `commonTest` corren en iOS.
-- [ ] 3.3 Arrancar simulador con `xcrun simctl`, instalar el `.app`, `simctl io screenshot`,
+- [ ] 3.2 ~~Sustituir `compileTestKotlinIosSimulatorArm64` por la tarea de test real~~
+      **Replanteada.** No basta con linkar Firebase en el host: el ejecutable de test lo
+      linka Gradle, que no conoce los pods de CocoaPods — esos se integran en el target de
+      Xcode. Ejecutar los tests Native de verdad requiere el plugin de CocoaPods de KMP
+      (`kotlin("native.cocoapods")`), que es un cambio de alcance propio. De momento se
+      compilan, que ya atrapa las fugas de `commonTest` hacia APIs inexistentes en Native
+      — el fallo que tuvo `main` en rojo desde `84dfe55`. **R003 queda parcialmente
+      cumplido**: los pods linkan la app, no el binario de test.
+- [x] 3.3 Arrancar simulador con `xcrun simctl`, instalar el `.app`, `simctl io screenshot`,
       publicar el PNG como artefacto. **Acceptance**: R006; se distingue de pantalla en blanco.
 
 ## Fase 4: Documentación de cierre
 
-- [ ] 4.1 README: sección de iOS con el estado real, lo que funciona y lo que no (foto de perfil,
+- [x] 4.1 README: sección de iOS con el estado real, lo que funciona y lo que no (foto de perfil,
       recordatorios genéricos, sin distribución).
 - [ ] 4.2 Sincronizar las specs a `openspec/specs/` y archivar el cambio.
 
