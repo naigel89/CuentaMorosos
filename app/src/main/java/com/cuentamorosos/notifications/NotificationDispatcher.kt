@@ -18,292 +18,155 @@ import com.cuentamorosos.R
 import com.cuentamorosos.data.CuentaMorososLocalStore
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * Implementación Android de [NotificationPresenter].
+ *
+ * Los textos, canales, huellas de deduplicación y destinos de deep link viven en
+ * [NotificationContentFactory] (commonMain) y los comparte con iOS. Aquí solo
+ * queda lo que es irreduciblemente Android: `NotificationCompat`, los canales
+ * del sistema, los `PendingIntent` y el dibujado del icono grande.
+ */
 class NotificationDispatcher(
     private val context: Context,
-    private val localStore: CuentaMorososLocalStore? = null,
-) {
+    localStore: CuentaMorososLocalStore? = null,
+) : NotificationPresenter {
 
     companion object {
         private const val TAG = "NotificationDispatcher"
 
-        // Channel IDs
-        const val CH_INVITATIONS = "ch_invitations"
-        const val CH_CALCULATIONS = "ch_calculations"
-        const val CH_REMINDERS = "ch_reminders"
-
-        // Intent extra keys
+        // Claves de extras de los Intent
         const val EXTRA_NOTIFICATION_TYPE = "extra_notification_type"
         const val EXTRA_EVENT_ID = "extra_event_id"
         const val EXTRA_INVITATION_ID = "extra_invitation_id"
         const val EXTRA_PAGER_PAGE = "extra_pager_page"
 
-        // Notification type tags (for deduplication)
-        const val TAG_INVITATION_RECEIVED = "INVITATION_RECEIVED"
-        const val TAG_INVITATION_ACCEPTED = "INVITATION_ACCEPTED"
-        const val TAG_CALCULATION_COMPLETED = "CALCULATION_COMPLETED"
-        const val TAG_PAYMENT_REMINDER = "PAYMENT_REMINDER"
-
-        // Pager page indices (match MainSection enum order)
-        const val PAGE_DASHBOARD = 0
-        const val PAGE_EVENTS = 1
-        const val PAGE_PROFILES = 2
-        const val PAGE_INVITATIONS = 3
-        const val PAGE_SETTINGS = 4
-
-        /**
-         * Computes a deterministic fingerprint for a [NotificationEvent].
-         * Same event type + same IDs → same fingerprint; different IDs → different fingerprints.
-         */
-        fun fingerprintFor(event: NotificationEvent): String = when (event) {
-            is NotificationEvent.InvitationReceived ->
-                "$TAG_INVITATION_RECEIVED:${event.eventId}:${event.invitationId}"
-            is NotificationEvent.InvitationAccepted ->
-                "$TAG_INVITATION_ACCEPTED:${event.eventId}:${event.inviteeName}"
-            is NotificationEvent.CalculationCompleted ->
-                "$TAG_CALCULATION_COMPLETED:${event.eventId}"
-            is NotificationEvent.PaymentReminder ->
-                "$TAG_PAYMENT_REMINDER:${event.eventId}:${event.profileName}"
-        }
+        /** Delegado a [NotificationContentFactory]; se mantiene por compatibilidad. */
+        fun fingerprintFor(event: NotificationEvent): String =
+            NotificationContentFactory.fingerprintFor(event)
     }
+
+    private val coordinator = NotificationCoordinator(
+        presenter = this,
+        dedupStore = localStore?.let { LocalStoreDedupStore(it) },
+    )
 
     private val iconCache = ConcurrentHashMap<NotificationType, Bitmap>(4)
     private var channelsCreated = false
 
-    // ── Public API ──────────────────────────────────────────────────────────
+    // ── API pública ─────────────────────────────────────────────────────────
 
+    /** Emite la notificación de [event] (deduplicada). */
     fun dispatch(event: NotificationEvent) {
-        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-            Log.w(TAG, "Notifications disabled, skipping dispatch for ${event::class.simpleName}")
-            return
-        }
-
-        // Dedup guard: skip if this notification was already sent
-        val fingerprint = fingerprintFor(event)
-        if (localStore?.hasNotificationBeenSent(fingerprint) == true) {
-            Log.d(TAG, "Notification already sent, skipping: $fingerprint")
-            return
-        }
-
-        ensureChannels()
-        val notification = buildNotification(event)
-        val tag = notificationTag(event)
-        val id = notificationId(event)
-        NotificationManagerCompat.from(context).notify(tag, id, notification)
-        Log.d(TAG, "Dispatched notification: tag=$tag, id=$id")
-
-        // Record fingerprint so future dispatches skip this notification
-        localStore?.recordNotificationSent(fingerprint)
+        val sent = coordinator.dispatch(event)
+        if (!sent) Log.d(TAG, "Notificación omitida: ${event::class.simpleName}")
     }
 
-    // ── Channel Management ──────────────────────────────────────────────────
+    // ── NotificationPresenter ───────────────────────────────────────────────
 
-    fun ensureChannels() {
+    override fun areNotificationsEnabled(): Boolean =
+        NotificationManagerCompat.from(context).areNotificationsEnabled()
+
+    override fun ensureChannels() {
         if (channelsCreated) return
         val manager = NotificationManagerCompat.from(context)
 
-        val invitationsChannel = androidx.core.app.NotificationChannelCompat.Builder(
-            CH_INVITATIONS, NotificationManagerCompat.IMPORTANCE_HIGH
-        )
-            .setName("Invitaciones")
-            .setDescription("Notificaciones de invitaciones a eventos")
-            .build()
+        val channels = NotificationChannel.entries.map { channel ->
+            androidx.core.app.NotificationChannelCompat.Builder(
+                channel.id,
+                when (channel.importance) {
+                    NotificationImportance.HIGH -> NotificationManagerCompat.IMPORTANCE_HIGH
+                    NotificationImportance.DEFAULT -> NotificationManagerCompat.IMPORTANCE_DEFAULT
+                },
+            )
+                .setName(channel.displayName)
+                .setDescription(channel.description)
+                .build()
+        }
 
-        val calculationsChannel = androidx.core.app.NotificationChannelCompat.Builder(
-            CH_CALCULATIONS, NotificationManagerCompat.IMPORTANCE_DEFAULT
-        )
-            .setName("Cálculos y liquidaciones")
-            .setDescription("Notificaciones cuando se calculan gastos de eventos")
-            .build()
-
-        val remindersChannel = androidx.core.app.NotificationChannelCompat.Builder(
-            CH_REMINDERS, NotificationManagerCompat.IMPORTANCE_DEFAULT
-        )
-            .setName("Recordatorios")
-            .setDescription("Recordatorios de deudas pendientes")
-            .build()
-
-        manager.createNotificationChannelsCompat(
-            listOf(invitationsChannel, calculationsChannel, remindersChannel)
-        )
+        manager.createNotificationChannelsCompat(channels)
         channelsCreated = true
     }
 
-    // ── Notification Building ───────────────────────────────────────────────
+    override fun present(content: NotificationContent) {
+        val notification = buildNotification(content)
+        NotificationManagerCompat.from(context).notify(content.tag, content.id, notification)
+        Log.d(TAG, "Notificación emitida: tag=${content.tag}, id=${content.id}")
+    }
 
-    private fun buildNotification(event: NotificationEvent): Notification {
-        val type = notificationType(event)
-        val channelId = channelIdFor(type)
-        val smallIconRes = smallIconResFor(type)
-        val largeIcon = getLargeIcon(event, type)
+    // ── Construcción de la Notification ─────────────────────────────────────
 
-        return NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(smallIconRes)
-            .setLargeIcon(largeIcon)
-            .setContentTitle(titleFor(event))
-            .setContentText(bodyFor(event))
-            .setContentIntent(createContentIntent(event))
+    private fun buildNotification(content: NotificationContent): Notification =
+        NotificationCompat.Builder(context, content.channel.id)
+            .setSmallIcon(smallIconResFor(content.type))
+            .setLargeIcon(largeIconFor(content.type))
+            .setContentTitle(content.title)
+            .setContentText(content.body)
+            .setContentIntent(createContentIntent(content))
             .setAutoCancel(true)
-            .setPriority(priorityFor(type))
-            .apply { addActions(event, this) }
+            .setPriority(priorityFor(content.channel.importance))
+            .apply { addActions(content, this) }
             .build()
-    }
-
-    // ── Type Resolution ─────────────────────────────────────────────────────
-
-    private fun notificationType(event: NotificationEvent): NotificationType = when (event) {
-        is NotificationEvent.InvitationReceived -> NotificationType.INVITATION
-        is NotificationEvent.InvitationAccepted -> NotificationType.INVITATION_ACCEPTED
-        is NotificationEvent.CalculationCompleted -> NotificationType.CALCULATION
-        is NotificationEvent.PaymentReminder -> NotificationType.PAYMENT_REMINDER
-    }
-
-    private fun channelIdFor(type: NotificationType): String = when (type) {
-        NotificationType.INVITATION, NotificationType.INVITATION_ACCEPTED -> CH_INVITATIONS
-        NotificationType.CALCULATION -> CH_CALCULATIONS
-        NotificationType.PAYMENT_REMINDER -> CH_REMINDERS
-    }
 
     private fun smallIconResFor(type: NotificationType): Int = when (type) {
-        NotificationType.INVITATION, NotificationType.INVITATION_ACCEPTED -> R.drawable.ic_notification_invitation
-        NotificationType.CALCULATION -> R.drawable.ic_notification_calc
-        NotificationType.PAYMENT_REMINDER -> R.drawable.ic_notification_calc
+        NotificationType.INVITATION, NotificationType.INVITATION_ACCEPTED ->
+            R.drawable.ic_notification_invitation
+        NotificationType.CALCULATION, NotificationType.PAYMENT_REMINDER ->
+            R.drawable.ic_notification_calc
     }
 
-    private fun priorityFor(type: NotificationType): Int = when (type) {
-        NotificationType.INVITATION, NotificationType.INVITATION_ACCEPTED -> NotificationCompat.PRIORITY_HIGH
-        NotificationType.CALCULATION -> NotificationCompat.PRIORITY_DEFAULT
-        NotificationType.PAYMENT_REMINDER -> NotificationCompat.PRIORITY_DEFAULT
+    private fun priorityFor(importance: NotificationImportance): Int = when (importance) {
+        NotificationImportance.HIGH -> NotificationCompat.PRIORITY_HIGH
+        NotificationImportance.DEFAULT -> NotificationCompat.PRIORITY_DEFAULT
     }
 
-    // ── Title & Body ────────────────────────────────────────────────────────
+    // ── Acciones ────────────────────────────────────────────────────────────
 
-    private fun titleFor(event: NotificationEvent): String = when (event) {
-        is NotificationEvent.InvitationReceived -> "Invitación recibida"
-        is NotificationEvent.InvitationAccepted -> "Invitación aceptada"
-        is NotificationEvent.CalculationCompleted -> "Cálculo completado"
-        is NotificationEvent.PaymentReminder -> "Recordatorio de pago"
-    }
+    private fun addActions(content: NotificationContent, builder: NotificationCompat.Builder) {
+        content.actions.forEachIndexed { index, action ->
+            when (action.id) {
+                NotificationContentFactory.ACTION_ACCEPT_INVITATION,
+                NotificationContentFactory.ACTION_REJECT_INVITATION -> {
+                    val invitationId = content.invitationId ?: return@forEachIndexed
+                    val intent = Intent(action.id).apply {
+                        setPackage(context.packageName)
+                        putExtra(EXTRA_EVENT_ID, content.deepLink.eventId)
+                        putExtra(EXTRA_INVITATION_ID, invitationId)
+                    }
+                    val pending = PendingIntent.getBroadcast(
+                        context,
+                        invitationId.hashCode() + index,
+                        intent,
+                        pendingIntentFlags(),
+                    )
+                    val icon =
+                        if (action.id == NotificationContentFactory.ACTION_ACCEPT_INVITATION) {
+                            R.drawable.ic_notification_check
+                        } else {
+                            android.R.drawable.ic_menu_close_clear_cancel
+                        }
+                    builder.addAction(icon, action.label, pending)
+                }
 
-    private fun bodyFor(event: NotificationEvent): String = when (event) {
-        is NotificationEvent.InvitationReceived ->
-            "${event.inviterName} te invitó al evento '${event.eventName}'"
-        is NotificationEvent.InvitationAccepted ->
-            "${event.inviteeName} aceptó tu invitación a '${event.eventName}'"
-        is NotificationEvent.CalculationCompleted -> {
-            val formatted = String.format("%.2f", event.amountOwed)
-            "Se calcularon los gastos de '${event.eventName}'. Debes €$formatted"
-        }
-        is NotificationEvent.PaymentReminder -> {
-            val formatted = formatAmount(event.amountEuros)
-            if (event.isOwedToYou) {
-                "${event.profileName} te debe $formatted"
-            } else {
-                "Debes $formatted a ${event.profileName}"
-            }
-        }
-    }
-
-    // ── Tag & ID ────────────────────────────────────────────────────────────
-
-    private fun notificationTag(event: NotificationEvent): String = when (event) {
-        is NotificationEvent.InvitationReceived -> TAG_INVITATION_RECEIVED
-        is NotificationEvent.InvitationAccepted -> TAG_INVITATION_ACCEPTED
-        is NotificationEvent.CalculationCompleted -> TAG_CALCULATION_COMPLETED
-        is NotificationEvent.PaymentReminder -> TAG_PAYMENT_REMINDER
-    }
-
-    private fun notificationId(event: NotificationEvent): Int {
-        val key = event.eventId ?: event.hashCode().toString()
-        return key.hashCode()
-    }
-
-    // ── Actions ─────────────────────────────────────────────────────────────
-
-    private fun addActions(event: NotificationEvent, builder: NotificationCompat.Builder) {
-        when (event) {
-            is NotificationEvent.InvitationReceived -> {
-                // Accept action
-                val acceptIntent = createActionIntent(
-                    action = "ACTION_ACCEPT_INVITATION",
-                    eventId = event.eventId,
-                    invitationId = event.invitationId,
-                )
-                val acceptPending = PendingIntent.getBroadcast(
-                    context, event.invitationId.hashCode(),
-                    acceptIntent,
-                    pendingIntentFlags(),
-                )
-                builder.addAction(
-                    R.drawable.ic_notification_check,
-                    "Aceptar",
-                    acceptPending,
-                )
-
-                // Reject action
-                val rejectIntent = createActionIntent(
-                    action = "ACTION_REJECT_INVITATION",
-                    eventId = event.eventId,
-                    invitationId = event.invitationId,
-                )
-                val rejectPending = PendingIntent.getBroadcast(
-                    context, event.invitationId.hashCode() + 1,
-                    rejectIntent,
-                    pendingIntentFlags(),
-                )
-                builder.addAction(
-                    android.R.drawable.ic_menu_close_clear_cancel,
-                    "Rechazar",
-                    rejectPending,
-                )
-            }
-            is NotificationEvent.CalculationCompleted,
-            is NotificationEvent.PaymentReminder,
-            is NotificationEvent.InvitationAccepted -> {
-                // "Ver detalles" action → same as tapping the notification
-                val detailIntent = createContentIntent(event)
-                builder.addAction(
+                else -> builder.addAction(
                     android.R.drawable.ic_menu_view,
-                    "Ver detalles",
-                    detailIntent,
+                    action.label,
+                    createContentIntent(content),
                 )
             }
         }
     }
 
-    // ── Content Intent (Deep Link) ──────────────────────────────────────────
+    // ── Content Intent (deep link) ──────────────────────────────────────────
 
-    private fun createContentIntent(event: NotificationEvent): PendingIntent {
+    private fun createContentIntent(content: NotificationContent): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(EXTRA_NOTIFICATION_TYPE, notificationTag(event))
-            putExtra(EXTRA_PAGER_PAGE, pagerPageFor(event))
-            event.eventId?.let { putExtra(EXTRA_EVENT_ID, it) }
-            if (event is NotificationEvent.InvitationReceived) {
-                putExtra(EXTRA_INVITATION_ID, event.invitationId)
-            }
+            putExtra(EXTRA_NOTIFICATION_TYPE, content.deepLink.notificationType)
+            putExtra(EXTRA_PAGER_PAGE, content.deepLink.pagerPage)
+            content.deepLink.eventId?.let { putExtra(EXTRA_EVENT_ID, it) }
+            content.invitationId?.let { putExtra(EXTRA_INVITATION_ID, it) }
         }
-        return PendingIntent.getActivity(
-            context,
-            event.hashCode(),
-            intent,
-            pendingIntentFlags(),
-        )
-    }
-
-    private fun pagerPageFor(event: NotificationEvent): Int = when (event) {
-        is NotificationEvent.InvitationReceived -> PAGE_INVITATIONS  // page 3
-        is NotificationEvent.PaymentReminder -> PAGE_DASHBOARD       // page 0
-        else -> PAGE_DASHBOARD  // page 0
-    }
-
-    private fun createActionIntent(
-        action: String,
-        eventId: String,
-        invitationId: String,
-    ): Intent = Intent(action).apply {
-        setPackage(context.packageName)
-        putExtra(EXTRA_EVENT_ID, eventId)
-        putExtra(EXTRA_INVITATION_ID, invitationId)
+        return PendingIntent.getActivity(context, content.id, intent, pendingIntentFlags())
     }
 
     private fun pendingIntentFlags(): Int =
@@ -313,31 +176,14 @@ class NotificationDispatcher(
             PendingIntent.FLAG_UPDATE_CURRENT
         }
 
-    // ── Large Icon Generation ───────────────────────────────────────────────
+    // ── Icono grande ────────────────────────────────────────────────────────
 
-    private fun getLargeIcon(event: NotificationEvent, type: NotificationType): Bitmap {
-        if (event is NotificationEvent.PaymentReminder) {
-            return iconCache.getOrPut(type) {
-                getAppLogoBitmap()
-            }
+    private fun largeIconFor(type: NotificationType): Bitmap = iconCache.getOrPut(type) {
+        if (type == NotificationType.PAYMENT_REMINDER) {
+            BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
+        } else {
+            createLargeIcon(smallIconResFor(type), BADGE_BACKGROUND)
         }
-
-        return iconCache.getOrPut(type) {
-            val bgColor = bgColorFor(type)
-            val iconRes = smallIconResFor(type)
-            createLargeIcon(iconRes, bgColor)
-        }
-    }
-
-    private fun getAppLogoBitmap(): Bitmap {
-        return BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
-    }
-
-    private fun bgColorFor(type: NotificationType): Int = when (type) {
-        NotificationType.INVITATION -> 0xFF191C1D.toInt()       // NeoFintech onSurface (black)
-        NotificationType.INVITATION_ACCEPTED -> 0xFF191C1D.toInt() // same black
-        NotificationType.CALCULATION -> 0xFF191C1D.toInt()          // same black
-        NotificationType.PAYMENT_REMINDER -> 0xFF191C1D.toInt()     // same black
     }
 
     private fun createLargeIcon(iconRes: Int, bgColor: Int): Bitmap {
@@ -345,16 +191,14 @@ class NotificationDispatcher(
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        // Draw background circle
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = bgColor
             style = Paint.Style.FILL
         }
         canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, paint)
 
-        // Draw vector icon centered, tinted neon green
         val drawable = ContextCompat.getDrawable(context, iconRes) ?: return bitmap
-        drawable.setTint(0xFF39FF14.toInt())
+        drawable.setTint(BADGE_TINT)
         val iconSize = (sizePx * 0.6).toInt()
         val offset = (sizePx - iconSize) / 2
         drawable.setBounds(offset, offset, offset + iconSize, offset + iconSize)
@@ -362,20 +206,16 @@ class NotificationDispatcher(
 
         return bitmap
     }
+}
 
-    // ── Formatting Helpers ──────────────────────────────────────────────────
+/** NeoFintech onSurface (negro) de fondo, verde neón para el icono. */
+private const val BADGE_BACKGROUND = 0xFF191C1D.toInt()
+private const val BADGE_TINT = 0xFF39FF14.toInt()
 
-    private fun formatAmount(amount: Double): String {
-        val formatted = String.format("%.2f", amount)
-        return "€$formatted"
-    }
-
-    // ── Internal enum ───────────────────────────────────────────────────────
-
-    private enum class NotificationType {
-        INVITATION,
-        INVITATION_ACCEPTED,
-        CALCULATION,
-        PAYMENT_REMINDER,
-    }
+/** Adapta [CuentaMorososLocalStore] al puerto [NotificationDedupStore]. */
+private class LocalStoreDedupStore(
+    private val store: CuentaMorososLocalStore,
+) : NotificationDedupStore {
+    override fun hasBeenSent(fingerprint: String) = store.hasNotificationBeenSent(fingerprint)
+    override fun recordSent(fingerprint: String) = store.recordNotificationSent(fingerprint)
 }
