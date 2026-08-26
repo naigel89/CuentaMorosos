@@ -133,31 +133,36 @@ jobs:
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install booted "$APP_PATH"
 
-          # launch imprime "com.cuentamorosos: <pid>"; nos quedamos el pid.
-          LAUNCH=$(xcrun simctl launch booted com.cuentamorosos)
-          echo "$LAUNCH"
-          PID=$(echo "$LAUNCH" | awk -F': ' '{print $2}' | tr -d ' ')
+          # --console-pty engancha la salida de la app. Es la única forma de ver
+          # una excepción de Kotlin/Native: muere por señal, así que no aparece
+          # como excepción de ObjC en el log unificado y su traza solo va a
+          # stderr. Se lanza en segundo plano para poder capturar la pantalla
+          # mientras sigue viva.
+          ( timeout 90 xcrun simctl launch --console-pty booted com.cuentamorosos \
+              > app-console.log 2>&1 ) &
 
           # Dar tiempo a que Compose pinte el primer frame.
-          sleep 15
+          sleep 20
+
+          echo "─── salida de la app ───"
+          cat app-console.log || true
 
           # Sin esta comprobación el paso daría verde aunque la app hubiera
           # crasheado al arrancar: la captura saldría del escritorio del
           # simulador y nadie lo notaría.
           if ! xcrun simctl spawn booted launchctl list 2>/dev/null | grep -q "com.cuentamorosos"; then
-            echo "::error::La app arrancó (pid $PID) pero ya no está viva: crasheó durante el arranque."
+            echo "::error::La app arrancó pero ya no está viva: crasheó durante el arranque."
 
-            # El log unificado del simulador recoge el motivo del crash,
-            # incluida la excepción de Kotlin/Native con su traza.
             echo "─── log unificado del simulador ───"
             xcrun simctl spawn booted log show \
               --last 3m \
-              --predicate 'processImagePath CONTAINS "iosApp" OR senderImagePath CONTAINS "iosApp"' \
-              --style compact 2>/dev/null | tail -80 || echo "(sin entradas)"
+              --predicate 'processImagePath CONTAINS "iosApp"' \
+              --style compact 2>/dev/null | tail -40 || echo "(sin entradas)"
 
-            # Los informes de crash del simulador van al host, no al dispositivo.
             echo "─── informes de crash ───"
-            find ~/Library/Logs/DiagnosticReports -name "*.ips" -mmin -10 2>/dev/null | head -3 | while read -r f; do
+            find ~/Library/Logs/DiagnosticReports \
+                 "$HOME/Library/Developer/CoreSimulator/Devices/$DEVICE/data/Library/Logs" \
+                 -name "*.ips" -mmin -10 2>/dev/null | head -3 | while read -r f; do
               echo "=== $f ==="
               head -60 "$f"
             done
@@ -166,7 +171,7 @@ jobs:
             exit 1
           fi
 
-          echo "La app sigue viva tras 15s."
+          echo "La app sigue viva tras 20s."
           xcrun simctl io booted screenshot ios-login-screen.png
           ls -la ios-login-screen.png
 
@@ -178,6 +183,7 @@ jobs:
           path: |
             ios-login-screen.png
             ios-crash.png
+            app-console.log
             # Solo las cabeceras: dan los nombres exactos que ve Swift y pesan
             # nada. El framework entero son ~100 MB por run.
             shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework/Headers/
