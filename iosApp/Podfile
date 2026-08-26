@@ -28,6 +28,19 @@ post_install do |installer|
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'x86_64'
     end
 
+    # El gRPC que arrastra Firestore 10.x es anterior al cambio de clang que
+    # convirtió -Wmissing-template-arg-list-after-template-kw en error. Su
+    # código C++ usa `Traits::template CallSeqFactory(...)` sin lista de
+    # argumentos, legal para el clang de entonces y rechazado por el de Xcode 26.
+    # No se puede arreglar el pod, así que se degrada a aviso solo en esos
+    # targets — no en el nuestro.
+    if ['gRPC-Core', 'gRPC-C++', 'abseil'].include?(target.name)
+      target.build_configurations.each do |config|
+        config.build_settings['OTHER_CPLUSPLUSFLAGS'] =
+          "$(inherited) -Wno-missing-template-arg-list-after-template-kw"
+      end
+    end
+
     # El podspec de BoringSSL-GRPC mete -GCC_WARN_INHIBIT_ALL_WARNINGS en los
     # compiler_flags de cada archivo. Eso no es un flag de clang: es un build
     # setting mal colocado, y clang moderno lo lee como "-G" y aborta con
