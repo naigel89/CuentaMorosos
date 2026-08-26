@@ -39,7 +39,7 @@ class IosReminderScheduler(
         }
 
         val trigger = UNCalendarNotificationTrigger.triggerWithDateMatchingComponents(
-            dateMatching = components,
+            dateComponents = components,
             repeats = true,
         )
 

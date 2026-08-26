@@ -97,6 +97,27 @@ reglas de notificación viven en `commonMain`. Lo que un host debe aportar son l
 canales, huellas de deduplicación y payloads push, y son comunes a propósito: si el host los
 reimplementara, las dos plataformas divergirían en silencio.
 
+Aunque en Linux no se pueda compilar para iOS, **sí se puede verificar la interop con Apple**
+sin un Mac. La distribución prebuilt de Kotlin/Native trae las platform libraries de Apple y se
+pueden volcar:
+
+```bash
+KONAN=~/.konan/kotlin-native-prebuilt-linux-x86_64-2.1.0
+$KONAN/bin/klib dump-metadata \
+  $KONAN/klib/platform/ios_simulator_arm64/org.jetbrains.kotlin.native.platform.UserNotifications
+```
+
+Da la firma Kotlin exacta de cada API de UIKit, Foundation o UserNotifications. Sirve aunque el
+proyecto esté en 1.9.24 y solo esté descargada la 2.1.0: son las mismas cabeceras de Apple. Es la
+diferencia entre adivinar y comprobar — así se detectaron dos errores que no habrían compilado:
+`setUserInfo` exige `Map<Any?, *>` (y `Map` es invariante en su clave) y el parámetro de
+`triggerWithDateMatchingComponents` se llama `dateComponents`, no `dateMatching`.
+
+Ojo con dos falsos amigos de la interop: las propiedades de solo lectura que una subclase
+redeclara como escribibles se exponen como métodos `setX()` y no como `var`
+(`UNMutableNotificationContent.setTitle`), pero otras sí son `var` de verdad
+(`NSDateComponents.hour`). Volcar el klib es la única forma de saber cuál es cuál.
+
 Dos cosas **no** pueden subir a `commonMain`, y no por descuido:
 - La subida de la foto de perfil — `dev.gitlive.firebase.storage.Data` es una `expect class`
   por plataforma y su actual de JVM es un stub vacío. Solo se comparten las convenciones, en
