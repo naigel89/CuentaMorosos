@@ -146,8 +146,10 @@ class IosAppBridge {
                         onDispose { }
                     }
 
-                    CuentaMorososApp(
-                        viewModelFactory = AppViewModelFactory(
+                    // Con clave el uid, como en MainActivity: sin remember se
+                    // construiría una factory nueva en cada recomposición.
+                    val viewModelFactory = remember(uid) {
+                        AppViewModelFactory(
                             repositoryProvider,
                             currentProfileId = uid,
                             notificationCallbacks = NotificationCallbacks(
@@ -155,7 +157,11 @@ class IosAppBridge {
                                 onInvitationAccepted = { coordinator.dispatch(it) },
                                 onCalculationCompleted = { coordinator.dispatch(it) },
                             ),
-                        ),
+                        )
+                    }
+
+                    CuentaMorososApp(
+                        viewModelFactory = viewModelFactory,
                         currentUserUid = uid,
                         preferences = preferences,
                         onSavePreferences = { updated ->
