@@ -61,6 +61,21 @@ jobs:
 
       # El archivo real lleva las claves del proyecto Firebase y no se versiona.
       # Para compilar y arrancar en simulador basta un marcador bien formado.
+      # Compose genera aquí las tipografías (Geist, JetBrains Mono). No van
+      # dentro del .framework, así que hay que localizarlas para copiarlas al
+      # bundle: sin ellas la app crashea al pintar el primer texto.
+      - name: Locate Compose resources
+        run: |
+          echo "─── directorios compose-resources ───"
+          find shared/build -type d -name "compose-resources" 2>/dev/null | head -5
+          DIR=$(find shared/build -type d -name "compose-resources" 2>/dev/null | head -1)
+          if [ -n "$DIR" ]; then
+            echo "─── contenido de $DIR ───"
+            find "$DIR" -type f | head -10
+          else
+            echo "::warning::No se encontró ningún compose-resources bajo shared/build"
+          fi
+
       - name: Seed placeholder GoogleService-Info.plist
         run: |
           cat > iosApp/Sources/GoogleService-Info.plist <<'PLIST'

@@ -38,6 +38,8 @@ targets:
         CFBundleShortVersionString: "1.2.1"
         CFBundleVersion: "10"
         UILaunchScreen: {}
+        # Compose lo pide explícitamente; sin ella el render se capa a 60 Hz.
+        CADisableMinimumFrameDurationOnPhone: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIBackgroundModes:
@@ -56,6 +58,26 @@ targets:
       # los símbolos sin resolver: _sqlite3_bind_blob y compañía los tiene que
       # aportar el binario final.
       - sdk: libsqlite3.tbd
+    postBuildScripts:
+      # Las tipografías de Compose no viajan dentro del .framework: Gradle las
+      # deja aparte. Sin copiarlas al bundle, Res.font.geist_regular lanza
+      # MissingResourceException y la app muere al pintar el primer texto.
+      # Se busca el directorio en vez de fijar la ruta, que cambia entre
+      # versiones de Compose Multiplatform.
+      - name: Copy Compose resources
+        script: |
+          set -eu
+          SRC=$(find "$SRCROOT/../shared/build" -type d -name "compose-resources" 2>/dev/null | head -1)
+          if [ -z "$SRC" ]; then
+            echo "error: no se encontró compose-resources bajo shared/build" >&2
+            exit 1
+          fi
+          DEST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/compose-resources"
+          echo "Copiando recursos de Compose: $SRC -> $DEST"
+          mkdir -p "$DEST"
+          rsync -a --delete "$SRC/" "$DEST/"
+        basedOnDependencyAnalysis: false
+
     preBuildScripts:
       - name: Link Kotlin framework
         script: |
