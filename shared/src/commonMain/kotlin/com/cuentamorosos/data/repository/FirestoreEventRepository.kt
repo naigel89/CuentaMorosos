@@ -6,7 +6,6 @@ import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.SUPPORTED_CURRENCY
 import com.cuentamorosos.model.migrateMemberIdsToParticipants
-import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.flow.Flow
@@ -18,8 +17,8 @@ import com.cuentamorosos.data.LogSanitizer
 
 class FirestoreEventRepository : EventRepository {
 
-    private val db = Firebase.firestore
-    private val auth = Firebase.auth
+    private val db = FirebaseClients.firestore
+    private val auth = FirebaseClients.auth
     private val collection = db.collection("events")
 
     override fun observeEvents(): Flow<List<EventItem>> = flow {

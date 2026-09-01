@@ -2,7 +2,7 @@ package com.cuentamorosos.data
 
 import android.util.Log
 import com.cuentamorosos.notifications.NotificationDispatcher
-import com.cuentamorosos.notifications.NotificationEvent
+import com.cuentamorosos.notifications.PushPayloadParser
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
@@ -29,75 +29,19 @@ class CuentaMorososFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
-        val data = remoteMessage.data
 
-        if (data.isEmpty()) {
-            Log.w(TAG, "FCM message with empty data payload, ignoring")
+        val event = PushPayloadParser.parse(remoteMessage.data)
+        if (event == null) {
+            Log.w(TAG, "Payload FCM no reconocido, se descarta: type=${remoteMessage.data["type"]}")
             return
         }
 
-        val type = data["type"] ?: run {
-            Log.w(TAG, "FCM message without 'type' field, ignoring")
-            return
-        }
-
-        val event = when (type) {
-            "invitation_received" -> parseInvitationReceived(data)
-            "invitation_accepted" -> parseInvitationAccepted(data)
-            "calculation_completed" -> parseCalculationCompleted(data)
-            else -> {
-                Log.w(TAG, "Unknown FCM type: $type")
-                return
-            }
-        }
-
-        if (event != null) {
-            val localStore = CuentaMorososLocalStore(applicationContext)
-            NotificationDispatcher(applicationContext, localStore = localStore).dispatch(event)
-        } else {
-            Log.w(TAG, "Failed to parse FCM payload for type: $type")
-        }
+        val localStore = CuentaMorososLocalStore(applicationContext)
+        NotificationDispatcher(applicationContext, localStore = localStore).dispatch(event)
     }
 
     override fun onDestroy() {
         serviceScope.cancel()
         super.onDestroy()
-    }
-
-    // ── Parsing methods ─────────────────────────────────────────────────────
-
-    private fun parseInvitationReceived(data: Map<String, String>): NotificationEvent? {
-        val eventId = data["eventId"] ?: return null
-        val invitationId = data["invitationId"] ?: return null
-        val inviterName = data["inviterName"] ?: return null
-        val eventName = data["eventName"] ?: return null
-        return NotificationEvent.InvitationReceived(
-            invitationId = invitationId,
-            eventId = eventId,
-            inviterName = inviterName,
-            eventName = eventName,
-        )
-    }
-
-    private fun parseInvitationAccepted(data: Map<String, String>): NotificationEvent? {
-        val eventId = data["eventId"] ?: return null
-        val inviteeName = data["inviteeName"] ?: return null
-        val eventName = data["eventName"] ?: return null
-        return NotificationEvent.InvitationAccepted(
-            eventId = eventId,
-            inviteeName = inviteeName,
-            eventName = eventName,
-        )
-    }
-
-    private fun parseCalculationCompleted(data: Map<String, String>): NotificationEvent? {
-        val eventId = data["eventId"] ?: return null
-        val eventName = data["eventName"] ?: return null
-        val amountOwed = data["amountOwed"]?.toDoubleOrNull() ?: return null
-        return NotificationEvent.CalculationCompleted(
-            eventId = eventId,
-            eventName = eventName,
-            amountOwed = amountOwed,
-        )
     }
 }

@@ -3,16 +3,12 @@ package com.cuentamorosos.data
 import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.cuentamorosos.CuentaMorososApp
 import com.cuentamorosos.notifications.NotificationDispatcher
 import com.cuentamorosos.notifications.NotificationEvent
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.first
-import java.util.concurrent.TimeUnit
 
 /**
  * Worker que se ejecuta periódicamente en segundo plano para generar y publicar
@@ -28,29 +24,12 @@ class ReminderWorker(
 
     companion object {
         private const val TAG = "ReminderWorker"
-        private const val WORK_NAME = "cuenta_morosos_daily_reminder"
 
-        /**
-         * Programa el worker periódico (1 vez cada 24 horas).
-         * Si ya existe, lo reemplaza para respetar la configuración actualizada.
-         */
-        fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<ReminderWorker>(
-                repeatInterval = 24,
-                repeatIntervalTimeUnit = TimeUnit.HOURS,
-            ).build()
+        /** Programa el worker periódico. Delegado a [WorkManagerReminderScheduler]. */
+        fun schedule(context: Context) = WorkManagerReminderScheduler(context).schedule()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
-                request,
-            )
-        }
-
-        /** Cancela el worker periódico (cuando el usuario desactiva los recordatorios). */
-        fun cancel(context: Context) {
-            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
-        }
+        /** Cancela el worker periódico. Delegado a [WorkManagerReminderScheduler]. */
+        fun cancel(context: Context) = WorkManagerReminderScheduler(context).cancel()
     }
 
     override suspend fun doWork(): Result {

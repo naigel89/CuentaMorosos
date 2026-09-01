@@ -20,3 +20,12 @@ shared/build/
 # Firebase config files (sensitive — added via GitHub Secrets in CI)
 app/google-services.json
 iosApp/GoogleService-Info.plist
+
+# Proyecto Xcode: se genera con `xcodegen generate`, no se versiona.
+iosApp/*.xcodeproj/
+iosApp/*.xcworkspace/
+iosApp/Pods/
+iosApp/Podfile.lock
+
+# Lleva las claves del proyecto Firebase; CI inyecta un marcador.
+iosApp/Sources/GoogleService-Info.plist

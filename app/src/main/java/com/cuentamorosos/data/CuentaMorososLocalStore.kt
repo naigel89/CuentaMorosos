@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.notifications.NotificationContentFactory
+import com.cuentamorosos.notifications.NotificationDedupEntries
 import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.EventState
@@ -382,58 +384,44 @@ class CuentaMorososLocalStore(
      * Returns `false` for null or blank fingerprints without throwing.
      * Thread-safe via [synchronized] on the underlying [SharedPreferences].
      */
-    fun hasNotificationBeenSent(fingerprint: String): Boolean {
-        if (fingerprint.isBlank()) return false
-        return synchronized(prefs) {
-            val set = prefs.getStringSet(KEY_SENT_FINGERPRINTS, emptySet()) ?: emptySet()
-            set.any { entry ->
-                val separator = entry.indexOf('|')
-                separator >= 0 && entry.substring(separator + 1) == fingerprint
-            }
-        }
+    fun hasNotificationBeenSent(fingerprint: String): Boolean = synchronized(prefs) {
+        NotificationDedupEntries.contains(readFingerprints(), fingerprint)
     }
 
     /**
      * Records that a notification with the given [fingerprint] has been sent.
-     * No-ops safely for null or blank fingerprints.
-     * Stores as `"{epochMs}|{fingerprint}"` in a [StringSet].
+     * No-ops safely for blank fingerprints.
+     * Encoding lives in [NotificationDedupEntries], shared with iOS.
      * Thread-safe via [synchronized] on the underlying [SharedPreferences].
      */
     fun recordNotificationSent(fingerprint: String) {
-        if (fingerprint.isBlank()) return
         synchronized(prefs) {
-            val currentSet = prefs.getStringSet(KEY_SENT_FINGERPRINTS, emptySet())
-                ?.toMutableSet() ?: mutableSetOf()
-            val entry = "${System.currentTimeMillis()}|$fingerprint"
-            currentSet.add(entry)
-            prefs.edit().putStringSet(KEY_SENT_FINGERPRINTS, currentSet).apply()
+            val current = readFingerprints()
+            val updated = NotificationDedupEntries.record(
+                current,
+                fingerprint,
+                System.currentTimeMillis(),
+            )
+            if (updated != current) writeFingerprints(updated)
         }
     }
 
     /**
      * Prunes fingerprint entries older than [maxAgeDays] (default 30 days).
-     * Each entry begins with an epoch-millis timestamp; entries whose timestamp
-     * is before the cutoff are removed. Malformed entries are also removed.
-     * Empty registry or no-op cleanup does not throw.
+     * Malformed entries are removed too. Pruning rules live in
+     * [NotificationDedupEntries], shared with iOS.
      * Thread-safe via [synchronized] on the underlying [SharedPreferences].
      */
-    fun cleanupOldEntries(maxAgeDays: Int = 30) {
+    fun cleanupOldEntries(maxAgeDays: Int = NotificationDedupEntries.DEFAULT_MAX_AGE_DAYS) {
         synchronized(prefs) {
-            val currentSet = prefs.getStringSet(KEY_SENT_FINGERPRINTS, emptySet())
-                ?.toMutableSet() ?: mutableSetOf()
-            if (currentSet.isEmpty()) return
-
-            val cutoff = System.currentTimeMillis() - (maxAgeDays.toLong() * 24 * 60 * 60 * 1000)
-            val pruned = currentSet.filter { entry ->
-                val separator = entry.indexOf('|')
-                if (separator < 0) return@filter false // malformed, remove
-                val epochMs = entry.substring(0, separator).toLongOrNull() ?: return@filter false
-                epochMs >= cutoff
-            }.toMutableSet()
-
-            if (pruned.size != currentSet.size) {
-                prefs.edit().putStringSet(KEY_SENT_FINGERPRINTS, pruned).apply()
-            }
+            val current = readFingerprints()
+            if (current.isEmpty()) return
+            val pruned = NotificationDedupEntries.prune(
+                current,
+                System.currentTimeMillis(),
+                maxAgeDays,
+            )
+            if (pruned.size != current.size) writeFingerprints(pruned)
         }
     }
 
@@ -450,15 +438,26 @@ class CuentaMorososLocalStore(
         synchronized(prefs) {
             if (prefs.contains(KEY_SENT_FINGERPRINTS)) return
 
+            val now = System.currentTimeMillis()
             val entries = events
                 .filter { it.state == EventState.CALCULATED }
-                .map { "${System.currentTimeMillis()}|CALCULATION_COMPLETED:${it.id}" }
-                .toMutableSet()
+                .fold(emptySet<String>()) { acc, event ->
+                    NotificationDedupEntries.record(
+                        acc,
+                        "${NotificationContentFactory.TAG_CALCULATION_COMPLETED}:${event.id}",
+                        now,
+                    )
+                }
 
-            if (entries.isNotEmpty()) {
-                prefs.edit().putStringSet(KEY_SENT_FINGERPRINTS, entries).apply()
-            }
+            if (entries.isNotEmpty()) writeFingerprints(entries)
         }
+    }
+
+    private fun readFingerprints(): Set<String> =
+        prefs.getStringSet(KEY_SENT_FINGERPRINTS, emptySet()) ?: emptySet()
+
+    private fun writeFingerprints(entries: Set<String>) {
+        prefs.edit().putStringSet(KEY_SENT_FINGERPRINTS, entries).apply()
     }
 
     companion object {

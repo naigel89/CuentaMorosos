@@ -83,6 +83,57 @@ además lo expone entero vía `LocalNeoFintechColors`, porque varios tokens
 Regla práctica: usa `MaterialTheme.colorScheme` para lo que M3 ya cubre y
 `LocalNeoFintechColors.current` para el resto. No metas `Color(0xFF…)` en pantallas.
 
+### Portabilidad iOS: qué es común y qué no
+
+Los targets iOS solo se configuran cuando el host es macOS, así que en Linux **no se puede
+compilar ni ejecutar nada de iOS**: la única validación es el workflow `ios-build.yml`
+(runner `macos-15`), que linka el framework y compila los tests Native. Hay dos sustitutos locales, y
+conviene usar el segundo:
+
+```bash
+./gradlew :shared:compileKotlinJvm              # detecta fugas de Android en commonMain
+./gradlew :shared:compileCommonMainKotlinMetadata   # ← más estricto
+```
+
+El primero compila `commonMain` contra la API **del JVM**, así que deja pasar cualquier `java.*`.
+El segundo la compila contra la API **común** de las dependencias, que es la que verá iOS: si una
+firma solo existe en el variante JVM de una librería, este falla y el otro no.
+
+Todo el cableado (`RepositoryProvider`, `AppViewModelFactory`), la UI, los ViewModels y las
+reglas de notificación viven en `commonMain`. Lo que un host debe aportar son los puertos de
+`notifications/NotificationPorts.kt`: `NotificationPresenter`, `NotificationDedupStore` y
+`ReminderScheduler`. `NotificationContentFactory` y `PushPayloadParser` resuelven textos,
+canales, huellas de deduplicación y payloads push, y son comunes a propósito: si el host los
+reimplementara, las dos plataformas divergirían en silencio.
+
+Aunque en Linux no se pueda compilar para iOS, **sí se puede verificar la interop con Apple**
+sin un Mac. La distribución prebuilt de Kotlin/Native trae las platform libraries de Apple y se
+pueden volcar:
+
+```bash
+KONAN=~/.konan/kotlin-native-prebuilt-linux-x86_64-2.1.0
+$KONAN/bin/klib dump-metadata \
+  $KONAN/klib/platform/ios_simulator_arm64/org.jetbrains.kotlin.native.platform.UserNotifications
+```
+
+Da la firma Kotlin exacta de cada API de UIKit, Foundation o UserNotifications. Sirve aunque el
+proyecto esté en 1.9.24 y solo esté descargada la 2.1.0: son las mismas cabeceras de Apple. Es la
+diferencia entre adivinar y comprobar — así se detectaron dos errores que no habrían compilado:
+`setUserInfo` exige `Map<Any?, *>` (y `Map` es invariante en su clave) y el parámetro de
+`triggerWithDateMatchingComponents` se llama `dateComponents`, no `dateMatching`.
+
+Ojo con dos falsos amigos de la interop: las propiedades de solo lectura que una subclase
+redeclara como escribibles se exponen como métodos `setX()` y no como `var`
+(`UNMutableNotificationContent.setTitle`), pero otras sí son `var` de verdad
+(`NSDateComponents.hour`). Volcar el klib es la única forma de saber cuál es cuál.
+
+Dos cosas **no** pueden subir a `commonMain`, y no por descuido:
+- La subida de la foto de perfil — `dev.gitlive.firebase.storage.Data` es una `expect class`
+  por plataforma y su actual de JVM es un stub vacío. Solo se comparten las convenciones, en
+  `data/AvatarStorage.kt`.
+- El propio host: no existe todavía `iosApp/` (ni proyecto Xcode, ni Podfile, ni
+  `GoogleService-Info.plist`). El framework se compila pero nadie lo consume.
+
 ### Restricciones de la versión de Compose
 
 Compose Multiplatform **1.6.11** / Kotlin 1.9.24. Esto excluye APIs que sí existen en 1.7+:
@@ -95,11 +146,12 @@ precisamente porque `RenderEffect.createBlurEffect` no está disponible aquí.
 El repo usa OpenSpec (`openspec/config.yaml`, `strict_tdd: true`). Las propuestas vivas están en
 `openspec/changes/<nombre>/` (proposal → spec → design → tasks) y al terminar se sincronizan a
 `openspec/specs/` y se archivan en `openspec/changes/archive/`. Si trabajas sobre un cambio
-existente, lee primero su carpeta: `migrate-ios-mvp` está en curso ahora mismo.
+existente, lee primero su carpeta: `migrate-ios-mvp` recoge el plan de portabilidad a iOS
+(su Fase 0 ya está aplicada; las fases 1-4 requieren el runner macOS de CI).
 
 ## Notas de estado
 
-- La app está en producción (v1.1.5, `applicationId com.cuentamorosos`); `main` es la rama de
+- La app está en producción (v1.2.1, `applicationId com.cuentamorosos`); `main` es la rama de
   release y CI compila y testea en cada push.
 - `derivedStateOf` se usa mucho para agregados del panel. Con el delegado `by` **no** accedas a
   `.value`.

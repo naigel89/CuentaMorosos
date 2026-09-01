@@ -182,7 +182,7 @@ class MotionPhase2Test {
     // ── 04 · El cálculo se resuelve ───────────────────────────────────
 
     @Test
-    fun `los roles salen de las transferencias, no de los saldos`() {
+    fun `los roles salen de las transferencias y no de los saldos`() {
         val transfers = listOf(
             SettlementTransfer("marta", "ana", 90.0),
             SettlementTransfer("iker", "luis", 40.0),

@@ -5,6 +5,19 @@ import kotlinx.coroutines.flow.Flow
 
 interface ProfileRepository {
     fun observeProfiles(): Flow<List<ProfileItem>>
+
+    /**
+     * Observes only the profiles this user is allowed to see (rules VIS-001..004).
+     *
+     * [coParticipantIds] comes from `ProfileVisibilityResolver.visibleProfileIds`.
+     * Own ghost profiles are NOT in that set — their ids appear in no event — so
+     * implementations must resolve them separately, by `ownerId`.
+     *
+     * Defaults to [observeProfiles] so the local-cache implementation and test
+     * fakes, for which scoping is meaningless or free, need not override it.
+     */
+    fun observeVisibleProfiles(coParticipantIds: Set<String>): Flow<List<ProfileItem>> =
+        observeProfiles()
     suspend fun saveProfile(profile: ProfileItem)
     suspend fun deleteProfile(profileId: String)
     suspend fun linkGhostProfile(userEmail: String, userUid: String)

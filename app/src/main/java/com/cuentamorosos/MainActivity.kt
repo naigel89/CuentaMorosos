@@ -13,7 +13,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,13 +25,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import com.cuentamorosos.SystemBackHandler
 import com.cuentamorosos.auth.SignInResult
 import com.cuentamorosos.auth.SignInWithRetry
+import com.cuentamorosos.data.AvatarStorage
 import com.cuentamorosos.data.CuentaMorososLocalStore
 import com.cuentamorosos.data.FirebaseUserSyncManager
 import com.cuentamorosos.data.NetworkMonitorFactory
@@ -42,6 +41,7 @@ import com.cuentamorosos.model.UserPreferences
 import com.cuentamorosos.notifications.DeepLinkTarget
 import com.cuentamorosos.notifications.NotificationDispatcher
 import com.cuentamorosos.ui.CuentaMorososApp
+import com.cuentamorosos.ui.CuentaMorososLogo
 import com.cuentamorosos.ui.CuentaMorososTheme
 import com.cuentamorosos.ui.OnPhotoReady
 import com.cuentamorosos.ui.auth.EmailVerificationScreen
@@ -341,9 +341,9 @@ private fun MainAppContent(
 
                 // 2. Upload to Firebase Storage
                 val storageRef = FirebaseStorage.getInstance().reference
-                    .child("avatars/$currentUid/profile.jpg")
+                    .child(AvatarStorage.pathFor(currentUid))
                 val metadata = StorageMetadata.Builder()
-                    .setContentType("image/jpeg")
+                    .setContentType(AvatarStorage.CONTENT_TYPE)
                     .build()
 
                 storageRef.putBytes(imageBytes, metadata)
@@ -444,13 +444,7 @@ private fun AuthFlow(
 
     if (showLogin) {
         SplashAuthScreen(
-            logo = { modifier ->
-                Image(
-                    painter = painterResource(R.mipmap.ic_launcher_foreground),
-                    contentDescription = "CuentaMorosos",
-                    modifier = modifier,
-                )
-            },
+            logo = { modifier -> CuentaMorososLogo(modifier) },
             onLoginSuccess = {
                 auth.currentUser?.let { user ->
                     onAuthSuccess(user)  // Auth succeeds immediately
@@ -552,11 +546,16 @@ private fun compressImageToBytes(context: android.content.Context, uri: Uri): By
     return try {
         val bitmap = BitmapFactory.decodeStream(context.contentResolver.openInputStream(uri))
             ?: return null
-        val scaled = Bitmap.createScaledBitmap(bitmap, MAX_PHOTO_SIZE, MAX_PHOTO_SIZE, true)
+        val scaled = Bitmap.createScaledBitmap(
+            bitmap,
+            AvatarStorage.TARGET_SIZE_PX,
+            AvatarStorage.TARGET_SIZE_PX,
+            true,
+        )
         if (scaled != bitmap) bitmap.recycle()
 
         val output = java.io.ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 85, output)
+        scaled.compress(Bitmap.CompressFormat.JPEG, AvatarStorage.JPEG_QUALITY, output)
         scaled.recycle()
 
         output.toByteArray()
@@ -566,4 +565,3 @@ private fun compressImageToBytes(context: android.content.Context, uri: Uri): By
     }
 }
 
-private const val MAX_PHOTO_SIZE = 256
