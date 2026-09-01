@@ -1,12 +1,7 @@
 package com.cuentamorosos
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -16,10 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import com.cuentamorosos.data.IosUserPreferencesStore
 import com.cuentamorosos.data.NetworkMonitorFactory
@@ -32,6 +24,7 @@ import com.cuentamorosos.notifications.NotificationCoordinator
 import com.cuentamorosos.notifications.NotificationEvent
 import com.cuentamorosos.notifications.PushPayloadParser
 import com.cuentamorosos.ui.CuentaMorososApp
+import com.cuentamorosos.ui.CuentaMorososLogo
 import com.cuentamorosos.ui.CuentaMorososTheme
 import com.cuentamorosos.ui.auth.SplashAuthScreen
 import dev.gitlive.firebase.Firebase
@@ -210,7 +203,7 @@ class IosAppBridge {
         var isLoading by remember { mutableStateOf(false) }
 
         SplashAuthScreen(
-            logo = { modifier -> BrandMark(modifier) },
+            logo = { modifier -> CuentaMorososLogo(modifier) },
             isLoading = isLoading,
             onLoginSuccess = {
                 // authStateChanged reemite y Content() recompone al usuario.
@@ -231,28 +224,5 @@ class IosAppBridge {
                 }
             },
         )
-    }
-
-    /**
-     * Marca provisional en lugar del logo.
-     *
-     * El logo vive hoy como recurso de Android (`R.mipmap.ic_launcher`); moverlo
-     * a `composeResources`, donde ya están las tipografías, lo haría común a las
-     * dos plataformas. Queda para la fase de pulido.
-     */
-    @Composable
-    private fun BrandMark(modifier: Modifier) {
-        Box(
-            modifier = modifier
-                .clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.primary),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "CM",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onPrimary,
-            )
-        }
     }
 }

@@ -188,7 +188,14 @@ jobs:
 
           echo "La app sigue viva tras 20s."
           xcrun simctl io booted screenshot ios-login-screen.png
-          ls -la ios-login-screen.png
+
+          # También en oscuro: las capturas de Android del README son en modo
+          # oscuro y la paridad visual solo se puede juzgar comparando igual
+          # con igual. Compose reacciona al cambio de apariencia en caliente.
+          xcrun simctl ui booted appearance dark || true
+          sleep 3
+          xcrun simctl io booted screenshot ios-login-dark.png || true
+          ls -la ios-login-*.png
           kill $LAUNCH_PID 2>/dev/null || true
 
       - name: Upload build artifacts
@@ -198,6 +205,7 @@ jobs:
           name: ios-app-and-screenshot
           path: |
             ios-login-screen.png
+            ios-login-dark.png
             ios-crash.png
             app-console.log
             # Solo las cabeceras: dan los nombres exactos que ve Swift y pesan

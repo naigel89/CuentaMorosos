@@ -13,7 +13,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,7 +25,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
@@ -43,6 +41,7 @@ import com.cuentamorosos.model.UserPreferences
 import com.cuentamorosos.notifications.DeepLinkTarget
 import com.cuentamorosos.notifications.NotificationDispatcher
 import com.cuentamorosos.ui.CuentaMorososApp
+import com.cuentamorosos.ui.CuentaMorososLogo
 import com.cuentamorosos.ui.CuentaMorososTheme
 import com.cuentamorosos.ui.OnPhotoReady
 import com.cuentamorosos.ui.auth.EmailVerificationScreen
@@ -445,13 +444,7 @@ private fun AuthFlow(
 
     if (showLogin) {
         SplashAuthScreen(
-            logo = { modifier ->
-                Image(
-                    painter = painterResource(R.mipmap.ic_launcher_foreground),
-                    contentDescription = "CuentaMorosos",
-                    modifier = modifier,
-                )
-            },
+            logo = { modifier -> CuentaMorososLogo(modifier) },
             onLoginSuccess = {
                 auth.currentUser?.let { user ->
                     onAuthSuccess(user)  // Auth succeeds immediately

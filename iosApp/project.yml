@@ -47,6 +47,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cuentamorosos
+        # El AppIcon sale del mismo vector que el launcher de Android
+        # (la M verde sobre #131313), rasterizado a 1024. Ver Assets.xcassets.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Sin cuenta Apple Developer no hay firma; CI construye para simulador,
         # que no la requiere.
         CODE_SIGNING_REQUIRED: "NO"
