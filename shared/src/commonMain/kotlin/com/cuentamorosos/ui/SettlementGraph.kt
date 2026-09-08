@@ -143,12 +143,21 @@ fun SettlementGraph(
     transfers: List<SettlementTransfer>,
     nameById: Map<String, String>,
     modifier: Modifier = Modifier,
+    // Unspecified = el verde de marca. HowCalculatedPanel pinta con esto la
+    // versión "sin optimizar" del grafo en rojo y sin importes.
+    arrowColor: Color = Color.Unspecified,
+    creditorAccent: Color = Color.Unspecified,
+    showAmounts: Boolean = true,
 ) {
     if (transfers.isEmpty()) return
 
     val colors = LocalNeoFintechColors.current
     val animationsEnabled = LocalAnimationsEnabled.current
     val measurer = rememberTextMeasurer()
+
+    val resolvedArrow = if (arrowColor == Color.Unspecified) colors.primaryContainer else arrowColor
+    val resolvedCreditorAccent =
+        if (creditorAccent == Color.Unspecified) colors.primaryContainer else creditorAccent
 
     val (debtors, creditors) = remember(transfers) { settlementRoles(transfers) }
     if (debtors.isEmpty() || creditors.isEmpty()) return
@@ -174,7 +183,7 @@ fun SettlementGraph(
     val amountStyle = MaterialTheme.typography.labelSmall.copy(
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
-        color = colors.primaryContainer,
+        color = resolvedArrow,
     )
 
     Row(
@@ -211,8 +220,8 @@ fun SettlementGraph(
                     start = Offset(0f, debtorCenters[fromIndex]),
                     end = Offset(size.width, creditorCenters[toIndex]),
                     drawn = arrowProgress(progress.value, index, transfers.size),
-                    color = colors.primaryContainer,
-                    label = formatAmount(transfer.amount, suffix = "€"),
+                    color = resolvedArrow,
+                    label = if (showAmounts) formatAmount(transfer.amount, suffix = "€") else null,
                     labelStyle = amountStyle,
                     labelBackground = colors.surfaceContainerLowest,
                     measurer = measurer,
@@ -224,7 +233,7 @@ fun SettlementGraph(
             ids = creditors,
             nameById = nameById,
             totalRows = totalRows,
-            accent = colors.primaryContainer,
+            accent = resolvedCreditorAccent,
             avatarFirst = true,
             modifier = Modifier.weight(1f),
         )
@@ -241,7 +250,7 @@ private fun DrawScope.drawTransferArrow(
     end: Offset,
     drawn: Float,
     color: Color,
-    label: String,
+    label: String?,
     labelStyle: TextStyle,
     labelBackground: Color,
     measurer: TextMeasurer,
@@ -265,6 +274,8 @@ private fun DrawScope.drawTransferArrow(
     val (left, right) = arrowHead(end, start, ARROW_HEAD.toPx())
     drawLine(color, left, end, strokeWidth = LINE_WIDTH.toPx(), cap = StrokeCap.Round)
     drawLine(color, right, end, strokeWidth = LINE_WIDTH.toPx(), cap = StrokeCap.Round)
+
+    if (label == null) return
 
     // El importe va sobre una pastilla opaca: sin ella la línea lo cruza por
     // detrás y a 11 sp deja de leerse.

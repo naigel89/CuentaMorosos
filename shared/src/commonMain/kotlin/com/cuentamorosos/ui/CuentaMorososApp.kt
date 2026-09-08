@@ -191,6 +191,8 @@ fun CuentaMorososApp(
     deepLinkEvent: SharedFlow<DeepLinkTarget>? = null,
     onTestNotification: ((com.cuentamorosos.notifications.NotificationEvent) -> Unit)? = null,
     profileRepository: ProfileRepository? = null,
+    // Puerto del host: compartir texto por el share sheet nativo (recibos).
+    onShareText: ((String) -> Unit)? = null,
 ) {
     val eventsViewModel: EventsViewModel = viewModel(factory = viewModelFactory)
     val eventDetailViewModel: EventDetailViewModel = viewModel(factory = viewModelFactory)
@@ -454,6 +456,7 @@ fun CuentaMorososApp(
                             eventDebts = debts.filter { it.eventId == currentEvent.id },
                             eventExpenses = expenses.filter { it.eventId == currentEvent.id },
                             currentUserUid = currentUserUid,
+                            onShareReceipt = onShareText,
                             scrollState = scrollState,
                             onBack = { eventDetailViewModel.setEventId(null) },
                             onAddProfileToEvent = { profilesList ->
@@ -736,7 +739,12 @@ fun CuentaMorososApp(
                                     } else {
                                         onCancelReminders()
                                     }
-                                    feedbackMessage = "Preferencias actualizadas."
+                                    feedbackMessage = "Preferencias guardadas. ✓"
+                                },
+                                onThemeModeChanged = { mode ->
+                                    // Aplica y persiste solo el tema, al instante y sin snackbar:
+                                    // el cambio visual ya es feedback suficiente.
+                                    onSavePreferences(preferences.copy(themeMode = mode))
                                 },
                                 onSignOut = onSignOut,
                                 currentProfile = currentProfile,

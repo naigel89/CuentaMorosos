@@ -45,6 +45,7 @@ fun SettingsScreen(
     preferences: UserPreferences,
     reminders: List<ReminderMessage>,
     onSavePreferences: (UserPreferences) -> Unit,
+    onThemeModeChanged: ((String) -> Unit)? = null,
     onSignOut: (() -> Unit)? = null,
     currentProfile: ProfileItem? = null,
     onOpenAccountSettings: () -> Unit = {},
@@ -84,7 +85,12 @@ fun SettingsScreen(
         modifier = modifier,
         colors = colors,
         themeMode = selectedThemeMode,
-        onThemeChanged = { mode -> selectedThemeMode = mode },
+        onThemeChanged = { mode ->
+            selectedThemeMode = mode
+            // El tema se aplica y persiste al instante; no depende del botón
+            // "Guardar cambios" ni de que los campos de recordatorios sean válidos.
+            onThemeModeChanged?.invoke(mode)
+        },
         remindersEnabled = remindersEnabled,
         onRemindersEnabledChanged = { remindersEnabled = it },
         reminderDaysText = reminderDaysText,
@@ -140,10 +146,11 @@ private fun SettingsContent(
         }
 
         // Mi perfil section (visible when a profile is available)
-        if (currentProfile != null) {
+        val profile = currentProfile
+        if (profile != null) {
             item {
                 ProfileSettingsSection(
-                    profile = currentProfile!!,
+                    profile = profile,
                     onClick = onOpenAccountSettings,
                     colors = colors,
                 )
@@ -229,7 +236,7 @@ private fun SettingsContent(
                             validationMessage?.let { message ->
                                 Text(
                                     text = message,
-                                    color = MaterialTheme.colorScheme.error,
+                                    color = colors.error,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }

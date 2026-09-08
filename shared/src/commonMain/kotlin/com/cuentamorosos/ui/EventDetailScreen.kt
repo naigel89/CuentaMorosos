@@ -144,6 +144,8 @@ fun EventDetailScreen(
     canDo: (EventAction) -> Boolean = { true },
     onCloseEvent: (() -> Unit)? = null,
     profileRepository: ProfileRepository? = null,
+    // Puerto del host para compartir el recibo como texto (null = sin soporte).
+    onShareReceipt: ((String) -> Unit)? = null,
 ) {
     val profileById = profiles.associateBy { it.id }
     val eventParticipants = profiles.filter { it.id in event.effectiveMemberIds }
@@ -425,6 +427,8 @@ fun EventDetailScreen(
                 event = event,
                 snapshot = snapshot,
                 profiles = eventParticipants,
+                expenses = eventExpenses,
+                onShare = onShareReceipt,
                 onDismiss = { showReceiptDialog = false },
             )
         } else {

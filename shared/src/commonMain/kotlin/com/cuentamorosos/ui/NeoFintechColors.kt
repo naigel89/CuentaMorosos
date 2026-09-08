@@ -81,46 +81,69 @@ object NeoFintechColors {
 
 /**
  * Maps Neo-Fintech color tokens to Material 3 ColorScheme slots.
+ *
+ * Todos los slots que los componentes de Material leen por defecto deben quedar
+ * mapeados aquí: un slot sin mapear cae al baseline morado de Material 3 y se sale
+ * de la paleta (era la causa de los botones/switch morados en modo oscuro).
  */
 fun NeoFintechColorSet.toColorScheme(isLight: Boolean): androidx.compose.material3.ColorScheme {
+    val onPrimary = if (isLight) Color(0xFFFFFFFF) else Color(0xFF191C1D)
     return if (isLight) {
         androidx.compose.material3.lightColorScheme(
             background = background,
+            onBackground = onSurface,
             surface = surface,
             surfaceContainerLow = surfaceContainerLow,
             surfaceContainer = surfaceContainer,
             surfaceContainerHigh = surfaceContainerHigh,
             surfaceContainerLowest = surfaceContainerLowest,
+            surfaceVariant = surfaceContainerHigh,
             onSurface = onSurface,
             onSurfaceVariant = onSurfaceVariant,
             primary = primaryContainer,
+            onPrimary = onPrimary,
+            primaryContainer = primaryContainer,
+            onPrimaryContainer = onPrimaryContainer,
             onSecondary = onSecondary,
             secondary = secondary,
+            secondaryContainer = surfaceContainerHigh,
+            onSecondaryContainer = onSurface,
             tertiary = tertiaryContainer,
             error = error,
+            onError = Color(0xFFFFFFFF),
             errorContainer = errorContainer,
             onErrorContainer = onErrorContainer,
             onTertiaryContainer = onTertiaryContainer,
+            outline = outlineVariant,
             outlineVariant = outlineVariant,
         )
     } else {
         androidx.compose.material3.darkColorScheme(
             background = background,
+            onBackground = onSurface,
             surface = surface,
             surfaceContainerLow = surfaceContainerLow,
             surfaceContainer = surfaceContainer,
             surfaceContainerHigh = surfaceContainerHigh,
             surfaceContainerLowest = surfaceContainerLowest,
+            surfaceVariant = surfaceContainerHigh,
             onSurface = onSurface,
             onSurfaceVariant = onSurfaceVariant,
             primary = primaryContainer,
+            onPrimary = onPrimary,
+            primaryContainer = primaryContainer,
+            onPrimaryContainer = onPrimaryContainer,
             onSecondary = onSecondary,
             secondary = secondary,
+            secondaryContainer = surfaceContainerHigh,
+            onSecondaryContainer = onSurface,
             tertiary = tertiaryContainer,
             error = error,
+            onError = Color(0xFF191C1D),
             errorContainer = errorContainer,
             onErrorContainer = onErrorContainer,
             onTertiaryContainer = onTertiaryContainer,
+            outline = outlineVariant,
             outlineVariant = outlineVariant,
         )
     }

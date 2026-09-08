@@ -8,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,14 +18,17 @@ import com.cuentamorosos.model.SplitMode
 /**
  * Horizontal segmented control for selecting split modes.
  * Uses FilterChip with Neo-Fintech styling: neon green container when selected,
- * outline variant when unselected. Each mode has a contextual icon.
+ * outline variant when unselected.
+ *
+ * Sin emojis: el sistema usa solo tipografía e iconos vectoriales, y aquellos
+ * glifos renderizaban distinto en cada plataforma.
  */
 @Composable
 fun ModeSelectorChip(
     selectedMode: SplitMode,
     onModeSelected: (SplitMode) -> Unit,
 ) {
-    val themeColors = MaterialTheme.colorScheme
+    val colors = LocalNeoFintechColors.current
     val shapes = NeoFintechShapes
     val typography = NeoFintechTypography()
 
@@ -37,15 +39,6 @@ fun ModeSelectorChip(
         SplitMode.CUSTOM_PERCENTAGE,
         SplitMode.EXACT,
         SplitMode.PARTS,
-    )
-
-    val modeIcons = mapOf(
-        SplitMode.REAL_CONSUMPTION to "\uD83D\uDCCB",    // 📋 clipboard
-        SplitMode.SIMPLE_AVG to "\u2797",               // ➗ divide
-        SplitMode.BY_CATEGORY to "\uD83D\uDCC2",        // 📂 folder
-        SplitMode.CUSTOM_PERCENTAGE to "\uD83D\uDCCA",  // 📊 chart
-        SplitMode.EXACT to "\uD83C\uDFAF",              // 🎯 target
-        SplitMode.PARTS to "\uD83E\uDDE9",              // 🧩 puzzle
     )
 
     Row(
@@ -62,7 +55,7 @@ fun ModeSelectorChip(
                 onClick = { onModeSelected(mode) },
                 label = {
                     Text(
-                        text = "${modeIcons[mode]} ${mode.label}",
+                        text = mode.label,
                         style = typography.bodyMedium.copy(
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         ),
@@ -71,8 +64,8 @@ fun ModeSelectorChip(
                 shape = shapes.md,
                 modifier = Modifier.padding(vertical = 2.dp),
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = themeColors.primaryContainer,
-                    selectedLabelColor = themeColors.onSurface,
+                    selectedContainerColor = colors.primaryContainer,
+                    selectedLabelColor = colors.onPrimaryContainer,
                 ),
             )
         }
