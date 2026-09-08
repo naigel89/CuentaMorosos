@@ -139,7 +139,9 @@ class MainActivity : ComponentActivity() {
         // Profile sync happens in MainAppContent LaunchedEffect (non-blocking)
 
         setContent {
-            val preferences = remember { localStore.loadPreferences() }
+            // Estado observable: si Ajustes cambia el tema, también deben reaccionar
+            // las pantallas de auth (antes quedaba congelado al valor de arranque).
+            var preferences by remember { mutableStateOf(localStore.loadPreferences()) }
             CuentaMorososTheme(preferences = preferences) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -154,6 +156,12 @@ class MainActivity : ComponentActivity() {
                             currentUser = firebaseAuth.currentUser
                         }
                         auth.addAuthStateListener(listener)
+                    }
+
+                    // Al cambiar de usuario (login/logout) se recargan las preferencias
+                    // persistidas, que localStore.clearAll() puede haber reseteado.
+                    LaunchedEffect(currentUser?.uid) {
+                        preferences = localStore.loadPreferences()
                     }
 
                     if (currentUser != null) {
@@ -176,8 +184,10 @@ class MainActivity : ComponentActivity() {
                                         }
                                         .addOnFailureListener { e ->
                                             isResending = false
-                                            verificationError = e.localizedMessage
-                                                ?: "Error al reenviar correo"
+                                            verificationError = com.cuentamorosos.auth.AuthErrorMapper.map(
+                                                e,
+                                                fallback = "No se pudo reenviar el correo. Inténtalo de nuevo en unos minutos.",
+                                            )
                                         }
                                 },
                                 onCheckAgain = {
@@ -185,8 +195,10 @@ class MainActivity : ComponentActivity() {
                                         // AuthStateListener will pick up the change
                                         currentUser = auth.currentUser
                                     }.addOnFailureListener { e ->
-                                        verificationError = e.localizedMessage
-                                            ?: "Error al verificar estado"
+                                        verificationError = com.cuentamorosos.auth.AuthErrorMapper.map(
+                                            e,
+                                            fallback = "No se pudo comprobar la verificación. Inténtalo de nuevo.",
+                                        )
                                     }
                                 },
                                 onSignOut = {
@@ -198,6 +210,8 @@ class MainActivity : ComponentActivity() {
                                 user = user,
                                 repositoryProvider = repositoryProvider,
                                 localStore = localStore,
+                                preferences = preferences,
+                                onPreferencesChanged = { preferences = it },
                                 networkMonitor = networkMonitor,
                                 application = application,
                                 notificationDispatcher = notificationDispatcher,
@@ -253,6 +267,8 @@ private fun MainAppContent(
     user: com.google.firebase.auth.FirebaseUser,
     repositoryProvider: RepositoryProvider,
     localStore: CuentaMorososLocalStore,
+    preferences: com.cuentamorosos.model.UserPreferences,
+    onPreferencesChanged: (com.cuentamorosos.model.UserPreferences) -> Unit,
     networkMonitor: com.cuentamorosos.data.NetworkMonitor,
     application: android.app.Application,
     notificationDispatcher: NotificationDispatcher,
@@ -275,7 +291,6 @@ private fun MainAppContent(
             notificationCallbacks = notificationCallbacks,
         )
     }
-    var preferences by remember(user.uid) { mutableStateOf(localStore.loadPreferences()) }
 
     // Start staggered sync after first render AND on user change
     val syncScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
@@ -380,7 +395,7 @@ private fun MainAppContent(
         currentUserUid = user.uid,
         preferences = preferences,
         onSavePreferences = { updated ->
-            preferences = updated
+            onPreferencesChanged(updated)
             localStore.savePreferences(updated)
         },
         onScheduleReminders = {
@@ -415,6 +430,13 @@ private fun MainAppContent(
         deepLinkEvent = deepLinkEvent,
         onTestNotification = onTestNotification,
         profileRepository = repositoryProvider.remoteProfileRepository,
+        onShareText = { text ->
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            context.startActivity(Intent.createChooser(sendIntent, "Compartir recibo"))
+        },
     )
 }
 
@@ -500,9 +522,17 @@ private fun AuthFlow(
                             UserProfileChangeRequest.Builder()
                                 .setDisplayName(displayName)
                                 .build()
-                        )?.addOnSuccessListener {
+                        )?.addOnCompleteListener { task ->
+                            // La cuenta ya existe: el registro se considera exitoso
+                            // aunque falle este ajuste cosmético del displayName.
+                            if (!task.isSuccessful) {
+                                LogSanitizer.log(
+                                    "MainActivity",
+                                    "updateProfile(displayName) failed: ${task.exception?.message}"
+                                )
+                            }
                             onResult(null)
-                        }
+                        } ?: onResult(null)
                     }
                     .addOnFailureListener { e ->
                         onResult(com.cuentamorosos.auth.AuthErrorMapper.map(e))
@@ -519,7 +549,12 @@ private fun AuthFlow(
                 auth.sendPasswordResetEmail(email)
                     .addOnSuccessListener { onResult(null) }
                     .addOnFailureListener { e ->
-                        onResult(e.localizedMessage ?: "Error al enviar email")
+                        onResult(
+                            com.cuentamorosos.auth.AuthErrorMapper.map(
+                                e,
+                                fallback = "No se pudo enviar el correo. Inténtalo de nuevo en unos minutos.",
+                            )
+                        )
                     }
             }
         )

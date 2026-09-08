@@ -13,8 +13,10 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.cuentamorosos.data.LogSanitizer
+import com.cuentamorosos.ui.auth.AccountAuthErrors
 
 /**
  * ViewModel for the Account Settings screen and its sub-screens.
@@ -65,6 +67,9 @@ class AccountViewModel(
 
     private val _newPassword = MutableStateFlow("")
     val newPassword: StateFlow<String> = _newPassword.asStateFlow()
+
+    private val _confirmPassword = MutableStateFlow("")
+    val confirmPassword: StateFlow<String> = _confirmPassword.asStateFlow()
 
     private val _passwordState = MutableStateFlow<PasswordState>(PasswordState.Idle)
     val passwordState: StateFlow<PasswordState> = _passwordState.asStateFlow()
@@ -131,6 +136,7 @@ class AccountViewModel(
 
     fun navigateTo(screen: Int) {
         _subScreenIndex.value = screen
+        clearState()
     }
 
     /**
@@ -140,7 +146,8 @@ class AccountViewModel(
         _subScreenIndex.value = 0
         _currentPassword.value = ""
         _newPassword.value = ""
-        _passwordState.value = PasswordState.Idle
+        _confirmPassword.value = ""
+        clearState()
     }
 
     fun setUsername(text: String) {
@@ -163,6 +170,10 @@ class AccountViewModel(
         _newPassword.value = pwd
     }
 
+    fun setConfirmPassword(pwd: String) {
+        _confirmPassword.value = pwd
+    }
+
     fun saveDisplayName() {
         viewModelScope.launch {
             _state.value = AccountUiState.Loading
@@ -170,17 +181,18 @@ class AccountViewModel(
             LogSanitizer.log("AccountViewModel", "saveDisplayName called: newName='$name'")
             if (name.isBlank()) {
                 LogSanitizer.log("AccountViewModel", "saveDisplayName REJECTED: blank name")
-                _state.value = AccountUiState.Error("El nombre no puede estar vacío")
+                _state.value = AccountUiState.Error("Escribe un nombre antes de guardar.")
                 return@launch
             }
             profileRepository.updateDisplayName(name)
                 .onSuccess {
                     LogSanitizer.log("AccountViewModel", "saveDisplayName SUCCESS: name='$name'")
-                    _state.value = AccountUiState.Success("Nombre actualizado")
+                    _state.value = AccountUiState.Success("¡Listo! Ahora te llamas $name.")
+                    autoClearSuccess()
                 }
                 .onFailure {
                     LogSanitizer.log("AccountViewModel", "saveDisplayName FAILED: ${it.message}")
-                    _state.value = AccountUiState.Error(it.message ?: "Error al guardar")
+                    _state.value = AccountUiState.Error("No se pudo guardar el nombre. Inténtalo de nuevo.")
                 }
         }
     }
@@ -193,18 +205,19 @@ class AccountViewModel(
             if (!isValidUsernameFormat(username)) {
                 LogSanitizer.log("AccountViewModel", "saveUsername REJECTED: invalid format")
                 _state.value = AccountUiState.Error(
-                    "Solo letras, números y guiones bajos (3-20 caracteres)"
+                    "El nombre de usuario necesita de 3 a 20 caracteres: letras, números o guiones bajos."
                 )
                 return@launch
             }
             profileRepository.updateUsername(username)
                 .onSuccess {
                     LogSanitizer.log("AccountViewModel", "saveUsername SUCCESS: username='$username' saved")
-                    _state.value = AccountUiState.Success("Nombre de usuario actualizado")
+                    _state.value = AccountUiState.Success("¡Hecho! Ahora eres @$username.")
+                    autoClearSuccess()
                 }
                 .onFailure {
                     LogSanitizer.log("AccountViewModel", "saveUsername FAILED: ${it.message}")
-                    _state.value = AccountUiState.Error(it.message ?: "Error al guardar")
+                    _state.value = AccountUiState.Error("No se pudo guardar el nombre de usuario. Inténtalo de nuevo.")
                 }
         }
     }
@@ -214,10 +227,11 @@ class AccountViewModel(
             _state.value = AccountUiState.Loading
             profileRepository.updateProfilePhoto(downloadUrl)
                 .onSuccess {
-                    _state.value = AccountUiState.Success("Foto actualizada")
+                    _state.value = AccountUiState.Success("¡Foto de perfil actualizada!")
+                    autoClearSuccess()
                 }
                 .onFailure {
-                    _state.value = AccountUiState.Error(it.message ?: "Error al subir la foto")
+                    _state.value = AccountUiState.Error("No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.")
                 }
         }
     }
@@ -231,10 +245,11 @@ class AccountViewModel(
             _state.value = AccountUiState.Loading
             profileRepository.deleteProfilePhoto()
                 .onSuccess {
-                    _state.value = AccountUiState.Success("Foto eliminada")
+                    _state.value = AccountUiState.Success("Foto de perfil eliminada.")
+                    autoClearSuccess()
                 }
                 .onFailure {
-                    _state.value = AccountUiState.Error(it.message ?: "Error al eliminar la foto")
+                    _state.value = AccountUiState.Error("No se pudo eliminar la foto. Inténtalo de nuevo.")
                 }
         }
     }
@@ -244,27 +259,49 @@ class AccountViewModel(
             _passwordState.value = PasswordState.Loading
             val current = _currentPassword.value
             val new = _newPassword.value
-            if (current.isBlank() || new.isBlank()) {
-                _passwordState.value = PasswordState.Error("Ambos campos son obligatorios")
-                return@launch
-            }
-            if (new.length < 6) {
-                _passwordState.value = PasswordState.Error("La nueva contraseña debe tener al menos 6 caracteres")
+            val confirm = _confirmPassword.value
+
+            val validationError = AccountAuthErrors.validatePasswordChange(current, new, confirm)
+            if (validationError != null) {
+                _passwordState.value = PasswordState.Error(validationError)
                 return@launch
             }
             profileRepository.updatePassword(current, new)
                 .onSuccess {
-                    _passwordState.value = PasswordState.Success("Contraseña actualizada")
+                    _passwordState.value = PasswordState.Success("¡Contraseña cambiada correctamente!")
                     _currentPassword.value = ""
                     _newPassword.value = ""
+                    _confirmPassword.value = ""
+                    autoClearPasswordSuccess()
                 }
-                .onFailure { _passwordState.value = PasswordState.Error(it.message ?: "Error al cambiar contraseña") }
+                .onFailure {
+                    _passwordState.value = PasswordState.Error(AccountAuthErrors.mapChangePasswordError(it))
+                }
         }
     }
 
     fun clearState() {
         _state.value = AccountUiState.Idle
         _passwordState.value = PasswordState.Idle
+    }
+
+    /** Los mensajes de éxito se descartan solos; los de error persisten hasta corregir. */
+    private fun autoClearSuccess() {
+        viewModelScope.launch {
+            delay(SUCCESS_MESSAGE_MS)
+            if (_state.value is AccountUiState.Success) _state.value = AccountUiState.Idle
+        }
+    }
+
+    private fun autoClearPasswordSuccess() {
+        viewModelScope.launch {
+            delay(SUCCESS_MESSAGE_MS)
+            if (_passwordState.value is PasswordState.Success) _passwordState.value = PasswordState.Idle
+        }
+    }
+
+    private companion object {
+        const val SUCCESS_MESSAGE_MS = 4_000L
     }
 }
 

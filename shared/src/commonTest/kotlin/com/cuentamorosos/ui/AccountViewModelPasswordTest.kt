@@ -60,6 +60,7 @@ class AccountViewModelPasswordTest {
 
         vm.setCurrentPassword("oldPass")
         vm.setNewPassword("newPass")
+        vm.setConfirmPassword("newPass")
         vm.changePassword()
 
         // Advance past the viewModelScope.launch to process the coroutine
@@ -67,7 +68,43 @@ class AccountViewModelPasswordTest {
 
         val state = vm.passwordState.value
         assertTrue(state is PasswordState.Error, "Expected Error state after reauth failure, got $state")
-        assertEquals("requiresRecentLogin", (state as PasswordState.Error).message)
+        // El error crudo de Firebase se traduce a un mensaje en español (spec R-002)
+        assertEquals(
+            "Tu sesión expiró. Cerrá sesión y volvé a iniciarla para cambiar la contraseña.",
+            (state as PasswordState.Error).message,
+        )
+    }
+
+    @Test
+    fun `password change with mismatched confirmation shows validation error`() = runTest(testDispatcher) {
+        val repo = object : ProfileRepository {
+            override fun observeProfiles(): Flow<List<ProfileItem>> = MutableStateFlow(emptyList())
+            override suspend fun saveProfile(profile: ProfileItem) {}
+            override suspend fun deleteProfile(profileId: String) {}
+            override suspend fun linkGhostProfile(userEmail: String, userUid: String) {}
+            override suspend fun updateProfilePhoto(photoUrl: String): Result<String> = Result.success(photoUrl)
+            override suspend fun updateUsername(username: String): Result<Unit> = Result.success(Unit)
+            override suspend fun updateDisplayName(displayName: String): Result<Unit> = Result.success(Unit)
+            override suspend fun setCustomName(profileId: String, customName: String): Result<Unit> = Result.success(Unit)
+            override suspend fun isUsernameAvailable(username: String): Boolean = true
+            override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> = Result.success(Unit)
+            override suspend fun deleteProfilePhoto(): Result<Unit> = Result.success(Unit)
+            override suspend fun searchByUsername(prefix: String): List<ProfileItem> = throw UnsupportedOperationException()
+        }
+
+        val vm = AccountViewModel(repo, "testUid")
+        advanceUntilIdle()
+
+        vm.setCurrentPassword("oldPass")
+        vm.setNewPassword("newPass1")
+        vm.setConfirmPassword("newPass2")
+        vm.changePassword()
+
+        advanceUntilIdle()
+
+        val state = vm.passwordState.value
+        assertTrue(state is PasswordState.Error, "Expected validation Error for mismatch, got $state")
+        assertEquals("Las contraseñas nuevas no coinciden.", (state as PasswordState.Error).message)
     }
 
     @Test

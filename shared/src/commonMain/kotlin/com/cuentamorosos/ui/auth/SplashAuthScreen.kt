@@ -4,6 +4,11 @@ import androidx.compose.animation.AnimatedVisibility
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,8 +35,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,15 +50,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.cuentamorosos.isValidEmail
 import com.cuentamorosos.ui.LocalAnimationsEnabled
 import com.cuentamorosos.ui.NeoFintechColors
+import com.cuentamorosos.ui.NeoFintechShapes
 
 /**
  * Splash + login screen.
@@ -124,6 +136,46 @@ fun SplashAuthScreen(
         val logoSizePx = with(density) { logoEndSizeDp.toPx() }
         // Posición central (visual) del logo en el viewport
         val centerOffsetPx = with(density) { (maxHeight.toPx() - logoSizePx) / 2f }
+
+        // ─── Halo radial tras la marca ──────────────────────────────────────
+        // Profundidad sin blur (RenderEffect no existe en CMP 1.6.11): un
+        // degradado radial del verde de marca que "respira" lentamente.
+        // Aparece con el logo (comparte su alpha) y se oculta con el teclado.
+        val haloBreath = if (animationsEnabled) {
+            rememberInfiniteTransition(label = "halo").animateFloat(
+                initialValue = 0.6f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(3500, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "haloBreath",
+            ).value
+        } else {
+            0.8f
+        }
+
+        AnimatedVisibility(
+            visible = !isKeyboardVisible,
+            enter = fadeIn(tween(200)),
+            exit = fadeOut(tween(150)),
+            modifier = Modifier.align(Alignment.TopCenter),
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .size(maxWidth)
+                    .graphicsLayer { alpha = logoAlpha.value * haloBreath }
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                colors.primaryContainer.copy(alpha = 0.16f),
+                                Color.Transparent,
+                            ),
+                        ),
+                    ),
+            )
+        }
 
         LaunchedEffect(Unit) {
             // Inicializar estado inicial UNA vez
@@ -195,10 +247,15 @@ fun SplashAuthScreen(
 
                     Spacer(Modifier.height(16.dp))
 
+                    // La marca en onSurface: el verde se reserva para el dinero.
+                    // Solo el punto final lleva el acento.
                     Text(
-                        text = "CuentaMorosos",
+                        text = buildAnnotatedString {
+                            append("CuentaMorosos")
+                            withStyle(SpanStyle(color = colors.primaryContainer)) { append(".") }
+                        },
                         style = MaterialTheme.typography.headlineLarge,
-                        color = colors.primaryContainer,
+                        color = colors.onSurface,
                         modifier = Modifier.graphicsLayer(alpha = titleAlpha.value),
                     )
 
@@ -231,6 +288,8 @@ fun SplashAuthScreen(
                     .graphicsLayer(alpha = formAlpha.value),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                val fieldColors = authFieldColors(colors)
+
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it.trim(); errorMessage = null },
@@ -238,11 +297,16 @@ fun SplashAuthScreen(
                     singleLine = true,
                     isError = emailError != null,
                     supportingText = emailError?.let { { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next,
+                    ),
+                    shape = NeoFintechShapes.md,
+                    colors = fieldColors,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
 
                 OutlinedTextField(
                     value = password,
@@ -253,7 +317,10 @@ fun SplashAuthScreen(
                     supportingText = passwordError?.let { { Text(it) } },
                     visualTransformation = if (passwordVisible)
                         VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                    ),
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
@@ -264,22 +331,23 @@ fun SplashAuthScreen(
                             )
                         }
                     },
+                    shape = NeoFintechShapes.md,
+                    colors = fieldColors,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
                 if (errorMessage != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = errorMessage!!,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    Spacer(Modifier.height(12.dp))
+                    AuthErrorBanner(message = errorMessage!!, colors = colors)
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
 
-                Button(
+                AuthPrimaryButton(
+                    text = "Iniciar sesión",
+                    enabled = canSubmit,
+                    loading = showLoading,
+                    colors = colors,
                     onClick = {
                         localLoading = true
                         errorMessage = null
@@ -293,27 +361,14 @@ fun SplashAuthScreen(
                             }
                         }
                     },
-                    enabled = canSubmit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp),
-                ) {
-                    if (showLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    } else {
-                        Text("Iniciar sesión")
-                    }
-                }
+                )
 
                 TextButton(
                     onClick = onNavigateToForgotPassword,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = colors.primaryContainer),
                 ) {
                     Text("¿Olvidaste tu contraseña?")
                 }
@@ -326,12 +381,14 @@ fun SplashAuthScreen(
                     Text(
                         text = "¿No tienes cuenta?",
                         style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
                     )
                     TextButton(
                         onClick = onNavigateToRegister,
                         modifier = Modifier.heightIn(min = 48.dp),
+                        colors = ButtonDefaults.textButtonColors(contentColor = colors.primaryContainer),
                     ) {
-                        Text("Regístrate")
+                        Text("Regístrate", fontWeight = FontWeight.SemiBold)
                     }
                 }
 

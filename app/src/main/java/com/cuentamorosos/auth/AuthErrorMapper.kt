@@ -36,9 +36,14 @@ object AuthErrorMapper {
      *
      * @param throwable the exception to map — typically a FirebaseAuthException,
      *   FirebaseNetworkException, or a stub with `getErrorCode()`.
+     * @param fallback message returned for unmapped errors; override it outside the
+     *   login flow ("Error al iniciar sesión" would be misleading in a reset flow).
      * @return a Spanish description suitable for showing directly to the user.
      */
-    fun map(throwable: Throwable): String = when {
+    fun map(
+        throwable: Throwable,
+        fallback: String = "Error al iniciar sesión. Intenta de nuevo.",
+    ): String = when {
         throwable.findErrorCode() == ERROR_INVALID_EMAIL -> "Email inválido"
         throwable.findErrorCode() == ERROR_WRONG_PASSWORD -> "Email o contraseña incorrectos"
         throwable.findErrorCode() == ERROR_USER_NOT_FOUND -> "Email o contraseña incorrectos"
@@ -54,7 +59,7 @@ object AuthErrorMapper {
         throwable.isCertOrTlsError() -> "Error de conexión segura. Reinstalá la app para actualizar los certificados."
         else -> {
             LogSanitizer.log("AuthErrorMapper", "Unmapped: ${throwable.javaClass.name} — ${throwable.message}")
-            "Error al iniciar sesión. Intenta de nuevo."
+            fallback
         }
     }
 

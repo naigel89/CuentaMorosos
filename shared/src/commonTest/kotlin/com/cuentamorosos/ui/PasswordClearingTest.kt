@@ -77,15 +77,24 @@ class PasswordClearingTest {
 
         vm.setCurrentPassword("oldPass123")
         vm.setNewPassword("newPass456")
+        vm.setConfirmPassword("newPass456")
         vm.changePassword()
 
-        advanceUntilIdle()
+        // Procesa la corrutina del cambio sin avanzar el reloj virtual
+        // (el mensaje de éxito se auto-descarta a los 4 s).
+        runCurrent()
 
         // After successful change, passwords should be cleared
         assertEquals("", vm.currentPassword.value, "currentPassword should be cleared after successful change")
         assertEquals("", vm.newPassword.value, "newPassword should be cleared after successful change")
+        assertEquals("", vm.confirmPassword.value, "confirmPassword should be cleared after successful change")
         assertEquals(PasswordState.Success::class, vm.passwordState.value::class,
             "Should be in Success state after successful change")
+
+        // El mensaje de éxito se descarta solo pasado el tiempo de cortesía
+        advanceUntilIdle()
+        assertEquals(PasswordState.Idle, vm.passwordState.value,
+            "Success message should auto-dismiss back to Idle")
     }
 
     @Test
@@ -96,6 +105,7 @@ class PasswordClearingTest {
 
         vm.setCurrentPassword("oldPass123")
         vm.setNewPassword("newPass456")
+        vm.setConfirmPassword("newPass456")
         vm.changePassword()
 
         advanceUntilIdle()
