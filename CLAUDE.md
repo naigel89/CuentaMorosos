@@ -151,7 +151,7 @@ existente, lee primero su carpeta: `migrate-ios-mvp` recoge el plan de portabili
 
 ## Notas de estado
 
-- La app está en producción (v1.2.1, `applicationId com.cuentamorosos`); `main` es la rama de
+- La app está en producción (v1.3.0, `applicationId com.cuentamorosos`); `main` es la rama de
   release y CI compila y testea en cada push.
 - `derivedStateOf` se usa mucho para agregados del panel. Con el delegado `by` **no** accedas a
   `.value`.
