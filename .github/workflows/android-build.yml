@@ -52,6 +52,16 @@ jobs:
           fi
 
       # ── 5. Run unit tests ──────────────────────────────────────────────────
+      # Guarda de portabilidad, en el runner barato. commonMain lo comparte iOS,
+      # y compilarlo como metadata lo type-checkea contra la API *común* de las
+      # dependencias — no la del JVM, que dejaría pasar cualquier java.*. Atrapa
+      # aquí lo que si no descubriríamos en un runner macOS, que cuesta 10x.
+      - name: Check commonMain portability
+        run: ./gradlew :shared:compileCommonMainKotlinMetadata --stacktrace
+
+      - name: Run shared tests
+        run: ./gradlew :shared:jvmTest --continue
+
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --continue
 

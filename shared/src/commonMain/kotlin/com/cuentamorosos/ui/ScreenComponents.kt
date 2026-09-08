@@ -26,7 +26,7 @@ fun StatusCard(
     title: String,
     message: String,
 ) {
-    val colors = MaterialTheme.colorScheme
+    val colors = LocalNeoFintechColors.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -56,7 +56,7 @@ fun StatusCard(
 
 @Composable
 fun SuggestionCard(message: String) {
-    val colors = MaterialTheme.colorScheme
+    val colors = LocalNeoFintechColors.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -81,7 +81,7 @@ fun EmptyState(
     title: String,
     message: String,
 ) {
-    val colors = MaterialTheme.colorScheme
+    val colors = LocalNeoFintechColors.current
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
@@ -112,14 +112,15 @@ fun EmptyState(
 
 @Composable
 fun ReminderSummaryCard(reminders: List<ReminderMessage>) {
-    val colors = MaterialTheme.colorScheme
+    val colors = LocalNeoFintechColors.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(NeoFintechElevation.cardShadowElevation, NeoFintechElevation.cardShadowShape, clip = false)
             .border(1.dp, colors.outlineVariant, NeoFintechShapes.lg),
         colors = CardDefaults.cardColors(
-            containerColor = colors.primaryContainer.copy(alpha = 0.7f)
+            // Tinte suave del verde de marca; a plena opacidad no deja leer el texto.
+            containerColor = colors.primaryContainer.copy(alpha = 0.15f)
         ),
         shape = NeoFintechShapes.lg,
     ) {

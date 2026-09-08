@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,6 +48,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -325,7 +328,7 @@ private fun NamePhotoScreen(
                     onClick = { viewModel.deletePhoto() },
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
+                        contentColor = colors.error,
                     ),
                     shape = NeoFintechShapes.md,
                 ) {
@@ -360,6 +363,10 @@ private fun NamePhotoScreen(
                 onClick = { viewModel.saveDisplayName() },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = uiState !is AccountUiState.Loading,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.buttonContainer,
+                    contentColor = colors.onButton,
+                ),
                 shape = NeoFintechShapes.md,
             ) {
                 if (uiState is AccountUiState.Loading) {
@@ -385,7 +392,7 @@ private fun NamePhotoScreen(
                 is AccountUiState.Error -> {
                     Text(
                         text = state.message,
-                        color = MaterialTheme.colorScheme.error,
+                        color = colors.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -464,7 +471,7 @@ private fun UsernameScreen(
                         Text(
                             text = "✗ No disponible",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
+                            color = colors.error,
                         )
                     }
                 }
@@ -482,6 +489,10 @@ private fun UsernameScreen(
                 enabled = uiState !is AccountUiState.Loading &&
                     usernameAvailability is UsernameAvailability.Available &&
                     usernameText.length >= 3,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.buttonContainer,
+                    contentColor = colors.onButton,
+                ),
                 shape = NeoFintechShapes.md,
             ) {
                 if (uiState is AccountUiState.Loading) {
@@ -507,7 +518,7 @@ private fun UsernameScreen(
                 is AccountUiState.Error -> {
                     Text(
                         text = state.message,
-                        color = MaterialTheme.colorScheme.error,
+                        color = colors.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -531,6 +542,7 @@ private fun SecurityScreen(
     val colors = LocalNeoFintechColors.current
     val currentPassword by viewModel.currentPassword.collectAsState()
     val newPassword by viewModel.newPassword.collectAsState()
+    val confirmPassword by viewModel.confirmPassword.collectAsState()
     val passwordState by viewModel.passwordState.collectAsState()
     val profile by viewModel.currentProfile.collectAsState()
 
@@ -601,6 +613,8 @@ private fun SecurityScreen(
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Contraseña actual") },
                         singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         shape = NeoFintechShapes.md,
                     )
                     OutlinedTextField(
@@ -609,12 +623,32 @@ private fun SecurityScreen(
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Nueva contraseña") },
                         singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        shape = NeoFintechShapes.md,
+                    )
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { viewModel.setConfirmPassword(it) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Repite la nueva contraseña") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = confirmPassword.isNotEmpty() && confirmPassword != newPassword,
+                        supportingText = if (confirmPassword.isNotEmpty() && confirmPassword != newPassword) {
+                            { Text("Las contraseñas nuevas no coinciden.") }
+                        } else null,
                         shape = NeoFintechShapes.md,
                     )
                     Button(
                         onClick = { viewModel.changePassword() },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = passwordState !is PasswordState.Loading,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colors.buttonContainer,
+                            contentColor = colors.onButton,
+                        ),
                         shape = NeoFintechShapes.md,
                     ) {
                         if (passwordState is PasswordState.Loading) {
@@ -639,7 +673,7 @@ private fun SecurityScreen(
                         is PasswordState.Error -> {
                             Text(
                                 text = state.message,
-                                color = MaterialTheme.colorScheme.error,
+                                color = colors.error,
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }

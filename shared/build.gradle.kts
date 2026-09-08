@@ -96,6 +96,18 @@ kotlin {
                     dependencies {
                         // SQLDelight iOS driver
                         implementation("app.cash.sqldelight:native-driver:2.0.2")
+
+                        // Coil necesita un fetcher de red por plataforma. Android usa
+                        // OkHttp; iOS usa Ktor con el motor Darwin. Sin esto Coil
+                        // compila pero no descarga nada, y los avatares saldrían vacíos
+                        // sin ningún error que lo delate.
+                        //
+                        // Ktor se fija en 3.0.3 a propósito: su klib declara
+                        // abi_version=1.8.0, la misma que gitlive, SQLDelight y Coil.
+                        // La 3.1.0 sube a abi_version=1.201.0 y Kotlin 1.9.24 la
+                        // rechazaría.
+                        implementation("io.coil-kt.coil3:coil-network-ktor3:3.0.4")
+                        implementation("io.ktor:ktor-client-darwin:3.0.3")
                     }
                 }
             }

@@ -2,6 +2,7 @@
 
 package com.cuentamorosos.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -24,10 +25,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,8 +40,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -51,6 +53,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -440,35 +443,51 @@ private fun EventEditorDialog(
     var activeTab by remember { mutableStateOf(0) }
     val tabTitles = listOf("Datos", "Participantes")
 
+    // Campos del diálogo con los tokens del sistema. Los de fecha van
+    // deshabilitados (el click abre el picker), así que sus slots "disabled"
+    // se pintan como un campo normal para que no parezcan apagados.
+    val dialogFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = colors.primaryContainer,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+        focusedLabelColor = colors.primaryContainer,
+        unfocusedLabelColor = colors.onSurfaceVariant,
+        cursorColor = colors.primaryContainer,
+        disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
+        disabledTextColor = colors.onSurface,
+        disabledLabelColor = colors.onSurfaceVariant,
+    )
+
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = colors.surface,
+        // Sin esto, M3 aplica el tinte tonal del primary sobre `surface` y el
+        // diálogo entero se veía verdoso en vez de neutro.
+        tonalElevation = 0.dp,
+        shape = NeoFintechShapes.xl,
+        titleContentColor = colors.onSurface,
         title = {
-            Text(if (isNew) "Nuevo evento" else "Editar evento")
+            Text(
+                text = if (isNew) "Nuevo evento" else "Editar evento",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
         },
         text = {
             Column(
                 modifier = Modifier.width(340.dp),
             ) {
-                TabRow(
-                    selectedTabIndex = activeTab,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = colors.primaryContainer,
-                ) {
-                    tabTitles.forEachIndexed { index, title ->
-                        Tab(
-                            selected = activeTab == index,
-                            onClick = { activeTab = index },
-                            text = { Text(title) },
-                        )
-                    }
-                }
+                SegmentedTabs(
+                    options = tabTitles,
+                    selected = activeTab,
+                    onSelect = { activeTab = it },
+                )
 
                 when (activeTab) {
                     0 -> Column(
                         modifier = Modifier
                             .verticalScroll(rememberScrollState())
                             .padding(top = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         OutlinedTextField(
                             value = name,
@@ -480,6 +499,8 @@ private fun EventEditorDialog(
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Nombre del evento") },
                             singleLine = true,
+                            shape = NeoFintechShapes.md,
+                            colors = dialogFieldColors,
                         )
                         OutlinedTextField(
                             value = startDateText,
@@ -489,6 +510,8 @@ private fun EventEditorDialog(
                             readOnly = true,
                             enabled = false,
                             singleLine = true,
+                            shape = NeoFintechShapes.md,
+                            colors = dialogFieldColors,
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -501,10 +524,16 @@ private fun EventEditorDialog(
                                     validationErrors = emptyList()
                                     validationWarnings = emptyList()
                                 },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = colors.primaryContainer,
+                                    checkmarkColor = colors.onPrimaryContainer,
+                                    uncheckedColor = MaterialTheme.colorScheme.outlineVariant,
+                                ),
                             )
                             Text(
                                 text = "Rango de fechas",
                                 style = MaterialTheme.typography.bodyMedium,
+                                color = colors.onSurface,
                                 modifier = Modifier.clickable { useDateRange = !useDateRange },
                             )
                         }
@@ -517,21 +546,41 @@ private fun EventEditorDialog(
                                 readOnly = true,
                                 enabled = false,
                                 singleLine = true,
+                                shape = NeoFintechShapes.md,
+                                colors = dialogFieldColors,
                             )
                         }
-                        if (validationErrors.isNotEmpty()) {
-                            validationErrors.forEach { error ->
+                        validationErrors.forEach { error ->
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(NeoFintechShapes.full)
+                                        .background(MaterialTheme.colorScheme.error),
+                                )
                                 Text(
-                                    text = "• ${error.message}",
+                                    text = error.message,
                                     color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
                         }
-                        if (validationWarnings.isNotEmpty()) {
-                            validationWarnings.forEach { warning ->
+                        validationWarnings.forEach { warning ->
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = colors.warning,
+                                    modifier = Modifier.size(16.dp),
+                                )
                                 Text(
-                                    text = "⚠ ${warning.message}",
+                                    text = warning.message,
                                     color = colors.warning,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
@@ -573,12 +622,19 @@ private fun EventEditorDialog(
                                         }
                                     },
                                     enabled = !isOwner,
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = colors.primaryContainer,
+                                        checkmarkColor = colors.onPrimaryContainer,
+                                        uncheckedColor = MaterialTheme.colorScheme.outlineVariant,
+                                        disabledCheckedColor = colors.primaryContainer.copy(alpha = 0.5f),
+                                    ),
                                 )
-                                ProfileAvatar(name = profile.name, photoUrl = profile.photoUrl, size = 24.dp)
-                                Spacer(Modifier.width(8.dp))
+                                ProfileAvatar(name = profile.name, photoUrl = profile.photoUrl, size = 28.dp)
+                                Spacer(Modifier.width(10.dp))
                                 Text(
                                     text = "${profile.name}${if (isOwner) " (vos)" else ""}",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.onSurface,
                                 )
                             }
                         }
@@ -587,19 +643,19 @@ private fun EventEditorDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
                     val parsedStart = parseEventDate(startDateText)
                     if (parsedStart == null) {
                         validationErrors = listOf(ValidationError("Fecha de inicio inválida", "date"))
-                        return@TextButton
+                        return@Button
                     }
                     var parsedEnd = parsedStart
                     if (useDateRange && endDateText.isNotBlank()) {
                         parsedEnd = parseEventDate(endDateText)
                         if (parsedEnd == null) {
                             validationErrors = listOf(ValidationError("Fecha de fin inválida", "date"))
-                            return@TextButton
+                            return@Button
                         }
                     }
 
@@ -629,19 +685,27 @@ private fun EventEditorDialog(
                     if (result.hasErrors()) {
                         validationErrors = result.allErrors()
                         validationWarnings = result.allWarnings()
-                        return@TextButton
+                        return@Button
                     }
 
                     validationErrors = emptyList()
                     validationWarnings = result.allWarnings()
                     onSave(draftEvent)
-                }
+                },
+                shape = NeoFintechShapes.md,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.primaryContainer,
+                    contentColor = colors.onPrimaryContainer,
+                ),
             ) {
-                Text("Guardar")
+                Text("Guardar", fontWeight = FontWeight.SemiBold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(contentColor = colors.onSurfaceVariant),
+            ) {
                 Text("Cancelar")
             }
         },

@@ -25,12 +25,18 @@ import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.EventState
 import com.cuentamorosos.model.ProfileItem
+import com.cuentamorosos.model.ProfileVisibilityResolver
 import com.cuentamorosos.model.deserializeParticipants
 import com.cuentamorosos.model.migrateMemberIdsToParticipants
+import dev.gitlive.firebase.Firebase
+import dev.gitlive.firebase.auth.auth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -81,12 +87,28 @@ class RepositoryProvider(
         pendingQueue = pendingQueue,
     )
 
+    /**
+     * The profiles the signed-in user is allowed to see, recomputed from their own
+     * events (which already come from the local cache, so this costs nothing).
+     *
+     * This is what scopes the remote profile subscription. Without it the app
+     * subscribed to the entire `profiles` collection once per session, making global
+     * reads grow with the square of the user count.
+     */
+    private val visibleProfileIds: Flow<Set<String>> = eventRepository.observeEvents()
+        .map { events ->
+            val uid = Firebase.auth.currentUser?.uid
+            if (uid == null) emptySet() else ProfileVisibilityResolver.visibleProfileIds(uid, events)
+        }
+        .distinctUntilChanged()
+
     val profileRepository: ProfileRepository = OfflineFirstProfileRepository(
         remoteRepository = remoteProfileRepository,
         database = database,
         networkMonitor = networkMonitor,
         syncScope = syncScope,
         pendingQueue = pendingQueue,
+        visibleProfileIds = visibleProfileIds,
     )
 
     // Invitations are online-only (no offline cache needed)

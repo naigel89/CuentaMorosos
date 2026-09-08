@@ -61,6 +61,9 @@ fun TransferListPanel(
     onTogglePaid: (Int) -> Unit = {},
     currentProfileId: String? = null,
     modifier: Modifier = Modifier,
+    // La calculadora ya muestra el total en su propia tarjeta: sin esto, el
+    // importe aparecía dos veces en la misma pantalla.
+    showTotalHero: Boolean = true,
 ) {
     val colors = LocalNeoFintechColors.current
 
@@ -78,7 +81,9 @@ fun TransferListPanel(
             status?.let { StatusBanner(status = it) }
 
             // ── 2. Total hero ─────────────────────────────────────────────────
-            TotalHero(snapshot = snapshot)
+            if (showTotalHero) {
+                TotalHero(snapshot = snapshot)
+            }
 
             // ── 3. Transfer rows ──────────────────────────────────────────────
             Column(

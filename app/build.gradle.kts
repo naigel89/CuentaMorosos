@@ -18,8 +18,12 @@ val localProperties = Properties().apply {
 val releaseTaskKeywords = setOf("Release", "release")
 
 fun getRequiredProperty(localKey: String, envKey: String): String {
-    return localProperties.getProperty(localKey)
-        ?: System.getenv(envKey)
+    // isNotBlank, not just a null check: a GitHub Actions secret that does not
+    // exist resolves to an empty string rather than an unset variable, so a bare
+    // ?: let the blank credential through and the build died much later, in
+    // :app:packageRelease, with a misleading "keystore password was incorrect".
+    return localProperties.getProperty(localKey)?.takeIf { it.isNotBlank() }
+        ?: System.getenv(envKey)?.takeIf { it.isNotBlank() }
         ?: if (gradle.startParameter.taskNames.any { task ->
                 releaseTaskKeywords.any { task.contains(it) }
             }) {
@@ -40,8 +44,8 @@ android {
         applicationId = "com.cuentamorosos"
         minSdk = 24
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.2.1"
+        versionCode = 11
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

@@ -356,4 +356,76 @@ class OfflineFirstLinkGhostIntegrationTest {
         // linkGhostProfile should NOT be called because payload was malformed
         // (parts.size != 2 in PendingOperationQueue.drain)
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  updateDisplayName offline: el nombre editado no debe perderse
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private fun failingDisplayNameRemote() = object : ProfileRepository {
+        override fun observeProfiles(): Flow<List<ProfileItem>> =
+            MutableStateFlow(emptyList())
+        override suspend fun saveProfile(profile: ProfileItem) {}
+        override suspend fun deleteProfile(profileId: String) {}
+        override suspend fun linkGhostProfile(userEmail: String, userUid: String) {}
+        override suspend fun updateProfilePhoto(photoUrl: String): Result<String> =
+            Result.success(photoUrl)
+        override suspend fun updateUsername(username: String): Result<Unit> =
+            Result.success(Unit)
+        override suspend fun updateDisplayName(displayName: String): Result<Unit> =
+            Result.failure(RuntimeException("Network unavailable"))
+        override suspend fun setCustomName(profileId: String, customName: String): Result<Unit> =
+            Result.success(Unit)
+        override suspend fun isUsernameAvailable(username: String): Boolean = true
+        override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> =
+            Result.success(Unit)
+        override suspend fun deleteProfilePhoto(): Result<Unit> = Result.success(Unit)
+        override suspend fun searchByUsername(prefix: String): List<ProfileItem> = emptyList()
+    }
+
+    private fun seedOwnProfile(name: String) {
+        database.cachedProfileQueries.upsert(
+            id = "own-uid",
+            name = name,
+            email = "nicolas@test.com",
+            isGhost = 0,
+            totalPendingEuros = 0.0,
+            updatedAt = 1L,
+            ownerId = "own-uid",
+            photo_url = "",
+            username = "nicolaslg030303",
+            display_name = "",
+            custom_names = "",
+        )
+    }
+
+    @Test
+    fun `updateDisplayName remote failure enqueues retry`() = runTest {
+        seedOwnProfile("nicolaslg030303")
+        val repo = createRepo(failingDisplayNameRemote())
+
+        repo.updateDisplayName("Nico")
+
+        // El cambio local se aplica al momento…
+        val local = database.cachedProfileQueries.selectById("own-uid").executeAsOne()
+        assertEquals("Nico", local.name)
+
+        // …y el remoto fallido queda encolado para reintentar al reconectar.
+        val pending = queue.dequeue(10)
+        assertEquals(1, pending.size, "updateDisplayName fallido debe encolarse")
+        assertEquals("updateDisplayName", pending[0].operation)
+        assertEquals("own-uid", pending[0].entityId)
+        assertEquals("Nico", pending[0].payload)
+    }
+
+    @Test
+    fun `updateDisplayName remote success does not enqueue`() = runTest {
+        seedOwnProfile("nicolaslg030303")
+        val repo = createRepo(succeedingRemote)
+
+        repo.updateDisplayName("Nico")
+
+        assertEquals(0L, queue.getAllPending(), "Con remoto OK no debe quedar nada pendiente")
+        val local = database.cachedProfileQueries.selectById("own-uid").executeAsOne()
+        assertEquals("Nico", local.name)
+    }
 }

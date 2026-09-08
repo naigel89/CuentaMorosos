@@ -26,7 +26,9 @@ fun ForgotPasswordScreen(
 
     val emailError = if (email.isNotBlank() && !isValidEmail(email))
         "Formato de email incorrecto" else null
-    val canSubmit = email.isNotBlank() && emailError == null && !isLoading && successMessage == null
+    // Tras un envío correcto el botón sigue activo: si el correo no llega
+    // (spam, retraso), el usuario tiene que poder reenviarlo.
+    val canSubmit = email.isNotBlank() && emailError == null && !isLoading
 
     Column(
         modifier = Modifier
@@ -90,8 +92,12 @@ fun ForgotPasswordScreen(
                 errorMessage = null
                 onResetPassword(email) { error ->
                     isLoading = false
-                    if (error == null) successMessage = "Email enviado correctamente. Revisa tu bandeja de entrada."
-                    else errorMessage = "No se pudo enviar el email. Verifica que la dirección es correcta."
+                    if (error == null) {
+                        successMessage = "¡Correo enviado! Revisa tu bandeja de entrada y, si no aparece en unos minutos, la carpeta de spam."
+                    } else {
+                        // La plataforma ya entrega el mensaje mapeado a español.
+                        errorMessage = error
+                    }
                 }
             },
             enabled = canSubmit,
@@ -104,7 +110,7 @@ fun ForgotPasswordScreen(
                     color = MaterialTheme.colorScheme.onPrimary
                 )
             } else {
-                Text("Enviar email de recuperación")
+                Text(if (successMessage != null) "Reenviar correo" else "Enviar email de recuperación")
             }
         }
 

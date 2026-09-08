@@ -1,4 +1,4 @@
-name: Release APK v1.0.0
+name: Release APK
 
 on:
   push:
@@ -17,6 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
+    # Tag efectivo. El input de workflow_dispatch estaba declarado pero nunca
+    # se usaba: los pasos leían github.ref_name, que al lanzar a mano desde una
+    # rama es el nombre de la rama, no un tag.
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────────────────────
@@ -68,6 +74,21 @@ jobs:
           CM_KEY_PASSWORD: ${{ secrets.CM_KEY_PASSWORD }}
         run: ./gradlew :app:assembleRelease --stacktrace
 
+      # ── 6b. Renombrar el APK al nombre que enlaza la landing ─────────────
+      # docs/index.html apunta a CuentaMorosos-<tag>.apk. Sin esta copia el
+      # asset se publica como app-release.apk y el botón de descarga da 404.
+      # Es cp y no mv a propósito: el paso 7 (App Distribution) resuelve la ruta
+      # del artefacto desde la variante de AGP y sigue esperando app-release.apk.
+      - name: Copy APK to release asset names
+        run: |
+          out=app/build/outputs/apk/release
+          cp "$out/app-release.apk" "$out/CuentaMorosos-${RELEASE_TAG}.apk"
+          # Segunda copia con nombre estable. Es la que enlaza la landing a
+          # través de /releases/latest/download/CuentaMorosos.apk: un permalink
+          # que siempre sirve la última versión, así docs/index.html no queda
+          # obsoleto cada vez que se publica una release.
+          cp "$out/app-release.apk" "$out/CuentaMorosos.apk"
+
       # ── 7. Upload to Firebase App Distribution ───────────────────────────
       # Requiere: secret FIREBASE_SERVICE_ACCOUNT con JSON de service account
       # (rol: Firebase App Distribution Admin). Si no está configurado, se saltea.
@@ -88,21 +109,24 @@ jobs:
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: app/build/outputs/apk/release/app-release.apk
+          name: CuentaMorosos-${{ env.RELEASE_TAG }}
+          path: app/build/outputs/apk/release/CuentaMorosos-${{ env.RELEASE_TAG }}.apk
           retention-days: 90
 
       # ── 9. Create GitHub Release ─────────────────────────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/release/app-release.apk
+          files: |
+            app/build/outputs/apk/release/CuentaMorosos-${{ env.RELEASE_TAG }}.apk
+            app/build/outputs/apk/release/CuentaMorosos.apk
+          tag_name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
-          name: CuentaMorosos ${{ github.ref_name }}
+          name: CuentaMorosos ${{ env.RELEASE_TAG }}
           body: |
-            🎉 **CuentaMorosos ${{ github.ref_name }}** — Divide gastos. Sin vueltas. Sin cuentas pendientes.
+            🎉 **CuentaMorosos ${{ env.RELEASE_TAG }}** — Divide gastos. Sin vueltas. Sin cuentas pendientes.
 
-            ## Novedades
+            ## Qué hace la app
             - Gestión completa de **eventos** con gastos compartidos
             - **6 modos de reparto**: consumo real, media simple, por categoría, % personalizado, importe exacto, por partes
             - **Motor de liquidación inteligente** con greedy + round-robin que minimiza transferencias
@@ -114,10 +138,16 @@ jobs:
             - **Modo oscuro** con diseño NeoFintech
 
             ## Instalación
-            1. Descargá el APK desde esta release
+            1. Descargá el APK desde esta release, o desde
+               [la página de descarga](https://naigel89.github.io/CuentaMorosos/),
+               que apunta siempre a la última versión
             2. En tu Android, habilitá "Instalar apps desconocidas" para tu navegador/files
             3. Abrí el APK y seguí las instrucciones
 
             > ⚠️ Requiere Android 7.0 (API 24) o superior
+
+            El asset `CuentaMorosos.apk` (sin versión en el nombre) es el que
+            enlaza la landing: `releases/latest/download/CuentaMorosos.apk`
+            apunta siempre a la última release, así que el enlace no caduca.
           draft: false
           prerelease: false

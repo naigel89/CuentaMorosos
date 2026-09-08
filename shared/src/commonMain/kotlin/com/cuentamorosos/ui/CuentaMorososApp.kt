@@ -126,6 +126,7 @@ import com.cuentamorosos.model.toJson
 import com.cuentamorosos.model.EventDebtItem
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
+import com.cuentamorosos.model.ProfileVisibilityResolver
 import com.cuentamorosos.model.EventParticipant
 import com.cuentamorosos.model.EventRole
 import com.cuentamorosos.model.EventState
@@ -190,6 +191,8 @@ fun CuentaMorososApp(
     deepLinkEvent: SharedFlow<DeepLinkTarget>? = null,
     onTestNotification: ((com.cuentamorosos.notifications.NotificationEvent) -> Unit)? = null,
     profileRepository: ProfileRepository? = null,
+    // Puerto del host: compartir texto por el share sheet nativo (recibos).
+    onShareText: ((String) -> Unit)? = null,
 ) {
     val eventsViewModel: EventsViewModel = viewModel(factory = viewModelFactory)
     val eventDetailViewModel: EventDetailViewModel = viewModel(factory = viewModelFactory)
@@ -349,23 +352,13 @@ fun CuentaMorososApp(
         }
     }
 
-    // Only show profiles the current user is allowed to see:
-    // VIS-001: own real profile always visible (profile.id == uid)
-    // VIS-002: own ghost profiles visible (isGhost && ownerId == uid)
-    // VIS-003: co-participants in shared events visible (profile in event's participant set)
-    // VIS-004: everything else hidden
+    // VIS-001..004 live in ProfileVisibilityResolver, which is also what scopes the
+    // remote query in FirestoreProfileRepository. Keeping the filter here as well is
+    // deliberate: the local SQLDelight cache can still hold profiles from an event
+    // the user has since left.
     val visibleProfiles by remember(profiles, events, currentUserUid) {
         derivedStateOf {
-            val uid = currentUserUid ?: ""
-            val eventProfileIds = events.flatMap { event ->
-                listOfNotNull(event.ownerId) + event.effectiveMemberIds
-            }.toSet()
-
-            profiles.filter { profile ->
-                profile.id == uid
-                        || (profile.isGhost && profile.ownerId == uid)
-                        || profile.id in eventProfileIds
-            }
+            ProfileVisibilityResolver.filterVisible(profiles, currentUserUid ?: "", events)
         }
     }
 
@@ -463,6 +456,7 @@ fun CuentaMorososApp(
                             eventDebts = debts.filter { it.eventId == currentEvent.id },
                             eventExpenses = expenses.filter { it.eventId == currentEvent.id },
                             currentUserUid = currentUserUid,
+                            onShareReceipt = onShareText,
                             scrollState = scrollState,
                             onBack = { eventDetailViewModel.setEventId(null) },
                             onAddProfileToEvent = { profilesList ->
@@ -745,7 +739,12 @@ fun CuentaMorososApp(
                                     } else {
                                         onCancelReminders()
                                     }
-                                    feedbackMessage = "Preferencias actualizadas."
+                                    feedbackMessage = "Preferencias guardadas. ✓"
+                                },
+                                onThemeModeChanged = { mode ->
+                                    // Aplica y persiste solo el tema, al instante y sin snackbar:
+                                    // el cambio visual ya es feedback suficiente.
+                                    onSavePreferences(preferences.copy(themeMode = mode))
                                 },
                                 onSignOut = onSignOut,
                                 currentProfile = currentProfile,

@@ -1,5 +1,13 @@
 package com.cuentamorosos.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,27 +19,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -40,20 +49,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.cuentamorosos.model.CalculationSnapshot
 import com.cuentamorosos.model.EventExpenseItem
 import com.cuentamorosos.model.EventItem
 import com.cuentamorosos.model.ProfileItem
 import com.cuentamorosos.model.SettlementEngine
 import com.cuentamorosos.model.SettlementTraceStep
+import com.cuentamorosos.model.SettlementTransfer
 import com.cuentamorosos.model.SplitMode
 import com.cuentamorosos.model.formatEuros
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +97,7 @@ fun HowCalculatedPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
@@ -93,41 +107,29 @@ fun HowCalculatedPanel(
                     fontWeight = FontWeight.Bold,
                     color = colors.onSurface,
                 )
-                Text(
-                    text = "✕",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.onSurfaceVariant,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .size(32.dp)
-                        .padding(4.dp)
-                        .clickable {
-                            scope.launch { sheetState.hide() }.invokeOnCompletion {
-                                if (!sheetState.isVisible) onDismiss()
-                            }
-                        },
-                )
+                IconButton(
+                    onClick = {
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            if (!sheetState.isVisible) onDismiss()
+                        }
+                    },
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Cerrar",
+                        tint = colors.onSurfaceVariant,
+                    )
+                }
             }
 
-            // Tabs
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = colors.surface,
-                contentColor = colors.primaryContainer,
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = { Text("Desglose") },
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = { Text("Cómo se optimizó") },
-                )
-            }
-
-            HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.3f))
+            // Control segmentado con pulgar deslizante (sustituye al TabRow)
+            SegmentedTabs(
+                options = listOf("Desglose", "Optimización"),
+                selected = selectedTab,
+                onSelect = { selectedTab = it },
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
 
             // Tab content
             val scrollState = rememberScrollState()
@@ -137,20 +139,39 @@ fun HowCalculatedPanel(
                     .weight(1f)
                     .verticalScroll(scrollState),
             ) {
-                when (selectedTab) {
-                    0 -> DesgloseTab(
-                        expenses = expenses,
-                        snapshot = snapshot,
-                        profileNameResolver = profileNameResolver,
-                        profiles = profiles,
-                        onGoToOptimization = { selectedTab = 1 },
-                    )
-                    1 -> OptimizacionTab(
-                        snapshot = snapshot,
-                        expenses = expenses,
-                        profileNameResolver = profileNameResolver,
-                        profiles = profiles,
-                    )
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        val dir = if (targetState > initialState) 1 else -1
+                        (
+                            slideInHorizontally(
+                                tween(NeoFintechMotion.MEDIUM_MS, easing = NeoFintechMotion.standard),
+                            ) { width -> dir * width / 8 } +
+                                fadeIn(tween(NeoFintechMotion.MEDIUM_MS))
+                            ) togetherWith (
+                            slideOutHorizontally(
+                                tween(NeoFintechMotion.SHORT_MS, easing = NeoFintechMotion.standard),
+                            ) { width -> -dir * width / 8 } +
+                                fadeOut(tween(NeoFintechMotion.SHORT_MS))
+                            )
+                    },
+                    label = "howCalculatedTab",
+                ) { tab ->
+                    when (tab) {
+                        0 -> DesgloseTab(
+                            expenses = expenses,
+                            snapshot = snapshot,
+                            profileNameResolver = profileNameResolver,
+                            profiles = profiles,
+                            onGoToOptimization = { selectedTab = 1 },
+                        )
+                        else -> OptimizacionTab(
+                            snapshot = snapshot,
+                            expenses = expenses,
+                            profileNameResolver = profileNameResolver,
+                            profiles = profiles,
+                        )
+                    }
                 }
             }
         }
@@ -184,12 +205,13 @@ private fun DesgloseTab(
         )
 
         // Expense cards
-        expenses.forEach { expense ->
+        expenses.forEachIndexed { index, expense ->
             ExpenseBreakdownCard(
                 expense = expense,
                 profileNameResolver = profileNameResolver,
                 colors = colors,
                 themeColors = themeColors,
+                index = index,
             )
         }
 
@@ -232,13 +254,24 @@ private fun DesgloseTab(
 
         // CTA to optimization tab
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Ver cómo se optimiza esto →",
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.primaryContainer,
-            fontWeight = FontWeight.Medium,
+        Row(
             modifier = Modifier.clickable { onGoToOptimization() },
-        )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = "Ver cómo se optimiza esto",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.primaryContainer,
+                fontWeight = FontWeight.Medium,
+            )
+            Icon(
+                imageVector = Icons.Default.ArrowForward,
+                contentDescription = null,
+                tint = colors.primaryContainer,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 
@@ -248,9 +281,12 @@ private fun ExpenseBreakdownCard(
     profileNameResolver: (String) -> String,
     colors: NeoFintechColorSet,
     themeColors: androidx.compose.material3.ColorScheme,
+    index: Int = 0,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .fadeInStaggered(index = index),
         colors = CardDefaults.cardColors(containerColor = themeColors.surfaceContainerLowest),
         shape = NeoFintechShapes.md,
     ) {
@@ -367,7 +403,7 @@ private fun PaidVsConsumedSection(
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = androidx.compose.material3.CardDefaults.cardColors(
+                colors = CardDefaults.cardColors(
                     containerColor = themeColors.surfaceContainerLowest,
                 ),
                 shape = NeoFintechShapes.sm,
@@ -449,8 +485,10 @@ private fun OptimizacionTab(
     val themeColors = MaterialTheme.colorScheme
 
     val balances = snapshot.participantBalances
-    val naiveTransfers = computeNaiveTransfers(expenses)
+    val naiveTransfers = remember(expenses) { computeNaiveTransfers(expenses) }
     val totalDebt = abs(balances.values.filter { it < 0 }.sum())
+    val savings = naiveTransfers.size - snapshot.transfers.size
+    val nameById = remember(profiles) { profiles.associate { it.id to it.name } }
 
     Column(
         modifier = Modifier
@@ -458,11 +496,32 @@ private fun OptimizacionTab(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Context banner
-        ContextBanner(
-            text = "Hemos simplificado las deudas. En lugar de que todo el mundo se haga transferencias entre sí, calculamos la ruta con menos transferencias posibles.",
-            colors = colors,
-        )
+        if (savings > 0) {
+            // Héroe: el resultado estrella, legible en un segundo
+            SavingsHero(
+                naiveCount = naiveTransfers.size,
+                optimizedCount = snapshot.transfers.size,
+                savings = savings,
+                colors = colors,
+                themeColors = themeColors,
+            )
+
+            // Antes / después como grafos reales de liquidación
+            BeforeAfterGraphs(
+                naiveTransfers = naiveTransfers,
+                optimizedTransfers = snapshot.transfers,
+                nameById = nameById,
+                colors = colors,
+                themeColors = themeColors,
+            )
+        } else if (naiveTransfers.size == snapshot.transfers.size && naiveTransfers.isNotEmpty()) {
+            InfoNote(
+                text = "En este caso todos los gastos los pagó una sola persona, así que reparto " +
+                    "ingenuo y optimizado coinciden. La optimización se nota cuando hay varios " +
+                    "pagadores distintos en un evento.",
+                colors = colors,
+            )
+        }
 
         // Netting explanation: show profiles that paid but consumed more
         NettingNote(
@@ -471,20 +530,10 @@ private fun OptimizacionTab(
             colors = colors,
         )
 
-        // Before / After comparison
-        NaiveVsOptimizedComparison(
-            snapshot = snapshot,
-            naiveTransfers = naiveTransfers,
-            profileNameResolver = profileNameResolver,
-            colors = colors,
-            themeColors = themeColors,
-        )
-
         HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.3f))
 
         // Step-by-step
         SectionLabel(text = "Paso a paso")
-        Spacer(modifier = Modifier.height(8.dp))
 
         DetailedStepByStep(
             snapshot = snapshot,
@@ -497,7 +546,7 @@ private fun OptimizacionTab(
         )
 
         // Rounding note
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -515,6 +564,225 @@ private fun OptimizacionTab(
                 color = colors.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
+    }
+}
+
+/**
+ * "9 → 2": el conteo ingenuo tachado en rojo, una flecha, y el optimizado en
+ * verde con un rebote de confirmación ([NeoFintechMotion.bouncy] — reservado a
+ * momentos positivos, y ahorrarse transferencias lo es).
+ */
+@Composable
+private fun SavingsHero(
+    naiveCount: Int,
+    optimizedCount: Int,
+    savings: Int,
+    colors: NeoFintechColorSet,
+    themeColors: androidx.compose.material3.ColorScheme,
+) {
+    val animationsEnabled = LocalAnimationsEnabled.current
+    val mono = JetBrainsMonoFontFamily()
+
+    val optimizedScale = remember { Animatable(if (animationsEnabled) 0.6f else 1f) }
+    LaunchedEffect(Unit) {
+        if (animationsEnabled) {
+            optimizedScale.animateTo(1f, NeoFintechMotion.bouncy())
+        }
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .slideUp(),
+        shape = NeoFintechShapes.xl,
+        color = themeColors.surfaceContainerLowest,
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(22.dp),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "$naiveCount",
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontFamily = mono,
+                            fontSize = 38.sp,
+                            fontWeight = FontWeight.Bold,
+                            textDecoration = TextDecoration.LineThrough,
+                        ),
+                        color = colors.error.copy(alpha = 0.85f),
+                    )
+                    Text(
+                        text = "sin optimizar",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    tint = colors.onSurfaceVariant,
+                    modifier = Modifier.size(26.dp),
+                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "$optimizedCount",
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontFamily = mono,
+                            fontSize = 46.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        color = colors.primaryContainer,
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = optimizedScale.value
+                            scaleY = optimizedScale.value
+                        },
+                    )
+                    Text(
+                        text = if (optimizedCount == 1) "transferencia" else "transferencias",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                text = "$savings transferencia${if (savings > 1) "s" else ""} menos, con el mismo dinero en juego.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * La maraña "todos contra todos" frente a la ruta mínima, dibujadas con el
+ * mismo [SettlementGraph] del panel de liquidación: la de arriba en rojo y sin
+ * importes, la de abajo en verde con sus flechas animadas.
+ */
+@Composable
+private fun BeforeAfterGraphs(
+    naiveTransfers: List<NaiveTransferEntry>,
+    optimizedTransfers: List<SettlementTransfer>,
+    nameById: Map<String, String>,
+    colors: NeoFintechColorSet,
+    themeColors: androidx.compose.material3.ColorScheme,
+) {
+    val naiveAsTransfers = remember(naiveTransfers) {
+        naiveTransfers.map { SettlementTransfer(it.fromProfileId, it.toProfileId, it.totalAmount) }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = NeoFintechShapes.lg,
+            color = colors.error.copy(alpha = 0.05f),
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                GraphHeader(
+                    label = "Sin optimizar",
+                    detail = "${naiveAsTransfers.size} transferencias",
+                    accent = colors.error,
+                )
+                SettlementGraph(
+                    transfers = naiveAsTransfers,
+                    nameById = nameById,
+                    arrowColor = colors.error.copy(alpha = 0.55f),
+                    creditorAccent = colors.error,
+                    showAmounts = false,
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.ArrowDownward,
+                contentDescription = null,
+                tint = colors.primaryContainer,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = NeoFintechShapes.lg,
+            color = colors.primaryContainer.copy(alpha = 0.06f),
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                GraphHeader(
+                    label = "Optimizado",
+                    detail = "${optimizedTransfers.size} transferencia${if (optimizedTransfers.size != 1) "s" else ""} · ${formatEuros(optimizedTransfers.sumOf { it.amount })}",
+                    accent = colors.primaryContainer,
+                )
+                SettlementGraph(
+                    transfers = optimizedTransfers,
+                    nameById = nameById,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GraphHeader(label: String, detail: String, accent: androidx.compose.ui.graphics.Color) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(accent),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = accent,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = "· $detail",
+            style = MaterialTheme.typography.labelSmall,
+            color = accent.copy(alpha = 0.7f),
+        )
+    }
+}
+
+@Composable
+private fun InfoNote(text: String, colors: NeoFintechColorSet) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = null,
+            tint = colors.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.size(16.dp),
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceVariant,
+        )
     }
 }
 
@@ -549,299 +817,33 @@ private fun NettingNote(
 
     if (nettedProfiles.isEmpty()) return
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(colors.primaryContainer.copy(alpha = 0.08f))
-            .padding(14.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Icon(
-            imageVector = Icons.Default.Info,
-            contentDescription = null,
-            tint = colors.primaryContainer,
-            modifier = Modifier.size(18.dp),
-        )
-        val names = nettedProfiles.joinToString(" y ") { profileNameResolver(it) }
-        val paidSum = nettedProfiles.sumOf { paid[it] ?: 0.0 }
-        val consumedSum = nettedProfiles.sumOf { consumed[it] ?: 0.0 }
-        val isPlural = nettedProfiles.size > 1
-        Text(
-            text = "$names ${if (isPlural) "pagaron" else "pagó"} ${formatEuros(paidSum)} pero ${if (isPlural) "consumieron" else "consumió"} ${formatEuros(consumedSum)}. En vez de que todos ${if (isPlural) "les paguen" else "le paguen"} y después ${names} ${if (isPlural) "paguen" else "pague"} a ${if (isPlural) "otros" else "otro"}, el algoritmo simplifica todo a una transferencia neta.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.onSurface,
-        )
-    }
-}
-
-@Composable
-private fun ContextBanner(text: String, colors: NeoFintechColorSet) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(colors.primaryContainer.copy(alpha = 0.08f))
-            .padding(14.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Icon(
-            imageVector = Icons.Default.Info,
-            contentDescription = null,
-            tint = colors.primaryContainer,
-            modifier = Modifier.size(18.dp),
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.onSurface,
-        )
-    }
-}
-
-@Composable
-private fun NaiveVsOptimizedComparison(
-    snapshot: CalculationSnapshot,
-    naiveTransfers: List<NaiveTransferEntry>,
-    profileNameResolver: (String) -> String,
-    colors: NeoFintechColorSet,
-    themeColors: androidx.compose.material3.ColorScheme,
-) {
-    val optimizedCount = snapshot.transfers.size
-    val optimizedTotal = snapshot.transfers.sumOf { it.amount }
-    val savings = naiveTransfers.size - optimizedCount
-
-    Column(
+    // Banner con radio del sistema: era el único rectángulo de esquinas rectas
+    // que quedaba en la app.
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        shape = NeoFintechShapes.md,
+        color = colors.primaryContainer.copy(alpha = 0.08f),
     ) {
-        // Naive side — show actual naive transfers
-        NaiveTransferList(
-            transfers = naiveTransfers,
-            profileNameResolver = profileNameResolver,
-            colors = colors,
-            themeColors = themeColors,
-        )
-
-        // Arrow / separator
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            Text(
-                text = "↓ optimización ↓",
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.primaryContainer,
-                fontWeight = FontWeight.Bold,
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = colors.primaryContainer,
+                modifier = Modifier.size(18.dp),
             )
-        }
-
-        // Optimized side
-        ComparisonCard(
-            label = "Optimizado",
-            icon = "✓",
-            count = optimizedCount,
-            total = optimizedTotal,
-            accentColor = colors.primaryContainer,
-            bgColor = colors.primaryContainer.copy(alpha = 0.08f),
-            colors = colors,
-            themeColors = themeColors,
-        )
-
-        // Savings note
-        if (savings > 0) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = colors.primaryContainer.copy(alpha = 0.6f),
-                    modifier = Modifier.size(16.dp),
-                )
-                Text(
-                    text = "Ahorraste $savings transferencia${if (savings > 1) "s" else ""}. En vez de que cada persona le pague al pagador de cada gasto, el algoritmo agrupa todo por saldo neto y encuentra la ruta más corta.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                )
-            }
-        } else if (naiveTransfers.size == optimizedCount && naiveTransfers.size > 0) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = colors.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(16.dp),
-                )
-                Text(
-                    text = "En este caso todos los gastos los pagó una sola persona, así que reparto ingenuo y optimizado coinciden. La optimización se nota cuando hay varios pagadores distintos en un evento.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun NaiveTransferList(
-    transfers: List<NaiveTransferEntry>,
-    profileNameResolver: (String) -> String,
-    colors: NeoFintechColorSet,
-    themeColors: androidx.compose.material3.ColorScheme,
-) {
-    val naiveTotal = transfers.sumOf { it.totalAmount }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = colors.error.copy(alpha = 0.06f),
-        shape = NeoFintechShapes.md,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // Header
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "✗",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.error,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "Sin optimizar",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.error,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "· ${transfers.size} transferencias · ${formatEuros(naiveTotal)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.error.copy(alpha = 0.7f),
-                )
-            }
-
-            // List each naive transfer with expense breakdown
-            transfers.forEach { entry ->
-                val fromName = profileNameResolver(entry.fromProfileId)
-                val toName = profileNameResolver(entry.toProfileId)
-
-                // Main transfer line
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "•",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.error.copy(alpha = 0.5f),
-                    )
-                    Text(
-                        text = fromName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.error.copy(alpha = 0.8f),
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Text(
-                        text = "→",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.onSurfaceVariant.copy(alpha = 0.4f),
-                    )
-                    Text(
-                        text = toName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.error.copy(alpha = 0.8f),
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Text(
-                        text = formatEuros(entry.totalAmount),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = JetBrainsMonoFontFamily(),
-                        ),
-                        color = colors.onSurfaceVariant.copy(alpha = 0.6f),
-                    )
-                }
-
-                // Breakdown by expense
-                if (entry.breakdowns.isNotEmpty()) {
-                    val breakdownText = entry.breakdowns.joinToString(" · ") { bd ->
-                        "${bd.expenseName} ${formatEuros(bd.amount)}"
-                    }
-                    Text(
-                        text = "  $breakdownText",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colors.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(start = 16.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ComparisonCard(
-    label: String,
-    icon: String,
-    count: Int,
-    total: Double,
-    accentColor: androidx.compose.ui.graphics.Color,
-    bgColor: androidx.compose.ui.graphics.Color,
-    colors: NeoFintechColorSet,
-    themeColors: androidx.compose.material3.ColorScheme,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = bgColor,
-        shape = NeoFintechShapes.md,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = icon,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = accentColor,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = accentColor,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-                Text(
-                    text = "$count transferencias · ${formatEuros(total)}",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = JetBrainsMonoFontFamily(),
-                    ),
-                    color = themeColors.onSurface,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
+            val names = nettedProfiles.joinToString(" y ") { profileNameResolver(it) }
+            val paidSum = nettedProfiles.sumOf { paid[it] ?: 0.0 }
+            val consumedSum = nettedProfiles.sumOf { consumed[it] ?: 0.0 }
+            val isPlural = nettedProfiles.size > 1
+            Text(
+                text = "$names ${if (isPlural) "pagaron" else "pagó"} ${formatEuros(paidSum)} pero ${if (isPlural) "consumieron" else "consumió"} ${formatEuros(consumedSum)}. En vez de que todos ${if (isPlural) "les paguen" else "le paguen"} y después ${names} ${if (isPlural) "paguen" else "pague"} a ${if (isPlural) "otros" else "otro"}, el algoritmo simplifica todo a una transferencia neta.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurface,
+            )
         }
     }
 }
@@ -859,106 +861,125 @@ private fun DetailedStepByStep(
     val debtors = balances.filterValues { it < -0.01 }
     val creditors = balances.filterValues { it > 0.01 }
 
-    // Step 1: Saldo final — with concrete data
-    StepItem(
-        number = 1,
-        title = "Miramos los saldos finales",
-        description = "Cada persona tiene un saldo neto: lo que pagó menos lo que le toca consumir. Positivo = le deben. Negativo = debe.",
-        colors = colors,
-        themeColors = themeColors,
-    )
-
+    // Los pasos cuelgan de una línea vertical continua, estilo timeline: la
+    // línea se dibuja detrás y los círculos numerados (fondo sólido) la tapan.
+    val lineColor = colors.outlineVariant.copy(alpha = 0.6f)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 28.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .drawBehind {
+                val x = 12.dp.toPx()
+                drawLine(
+                    color = lineColor,
+                    start = Offset(x, 12.dp.toPx()),
+                    end = Offset(x, size.height - 20.dp.toPx()),
+                    strokeWidth = 2.dp.toPx(),
+                )
+            },
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        balances.forEach { (profileId, balance) ->
-            val name = profileNameResolver(profileId)
-            val isCreditor = balance > 0.01
-            val isDebtor = balance < -0.01
-            if (isCreditor || isDebtor) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = themeColors.onSurface,
-                    )
-                    Text(
-                        text = if (isCreditor) "Le deben ${formatEuros(balance)}" else "Debe ${formatEuros(abs(balance))}",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = JetBrainsMonoFontFamily(),
-                        ),
-                        color = if (isCreditor) colors.primaryContainer else colors.error,
-                        fontWeight = FontWeight.Medium,
+        // Step 1: Saldo final — with concrete data
+        StepItem(
+            number = 1,
+            title = "Miramos los saldos finales",
+            description = "Cada persona tiene un saldo neto: lo que pagó menos lo que le toca consumir. Positivo = le deben. Negativo = debe.",
+            colors = colors,
+            themeColors = themeColors,
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 28.dp, end = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            balances.forEach { (profileId, balance) ->
+                val name = profileNameResolver(profileId)
+                val isCreditor = balance > 0.01
+                val isDebtor = balance < -0.01
+                if (isCreditor || isDebtor) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = themeColors.onSurface,
+                        )
+                        Text(
+                            text = if (isCreditor) "Le deben ${formatEuros(balance)}" else "Debe ${formatEuros(abs(balance))}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = JetBrainsMonoFontFamily(),
+                            ),
+                            color = if (isCreditor) colors.primaryContainer else colors.error,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+            }
+        }
+
+        // Step 2: Bote imaginario
+        StepItem(
+            number = 2,
+            title = "Creamos un bote imaginario",
+            description = "Sumamos todo lo que deben los ${debtors.size} deudor${if (debtors.size != 1) "es" else ""}: ${formatEuros(totalDebt)}. Ese es el monto que hay que repartir entre los ${creditors.size} acreedor${if (creditors.size != 1) "es" else ""}.",
+            colors = colors,
+            themeColors = themeColors,
+        )
+
+        // Step 3: Repartir la hucha — with concrete trace steps
+        StepItem(
+            number = 3,
+            title = "Repartimos la hucha",
+            description = "En cada paso, tomamos al mayor deudor y al mayor acreedor. El deudor le paga lo que debe o lo que le deben al acreedor, lo que sea menor. Así saldamos a uno de los dos y seguimos.",
+            colors = colors,
+            themeColors = themeColors,
+        )
+
+        // Show trace steps with detailed reasoning
+        if (snapshot.trace.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 28.dp, end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                snapshot.trace.forEachIndexed { index, step ->
+                    DetailedTraceStep(
+                        step = step,
+                        index = index + 1,
+                        totalSteps = snapshot.trace.size,
+                        profileNameResolver = profileNameResolver,
+                        colors = colors,
+                        themeColors = themeColors,
                     )
                 }
             }
         }
-    }
 
-    // Step 2: Bote imaginario
-    StepItem(
-        number = 2,
-        title = "Creamos un bote imaginario",
-        description = "Sumamos todo lo que deben los ${debtors.size} deudor${if (debtors.size != 1) "es" else ""}: ${formatEuros(totalDebt)}. Ese es el monto que hay que repartir entre los ${creditors.size} acreedor${if (creditors.size != 1) "es" else ""}.",
-        colors = colors,
-        themeColors = themeColors,
-    )
-
-    // Step 3: Repartir la hucha — with concrete trace steps
-    StepItem(
-        number = 3,
-        title = "Repartimos la hucha",
-        description = "En cada paso, tomamos al mayor deudor y al mayor acreedor. El deudor le paga lo que debe o lo que le deben al acreedor, lo que sea menor. Así saldamos a uno de los dos y seguimos.",
-        colors = colors,
-        themeColors = themeColors,
-    )
-
-    // Show trace steps with detailed reasoning
-    if (snapshot.trace.isNotEmpty()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 28.dp, end = 12.dp, top = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            snapshot.trace.forEachIndexed { index, step ->
-                DetailedTraceStep(
-                    step = step,
-                    index = index + 1,
-                    totalSteps = snapshot.trace.size,
-                    profileNameResolver = profileNameResolver,
-                    colors = colors,
-                    themeColors = themeColors,
+        // Multiple creditors note
+        if (creditors.size > 1) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 28.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = colors.primaryContainer.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = "Como hay ${creditors.size} acreedores, la hucha se repartiría entre varios. El algoritmo siempre empieza por quien más le deben, así se minimizan las transferencias.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
                 )
             }
-        }
-    }
-
-    // Multiple creditors note
-    if (creditors.size > 1) {
-        Spacer(modifier = Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = null,
-                tint = colors.primaryContainer.copy(alpha = 0.6f),
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = "Como hay ${creditors.size} acreedores, la hucha se repartiría entre varios. El algoritmo siempre empieza por quien más le deben, así se minimizan las transferencias.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.onSurfaceVariant,
-            )
         }
     }
 }
@@ -978,8 +999,10 @@ private fun DetailedTraceStep(
     val creditorSaldado = abs(step.creditorRemaining) < 0.01
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = androidx.compose.material3.CardDefaults.cardColors(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fadeInStaggered(index = index - 1),
+        colors = CardDefaults.cardColors(
             containerColor = themeColors.surfaceContainerLowest,
         ),
         shape = NeoFintechShapes.sm,
@@ -1014,10 +1037,11 @@ private fun DetailedTraceStep(
                     color = colors.error,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Text(
-                    text = "→",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant.copy(alpha = 0.5f),
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    tint = colors.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(14.dp),
                 )
                 Text(
                     text = toName,
@@ -1093,7 +1117,6 @@ private fun StepItem(
     colors: NeoFintechColorSet,
     themeColors: androidx.compose.material3.ColorScheme,
 ) {
-    Spacer(modifier = Modifier.height(8.dp))
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),

@@ -9,6 +9,7 @@ import com.cuentamorosos.model.ProfileItem
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -23,7 +24,14 @@ class OfflineFirstProfileRepository(
     private val database: CuentaMorososDatabase,
     private val networkMonitor: NetworkMonitor,
     private val syncScope: CoroutineScope,
-    private val pendingQueue: PendingOperationQueue
+    private val pendingQueue: PendingOperationQueue,
+    /**
+     * Which profiles the signed-in user may see, from
+     * `ProfileVisibilityResolver.visibleProfileIds`. Drives the scope of the remote
+     * subscription; the default keeps test fakes and callers that predate this
+     * parameter working, since the remote falls back to its own-profiles query.
+     */
+    private val visibleProfileIds: Flow<Set<String>> = flowOf(emptySet())
 ) : ProfileRepository {
 
     private val queries = database.cachedProfileQueries
@@ -45,7 +53,10 @@ class OfflineFirstProfileRepository(
             if (local != null) {
                 remoteRepository.saveProfile(local)
             } else {
-                // Fallback: try from remote snapshot
+                // Fallback: read it back from the remote. Only ever reached for a
+                // profile this user saved — their own or one of their ghosts — and
+                // observeProfiles() now returns exactly that set (ownerId == uid),
+                // so this is a handful of documents rather than the whole collection.
                 val profiles = remoteRepository.observeProfiles().first()
                 profiles.find { it.id == entityId }?.let { remoteRepository.saveProfile(it) }
             }
@@ -101,6 +112,7 @@ class OfflineFirstProfileRepository(
         return allProfiles.firstOrNull { it.id.isNotBlank() && it.id == it.ownerId }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun startSyncLoop() {
         syncJob?.cancel()
         syncJob = syncScope.launch(Dispatchers.Default) {
@@ -111,8 +123,13 @@ class OfflineFirstProfileRepository(
                     // 1. Drain pending operations FIRST
                     pendingQueue.drainAll(profileRemoteOps)
 
-                    // 2. Single subscription to remote
-                    remoteRepository.observeProfiles()
+                    // 2. Single subscription to remote, rescoped whenever the set of
+                    //    visible profiles changes — a new event, a new participant.
+                    //    flatMapLatest cancels the previous subscription, so there is
+                    //    never more than one generation of listeners open at a time.
+                    visibleProfileIds
+                        .distinctUntilChanged()
+                        .flatMapLatest { ids -> remoteRepository.observeVisibleProfiles(ids) }
                         .onEach { remoteProfiles ->
                             LogSanitizer.log("OfflineFirstProfileRepo", "Sync update: ${remoteProfiles.size} profiles")
                             upsertProfiles(remoteProfiles)
@@ -139,10 +156,13 @@ class OfflineFirstProfileRepository(
             profiles.forEach { profile ->
                 val pending = pendingLocalChanges[profile.id]
                 val finalUsername = pending?.get("username") ?: (profile.username ?: "")
-                LogSanitizer.log("OfflineFirstProfileRepo", "upsertProfiles: id=${profile.id} name='${profile.name}' username='$finalUsername' (pending=${pending != null})")
+                // El nombre también respeta los cambios locales pendientes: el pull
+                // no debe revertir una edición que aún no llegó al remoto.
+                val finalName = pending?.get("name") ?: profile.name
+                LogSanitizer.log("OfflineFirstProfileRepo", "upsertProfiles: id=${profile.id} name='$finalName' username='$finalUsername' (pending=${pending != null})")
                 queries.upsert(
                     id = profile.id,
-                    name = profile.name,
+                    name = finalName,
                     email = profile.linkedEmail ?: "",
                     isGhost = if (profile.isGhost) 1 else 0,
                     totalPendingEuros = profile.totalPendingEuros,
@@ -324,6 +344,14 @@ class OfflineFirstProfileRepository(
             LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName called '$displayName'")
             val ownProfile = findOwnProfile()
             if (ownProfile != null) {
+                // Marca el campo como pendiente ANTES del intento remoto: sin esto,
+                // si el remoto falla, el siguiente pull de sincronización machacaba
+                // el nombre local con el remoto viejo (el prefijo del email) y el
+                // nombre personalizado "no se guardaba nunca".
+                val pending = pendingLocalChanges[ownProfile.id]?.toMutableMap() ?: mutableMapOf()
+                pending["name"] = displayName
+                pendingLocalChanges[ownProfile.id] = pending
+
                 queries.upsert(
                     id = ownProfile.id,
                     name = displayName,
@@ -343,6 +371,26 @@ class OfflineFirstProfileRepository(
             }
             val result = remoteRepository.updateDisplayName(displayName)
             LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName remote: success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
+            if (result.isSuccess) {
+                // Solo se limpia el campo "name": puede haber un username o una foto
+                // pendientes de otro intento y siguen necesitando protección.
+                ownProfile?.id?.let { id ->
+                    pendingLocalChanges[id]?.let { pending ->
+                        val remaining = pending - "name"
+                        if (remaining.isEmpty()) pendingLocalChanges.remove(id)
+                        else pendingLocalChanges[id] = remaining
+                    }
+                }
+            } else {
+                pendingQueue.enqueue(
+                    id = "displayname_${currentTimeMillis()}",
+                    entityType = "profile",
+                    entityId = ownProfile?.id ?: "",
+                    operation = "updateDisplayName",
+                    payload = displayName,
+                )
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName enqueued to pending")
+            }
             result
         } catch (e: Exception) {
             LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName exception: ${e.message}")

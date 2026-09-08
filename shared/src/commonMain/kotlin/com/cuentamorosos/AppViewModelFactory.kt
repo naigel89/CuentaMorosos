@@ -2,6 +2,8 @@ package com.cuentamorosos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.CreationExtras
+import kotlin.reflect.KClass
 import com.cuentamorosos.ui.AccountViewModel
 import com.cuentamorosos.ui.DashboardViewModel
 import com.cuentamorosos.ui.EventDetailViewModel
@@ -19,9 +21,9 @@ class AppViewModelFactory(
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+    override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
         return when {
-            modelClass.isAssignableFrom(EventsViewModel::class.java) -> {
+            modelClass == EventsViewModel::class -> {
                 EventsViewModel(
                     eventRepository = repositoryProvider.eventRepository,
                     debtRepository = repositoryProvider.debtRepository,
@@ -29,7 +31,7 @@ class AppViewModelFactory(
                     currentProfileId = currentProfileId,
                 ) as T
             }
-            modelClass.isAssignableFrom(EventDetailViewModel::class.java) -> {
+            modelClass == EventDetailViewModel::class -> {
                 EventDetailViewModel(
                     eventRepository = repositoryProvider.eventRepository,
                     debtRepository = repositoryProvider.debtRepository,
@@ -38,20 +40,20 @@ class AppViewModelFactory(
                     currentProfileId = currentProfileId,
                 ) as T
             }
-            modelClass.isAssignableFrom(ProfilesViewModel::class.java) -> {
+            modelClass == ProfilesViewModel::class -> {
                 ProfilesViewModel(
                     profileRepository = repositoryProvider.profileRepository,
                     debtRepository = repositoryProvider.debtRepository
                 ) as T
             }
-            modelClass.isAssignableFrom(InvitationsViewModel::class.java) -> {
+            modelClass == InvitationsViewModel::class -> {
                 InvitationsViewModel(
                     invitationRepository = repositoryProvider.invitationRepository,
                     onNewInvitation = notificationCallbacks.onInvitationReceived,
                     onInvitationAccepted = notificationCallbacks.onInvitationAccepted,
                 ) as T
             }
-            modelClass.isAssignableFrom(DashboardViewModel::class.java) -> {
+            modelClass == DashboardViewModel::class -> {
                 DashboardViewModel(
                     eventRepository = repositoryProvider.eventRepository,
                     debtRepository = repositoryProvider.debtRepository,
@@ -62,13 +64,13 @@ class AppViewModelFactory(
                     onCalculationCompleted = notificationCallbacks.onCalculationCompleted,
                 ) as T
             }
-            modelClass.isAssignableFrom(AccountViewModel::class.java) -> {
+            modelClass == AccountViewModel::class -> {
                 AccountViewModel(
                     profileRepository = repositoryProvider.profileRepository,
                     currentProfileId = currentProfileId,
                 ) as T
             }
-            else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+            else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.simpleName}")
         }
     }
 }

@@ -1,0 +1,57 @@
+# Firebase nativo para iOS.
+#
+# gitlive (dev.gitlive:firebase-*) es solo un envoltorio Kotlin: en iOS delega en
+# el SDK nativo de Firebase, que tiene que estar linkado en el binario final. Sin
+# estos pods el framework compila pero cualquier llamada a Auth o Firestore falla
+# al linkar.
+#
+# Las versiones van fijadas: gitlive 1.13.0 se compiló contra la serie 10.x del
+# SDK de iOS, y saltar a 11.x cambia símbolos que gitlive espera encontrar.
+
+platform :ios, '15.2'
+use_frameworks!
+
+target 'iosApp' do
+  pod 'FirebaseCore', '10.29.0'
+  pod 'FirebaseAuth', '10.29.0'
+  pod 'FirebaseFirestore', '10.29.0'
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.2'
+      # CI construye para simulador sin cuenta de desarrollador.
+      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      # El framework de Kotlin solo trae slice iosSimulatorArm64, así que
+      # compilar x86_64 fallaría al linkar aunque los pods lo soportaran.
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'x86_64'
+    end
+
+    # El gRPC que arrastra Firestore 10.x es anterior al cambio de clang que
+    # convirtió -Wmissing-template-arg-list-after-template-kw en error. Su
+    # código C++ usa `Traits::template CallSeqFactory(...)` sin lista de
+    # argumentos, legal para el clang de entonces y rechazado por el de Xcode 26.
+    # No se puede arreglar el pod, así que se degrada a aviso solo en esos
+    # targets — no en el nuestro.
+    if ['gRPC-Core', 'gRPC-C++', 'abseil'].include?(target.name)
+      target.build_configurations.each do |config|
+        config.build_settings['OTHER_CPLUSPLUSFLAGS'] =
+          "$(inherited) -Wno-missing-template-arg-list-after-template-kw"
+      end
+    end
+
+    # El podspec de BoringSSL-GRPC mete -GCC_WARN_INHIBIT_ALL_WARNINGS en los
+    # compiler_flags de cada archivo. Eso no es un flag de clang: es un build
+    # setting mal colocado, y clang moderno lo lee como "-G" y aborta con
+    # "unsupported option '-G'". Se retira aquí.
+    if target.name == 'BoringSSL-GRPC'
+      target.source_build_phase.files.each do |file|
+        next unless file.settings && file.settings['COMPILER_FLAGS']
+        flags = file.settings['COMPILER_FLAGS'].split
+        flags.reject! { |flag| flag == '-GCC_WARN_INHIBIT_ALL_WARNINGS' }
+        file.settings['COMPILER_FLAGS'] = flags.join(' ')
+      end
+    end
+  end
+end

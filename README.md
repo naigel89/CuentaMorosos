@@ -54,6 +54,7 @@ contribuir. Empieza por la [sección de instalación](#-instalación-y-ejecució
 - [📁 Estructura del Proyecto](#-estructura-del-proyecto)
 - [🏗️ Arquitectura](#️-arquitectura)
 - [🧪 Testing](#-testing)
+- [🍎 iOS](#-ios)
 - [🤝 Contribuir](#-contribuir)
 - [🗺️ Roadmap](#️-roadmap)
 - [📄 Licencia](#-licencia)
@@ -428,6 +429,67 @@ Actualmente hay **55 archivos de test** (48 en `shared/commonTest`, 7 en
 
 ---
 
+## 🍎 iOS
+
+La app es Kotlin Multiplatform: toda la UI Compose, los ViewModels, los
+repositorios y las reglas de negocio viven en `shared/src/commonMain` y se
+comparten con iOS. El host de iOS es un envoltorio delgado en `iosApp/`.
+
+### Qué funciona
+
+- La app arranca, se autentica y renderiza toda la UI compartida
+- Notificaciones locales con los mismos textos, canales y deduplicación que
+  Android — las reglas están en `commonMain`, no duplicadas
+- Cache offline con SQLDelight y sincronización con Firestore
+
+### Qué no funciona todavía
+
+Son limitaciones conocidas, no fallos:
+
+| Limitación | Motivo |
+|---|---|
+| Los recordatorios llevan texto genérico | iOS no tiene equivalente a WorkManager. `BGTaskScheduler` es best-effort, y programar una notificación por adelantado congela su contenido: prometer un importe ahí mostraría un dato caduco. El detalle se calcula al abrir la app |
+| No se puede cambiar la foto de perfil | `dev.gitlive.firebase.storage.Data` es una `expect class` por plataforma y no se puede construir desde código común. La foto se ve, no se cambia |
+| El alta y la recuperación de contraseña no están conectadas | Las pantallas existen en `commonMain`; falta cablearlas en el host |
+| No hay distribución | Firma, TestFlight y App Store requieren una cuenta Apple Developer |
+
+### Compilar
+
+**Necesitas un Mac con Xcode.** Los targets iOS solo se declaran cuando el host
+es macOS (`shared/build.gradle.kts` lo comprueba al configurar), así que en
+Linux o Windows no existen: no fallan, simplemente no están.
+
+```bash
+# 1. Linkar el framework de Kotlin/Native
+./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
+
+# 2. Generar el proyecto Xcode e instalar los pods de Firebase
+cd iosApp
+xcodegen generate
+bundle exec pod install
+
+# 3. Abrir el workspace (no el .xcodeproj)
+open iosApp.xcworkspace
+```
+
+El `.xcodeproj` **no se versiona**: se genera desde `iosApp/project.yml`. Un
+`project.pbxproj` son cientos de líneas de UUIDs imposibles de revisar en un
+diff. Si necesitas cambiar la configuración del proyecto, edita el YAML.
+
+Para ejecutar en un dispositivo real hace falta `iosApp/Sources/GoogleService-Info.plist`
+con las claves reales del proyecto Firebase, que tampoco se versiona.
+
+### Verificación sin Mac
+
+El workflow [`ios-build.yml`](.github/workflows/ios-build.yml) construye todo en
+un runner `macos-15` y publica una captura del simulador como artefacto. Es la
+única forma de comprobar que iOS sigue vivo si no tienes un Mac delante.
+
+Sin salir de Linux, `./gradlew :shared:compileKotlinJvm` es un buen proxy: si
+pasa, `commonMain` no tiene fugas de código Android.
+
+---
+
 ## 🤝 Contribuir
 
 CuentaMorosos es un proyecto personal que he abierto porque creo que el código
@@ -467,6 +529,9 @@ El proyecto avanza por sprints. El estado actual:
 - ✅ **Sprint 06**: Autenticación Firebase (registro, login, recuperación, email verification gate).
 - ✅ **Sprint 07**: Sincronización online (OfflineFirst repos, PendingOperationQueue, sync escalonada).
 - ✅ **Sprint 08**: Colaboración (invitaciones, miembros, FCM, ghost profiles, reparto % por ítem).
+- 🚧 **Portabilidad iOS**: host Xcode, puertos de notificaciones y CI en runner macOS.
+  Ver [`openspec/changes/migrate-ios-mvp/`](openspec/changes/migrate-ios-mvp/) y la
+  sección [🍎 iOS](#-ios) para el estado real y sus límites.
 
 Consulta la [documentación de sprints](documentation/sprints/) para el detalle
 completo. Los issues etiquetados como

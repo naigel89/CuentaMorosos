@@ -13,7 +13,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,13 +25,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import com.cuentamorosos.SystemBackHandler
 import com.cuentamorosos.auth.SignInResult
 import com.cuentamorosos.auth.SignInWithRetry
+import com.cuentamorosos.data.AvatarStorage
 import com.cuentamorosos.data.CuentaMorososLocalStore
 import com.cuentamorosos.data.FirebaseUserSyncManager
 import com.cuentamorosos.data.NetworkMonitorFactory
@@ -42,6 +41,7 @@ import com.cuentamorosos.model.UserPreferences
 import com.cuentamorosos.notifications.DeepLinkTarget
 import com.cuentamorosos.notifications.NotificationDispatcher
 import com.cuentamorosos.ui.CuentaMorososApp
+import com.cuentamorosos.ui.CuentaMorososLogo
 import com.cuentamorosos.ui.CuentaMorososTheme
 import com.cuentamorosos.ui.OnPhotoReady
 import com.cuentamorosos.ui.auth.EmailVerificationScreen
@@ -139,7 +139,9 @@ class MainActivity : ComponentActivity() {
         // Profile sync happens in MainAppContent LaunchedEffect (non-blocking)
 
         setContent {
-            val preferences = remember { localStore.loadPreferences() }
+            // Estado observable: si Ajustes cambia el tema, también deben reaccionar
+            // las pantallas de auth (antes quedaba congelado al valor de arranque).
+            var preferences by remember { mutableStateOf(localStore.loadPreferences()) }
             CuentaMorososTheme(preferences = preferences) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -154,6 +156,12 @@ class MainActivity : ComponentActivity() {
                             currentUser = firebaseAuth.currentUser
                         }
                         auth.addAuthStateListener(listener)
+                    }
+
+                    // Al cambiar de usuario (login/logout) se recargan las preferencias
+                    // persistidas, que localStore.clearAll() puede haber reseteado.
+                    LaunchedEffect(currentUser?.uid) {
+                        preferences = localStore.loadPreferences()
                     }
 
                     if (currentUser != null) {
@@ -176,8 +184,10 @@ class MainActivity : ComponentActivity() {
                                         }
                                         .addOnFailureListener { e ->
                                             isResending = false
-                                            verificationError = e.localizedMessage
-                                                ?: "Error al reenviar correo"
+                                            verificationError = com.cuentamorosos.auth.AuthErrorMapper.map(
+                                                e,
+                                                fallback = "No se pudo reenviar el correo. Inténtalo de nuevo en unos minutos.",
+                                            )
                                         }
                                 },
                                 onCheckAgain = {
@@ -185,8 +195,10 @@ class MainActivity : ComponentActivity() {
                                         // AuthStateListener will pick up the change
                                         currentUser = auth.currentUser
                                     }.addOnFailureListener { e ->
-                                        verificationError = e.localizedMessage
-                                            ?: "Error al verificar estado"
+                                        verificationError = com.cuentamorosos.auth.AuthErrorMapper.map(
+                                            e,
+                                            fallback = "No se pudo comprobar la verificación. Inténtalo de nuevo.",
+                                        )
                                     }
                                 },
                                 onSignOut = {
@@ -198,6 +210,8 @@ class MainActivity : ComponentActivity() {
                                 user = user,
                                 repositoryProvider = repositoryProvider,
                                 localStore = localStore,
+                                preferences = preferences,
+                                onPreferencesChanged = { preferences = it },
                                 networkMonitor = networkMonitor,
                                 application = application,
                                 notificationDispatcher = notificationDispatcher,
@@ -253,6 +267,8 @@ private fun MainAppContent(
     user: com.google.firebase.auth.FirebaseUser,
     repositoryProvider: RepositoryProvider,
     localStore: CuentaMorososLocalStore,
+    preferences: com.cuentamorosos.model.UserPreferences,
+    onPreferencesChanged: (com.cuentamorosos.model.UserPreferences) -> Unit,
     networkMonitor: com.cuentamorosos.data.NetworkMonitor,
     application: android.app.Application,
     notificationDispatcher: NotificationDispatcher,
@@ -275,7 +291,6 @@ private fun MainAppContent(
             notificationCallbacks = notificationCallbacks,
         )
     }
-    var preferences by remember(user.uid) { mutableStateOf(localStore.loadPreferences()) }
 
     // Start staggered sync after first render AND on user change
     val syncScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
@@ -341,9 +356,9 @@ private fun MainAppContent(
 
                 // 2. Upload to Firebase Storage
                 val storageRef = FirebaseStorage.getInstance().reference
-                    .child("avatars/$currentUid/profile.jpg")
+                    .child(AvatarStorage.pathFor(currentUid))
                 val metadata = StorageMetadata.Builder()
-                    .setContentType("image/jpeg")
+                    .setContentType(AvatarStorage.CONTENT_TYPE)
                     .build()
 
                 storageRef.putBytes(imageBytes, metadata)
@@ -380,7 +395,7 @@ private fun MainAppContent(
         currentUserUid = user.uid,
         preferences = preferences,
         onSavePreferences = { updated ->
-            preferences = updated
+            onPreferencesChanged(updated)
             localStore.savePreferences(updated)
         },
         onScheduleReminders = {
@@ -415,6 +430,13 @@ private fun MainAppContent(
         deepLinkEvent = deepLinkEvent,
         onTestNotification = onTestNotification,
         profileRepository = repositoryProvider.remoteProfileRepository,
+        onShareText = { text ->
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            context.startActivity(Intent.createChooser(sendIntent, "Compartir recibo"))
+        },
     )
 }
 
@@ -444,13 +466,7 @@ private fun AuthFlow(
 
     if (showLogin) {
         SplashAuthScreen(
-            logo = { modifier ->
-                Image(
-                    painter = painterResource(R.mipmap.ic_launcher_foreground),
-                    contentDescription = "CuentaMorosos",
-                    modifier = modifier,
-                )
-            },
+            logo = { modifier -> CuentaMorososLogo(modifier) },
             onLoginSuccess = {
                 auth.currentUser?.let { user ->
                     onAuthSuccess(user)  // Auth succeeds immediately
@@ -506,9 +522,17 @@ private fun AuthFlow(
                             UserProfileChangeRequest.Builder()
                                 .setDisplayName(displayName)
                                 .build()
-                        )?.addOnSuccessListener {
+                        )?.addOnCompleteListener { task ->
+                            // La cuenta ya existe: el registro se considera exitoso
+                            // aunque falle este ajuste cosmético del displayName.
+                            if (!task.isSuccessful) {
+                                LogSanitizer.log(
+                                    "MainActivity",
+                                    "updateProfile(displayName) failed: ${task.exception?.message}"
+                                )
+                            }
                             onResult(null)
-                        }
+                        } ?: onResult(null)
                     }
                     .addOnFailureListener { e ->
                         onResult(com.cuentamorosos.auth.AuthErrorMapper.map(e))
@@ -525,7 +549,12 @@ private fun AuthFlow(
                 auth.sendPasswordResetEmail(email)
                     .addOnSuccessListener { onResult(null) }
                     .addOnFailureListener { e ->
-                        onResult(e.localizedMessage ?: "Error al enviar email")
+                        onResult(
+                            com.cuentamorosos.auth.AuthErrorMapper.map(
+                                e,
+                                fallback = "No se pudo enviar el correo. Inténtalo de nuevo en unos minutos.",
+                            )
+                        )
                     }
             }
         )
@@ -552,11 +581,16 @@ private fun compressImageToBytes(context: android.content.Context, uri: Uri): By
     return try {
         val bitmap = BitmapFactory.decodeStream(context.contentResolver.openInputStream(uri))
             ?: return null
-        val scaled = Bitmap.createScaledBitmap(bitmap, MAX_PHOTO_SIZE, MAX_PHOTO_SIZE, true)
+        val scaled = Bitmap.createScaledBitmap(
+            bitmap,
+            AvatarStorage.TARGET_SIZE_PX,
+            AvatarStorage.TARGET_SIZE_PX,
+            true,
+        )
         if (scaled != bitmap) bitmap.recycle()
 
         val output = java.io.ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 85, output)
+        scaled.compress(Bitmap.CompressFormat.JPEG, AvatarStorage.JPEG_QUALITY, output)
         scaled.recycle()
 
         output.toByteArray()
@@ -566,4 +600,3 @@ private fun compressImageToBytes(context: android.content.Context, uri: Uri): By
     }
 }
 
-private const val MAX_PHOTO_SIZE = 256

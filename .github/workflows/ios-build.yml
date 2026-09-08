@@ -2,14 +2,14 @@ name: iOS Build & Test
 
 on:
   push:
-    branches: [ main, develop, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build-ios:
-    name: Build and test iOS framework
+    name: Build and test iOS app
     # Pin both the image and Xcode; runner defaults change over time.
     runs-on: macos-15
     env:
@@ -25,12 +25,14 @@ jobs:
           ruby-version: '3.3.12'
           bundler-cache: true
 
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
       - name: Report pinned Apple toolchain
         run: |
           sw_vers
           xcodebuild -version
-          ruby --version
-          bundle --version
+          xcodegen --version
           bundle exec pod --version
 
       - name: Set up JDK 17
@@ -50,18 +52,164 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-konan-
 
+      # ── Módulo compartido ────────────────────────────────────────────────
+
       - name: Link debug framework for iOS Simulator (arm64)
         run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace
 
-      # The test executable needs FirebaseCore from the future CocoaPods host
-      # integration. Until then, compile Native tests to catch source-set leaks.
+      # ── Host iOS ─────────────────────────────────────────────────────────
+
+      # El archivo real lleva las claves del proyecto Firebase y no se versiona.
+      # Para compilar y arrancar en simulador basta un marcador bien formado.
+      # Compose genera aquí las tipografías (Geist, JetBrains Mono). No van
+      # dentro del .framework, así que hay que localizarlas para copiarlas al
+      # bundle: sin ellas la app crashea al pintar el primer texto.
+      - name: Locate Compose resources
+        run: |
+          echo "─── recursos preparados por Compose ───"
+          find shared/build/generated/compose -type d -name composeResources 2>/dev/null | head -3
+          find shared/build/generated/compose -name "*.ttf" 2>/dev/null | head -5
+          echo "─── fuente ───"
+          find shared/src/commonMain/composeResources -type f 2>/dev/null | head -5
+
+      - name: Seed placeholder GoogleService-Info.plist
+        run: |
+          cat > iosApp/Sources/GoogleService-Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>API_KEY</key><string>ci-placeholder-api-key</string>
+            <key>GCM_SENDER_ID</key><string>000000000000</string>
+            <key>PROJECT_ID</key><string>cuentamorosos-ci</string>
+            <key>STORAGE_BUCKET</key><string>cuentamorosos-ci.appspot.com</string>
+            <key>GOOGLE_APP_ID</key><string>1:000000000000:ios:0000000000000000000000</string>
+            <key>BUNDLE_ID</key><string>com.cuentamorosos</string>
+            <key>IS_ADS_ENABLED</key><false/>
+            <key>IS_ANALYTICS_ENABLED</key><false/>
+            <key>IS_APPINVITE_ENABLED</key><false/>
+            <key>IS_GCM_ENABLED</key><true/>
+            <key>IS_SIGNIN_ENABLED</key><true/>
+            <key>PLIST_VERSION</key><string>1</string>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Generate Xcode project
+        working-directory: iosApp
+        run: xcodegen generate
+
+      - name: Install CocoaPods dependencies
+        working-directory: iosApp
+        # El Gemfile está en la raíz y este paso corre desde iosApp/.
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/Gemfile
+        run: bundle exec pod install
+
+      - name: Build iOS app for simulator
+        working-directory: iosApp
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace iosApp.xcworkspace \
+            -scheme iosApp \
+            -configuration Debug \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      # Solo compilación, no ejecución. El ejecutable de test lo linka Gradle,
+      # que no conoce los pods de CocoaPods —esos se integran en el target de
+      # Xcode—, así que los símbolos de FirebaseCore no están disponibles.
+      # Ejecutarlos de verdad requiere el plugin de CocoaPods de KMP, que es
+      # trabajo aparte. Compilar ya atrapa las fugas de commonTest hacia APIs
+      # que no existen en Native, que es el fallo que rompió main en 84dfe55.
       - name: Compile shared tests for iOS Simulator (arm64)
         run: ./gradlew :shared:compileTestKotlinIosSimulatorArm64 --stacktrace
 
-      - name: Upload iOS simulator framework
-        if: success()
+      # ── Prueba visual ────────────────────────────────────────────────────
+      # Sin un Mac a mano, la captura del simulador es la única evidencia de que
+      # Compose realmente renderiza y no se queda en una pantalla en blanco.
+
+      - name: Launch app in simulator and capture screenshot
+        run: |
+          APP_PATH=$(find iosApp/build/Build/Products -name "iosApp.app" -maxdepth 3 | head -1)
+          echo "App: $APP_PATH"
+          # El modelo disponible cambia con cada Xcode; se elige en caliente.
+          DEVICE=$(xcrun simctl list devices available --json \
+            | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for v in d.values() for x in v if 'iPhone' in x['name']))")
+          echo "Simulador: $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install booted "$APP_PATH"
+
+          # --console engancha la salida de la app. Es la única forma de ver una
+          # excepción de Kotlin/Native: muere por señal, así que no aparece como
+          # excepción de ObjC en el log unificado y su traza solo va a stderr.
+          # En segundo plano para poder capturar la pantalla mientras sigue viva.
+          #
+          # Sin `timeout`: no existe en macOS, es de GNU coreutils. Se guarda el
+          # pid y se mata al final.
+          xcrun simctl launch --console booted com.cuentamorosos > app-console.log 2>&1 &
+          LAUNCH_PID=$!
+
+          # Dar tiempo a que Compose pinte el primer frame.
+          sleep 20
+
+          echo "─── salida de la app ───"
+          cat app-console.log || true
+
+          # Sin esta comprobación el paso daría verde aunque la app hubiera
+          # crasheado al arrancar: la captura saldría del escritorio del
+          # simulador y nadie lo notaría.
+          if ! xcrun simctl spawn booted launchctl list 2>/dev/null | grep -q "com.cuentamorosos"; then
+            echo "::error::La app arrancó pero ya no está viva: crasheó durante el arranque."
+
+            echo "─── log unificado del simulador ───"
+            xcrun simctl spawn booted log show \
+              --last 3m \
+              --predicate 'processImagePath CONTAINS "iosApp"' \
+              --style compact 2>/dev/null | tail -40 || echo "(sin entradas)"
+
+            # Solo los nuestros: el simulador deja informes de todo tipo de
+            # procesos del sistema y listarlos todos es ruido.
+            echo "─── informes de crash ───"
+            find ~/Library/Logs/DiagnosticReports -name "iosApp*.ips" -mmin -10 2>/dev/null \
+              | head -2 | while read -r f; do
+              echo "=== $f ==="
+              head -60 "$f"
+            done
+
+            xcrun simctl io booted screenshot ios-crash.png || true
+            kill $LAUNCH_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "La app sigue viva tras 20s."
+          xcrun simctl io booted screenshot ios-login-screen.png
+
+          # También en oscuro: las capturas de Android del README son en modo
+          # oscuro y la paridad visual solo se puede juzgar comparando igual
+          # con igual. Compose reacciona al cambio de apariencia en caliente.
+          xcrun simctl ui booted appearance dark || true
+          sleep 3
+          xcrun simctl io booted screenshot ios-login-dark.png || true
+          ls -la ios-login-*.png
+          kill $LAUNCH_PID 2>/dev/null || true
+
+      - name: Upload build artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: shared-framework-ios-simulator
-          path: shared/build/bin/iosSimulatorArm64/debugFramework/
+          name: ios-app-and-screenshot
+          path: |
+            ios-login-screen.png
+            ios-login-dark.png
+            ios-crash.png
+            app-console.log
+            # Solo las cabeceras: dan los nombres exactos que ve Swift y pesan
+            # nada. El framework entero son ~100 MB por run.
+            shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework/Headers/
           retention-days: 14
+          if-no-files-found: warn
