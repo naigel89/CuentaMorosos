@@ -79,10 +79,15 @@ jobs:
       # asset se publica como app-release.apk y el botón de descarga da 404.
       # Es cp y no mv a propósito: el paso 7 (App Distribution) resuelve la ruta
       # del artefacto desde la variante de AGP y sigue esperando app-release.apk.
-      - name: Copy APK to release asset name
+      - name: Copy APK to release asset names
         run: |
-          cp app/build/outputs/apk/release/app-release.apk \
-             "app/build/outputs/apk/release/CuentaMorosos-${RELEASE_TAG}.apk"
+          out=app/build/outputs/apk/release
+          cp "$out/app-release.apk" "$out/CuentaMorosos-${RELEASE_TAG}.apk"
+          # Segunda copia con nombre estable. Es la que enlaza la landing a
+          # través de /releases/latest/download/CuentaMorosos.apk: un permalink
+          # que siempre sirve la última versión, así docs/index.html no queda
+          # obsoleto cada vez que se publica una release.
+          cp "$out/app-release.apk" "$out/CuentaMorosos.apk"
 
       # ── 7. Upload to Firebase App Distribution ───────────────────────────
       # Requiere: secret FIREBASE_SERVICE_ACCOUNT con JSON de service account
@@ -112,7 +117,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/release/CuentaMorosos-${{ env.RELEASE_TAG }}.apk
+          files: |
+            app/build/outputs/apk/release/CuentaMorosos-${{ env.RELEASE_TAG }}.apk
+            app/build/outputs/apk/release/CuentaMorosos.apk
           tag_name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           name: CuentaMorosos ${{ env.RELEASE_TAG }}
@@ -131,7 +138,9 @@ jobs:
             - **Modo oscuro** con diseño NeoFintech
 
             ## Instalación
-            1. Descargá el APK desde esta release
+            1. Descargá el APK desde esta release, o desde
+               [la página de descarga](https://naigel89.github.io/CuentaMorosos/),
+               que apunta siempre a la última versión
             2. En tu Android, habilitá "Instalar apps desconocidas" para tu navegador/files
             3. Abrí el APK y seguí las instrucciones
 
