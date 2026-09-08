@@ -358,6 +358,10 @@ class FirestoreProfileRepository : ProfileRepository {
             val uid = auth.currentUser?.uid ?: return Result.failure(Exception("User not authenticated"))
             LogSanitizer.log("FirestoreProfileRepo", "updateDisplayName: uid=$uid, newName='$displayName' → updating Firestore document profiles/$uid")
             collection.document(uid).update("name" to displayName, "updatedAt" to currentTimeMillis())
+            // Propagar también a Firebase Auth: las plantillas de correo de Firebase
+            // usan %DISPLAY_NAME%, que si no quedaría con el prefijo del email.
+            runCatching { auth.currentUser?.updateProfile(displayName = displayName) }
+                .onFailure { LogSanitizer.log("FirestoreProfileRepo", "updateDisplayName: Auth profile update failed — ${it.message}") }
             LogSanitizer.log("FirestoreProfileRepo", "updateDisplayName: Firestore update SUCCESS for uid=$uid")
             Result.success(Unit)
         } catch (e: Exception) {

@@ -156,10 +156,13 @@ class OfflineFirstProfileRepository(
             profiles.forEach { profile ->
                 val pending = pendingLocalChanges[profile.id]
                 val finalUsername = pending?.get("username") ?: (profile.username ?: "")
-                LogSanitizer.log("OfflineFirstProfileRepo", "upsertProfiles: id=${profile.id} name='${profile.name}' username='$finalUsername' (pending=${pending != null})")
+                // El nombre también respeta los cambios locales pendientes: el pull
+                // no debe revertir una edición que aún no llegó al remoto.
+                val finalName = pending?.get("name") ?: profile.name
+                LogSanitizer.log("OfflineFirstProfileRepo", "upsertProfiles: id=${profile.id} name='$finalName' username='$finalUsername' (pending=${pending != null})")
                 queries.upsert(
                     id = profile.id,
-                    name = profile.name,
+                    name = finalName,
                     email = profile.linkedEmail ?: "",
                     isGhost = if (profile.isGhost) 1 else 0,
                     totalPendingEuros = profile.totalPendingEuros,
@@ -341,6 +344,14 @@ class OfflineFirstProfileRepository(
             LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName called '$displayName'")
             val ownProfile = findOwnProfile()
             if (ownProfile != null) {
+                // Marca el campo como pendiente ANTES del intento remoto: sin esto,
+                // si el remoto falla, el siguiente pull de sincronización machacaba
+                // el nombre local con el remoto viejo (el prefijo del email) y el
+                // nombre personalizado "no se guardaba nunca".
+                val pending = pendingLocalChanges[ownProfile.id]?.toMutableMap() ?: mutableMapOf()
+                pending["name"] = displayName
+                pendingLocalChanges[ownProfile.id] = pending
+
                 queries.upsert(
                     id = ownProfile.id,
                     name = displayName,
@@ -360,6 +371,26 @@ class OfflineFirstProfileRepository(
             }
             val result = remoteRepository.updateDisplayName(displayName)
             LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName remote: success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
+            if (result.isSuccess) {
+                // Solo se limpia el campo "name": puede haber un username o una foto
+                // pendientes de otro intento y siguen necesitando protección.
+                ownProfile?.id?.let { id ->
+                    pendingLocalChanges[id]?.let { pending ->
+                        val remaining = pending - "name"
+                        if (remaining.isEmpty()) pendingLocalChanges.remove(id)
+                        else pendingLocalChanges[id] = remaining
+                    }
+                }
+            } else {
+                pendingQueue.enqueue(
+                    id = "displayname_${currentTimeMillis()}",
+                    entityType = "profile",
+                    entityId = ownProfile?.id ?: "",
+                    operation = "updateDisplayName",
+                    payload = displayName,
+                )
+                LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName enqueued to pending")
+            }
             result
         } catch (e: Exception) {
             LogSanitizer.log("OfflineFirstProfileRepo", "updateDisplayName exception: ${e.message}")

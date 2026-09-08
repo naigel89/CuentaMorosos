@@ -29,3 +29,6 @@ iosApp/Podfile.lock
 
 # Lleva las claves del proyecto Firebase; CI inyecta un marcador.
 iosApp/Sources/GoogleService-Info.plist
+
+# Lienzos de Claude Design (borradores locales de UI, ~5 MB de HTML generado)
+.design-*/
